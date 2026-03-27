@@ -33,7 +33,6 @@ fi
 
 # Copy .specflow/ from template
 cp -R "$TMPDIR/template/.specflow" .specflow
-mkdir -p .specflow/state
 
 # Copy CLAUDE.md if not present
 if [[ ! -f "CLAUDE.md" ]]; then
@@ -59,7 +58,6 @@ echo "Initialized .specflow/ in $ROOT"
 echo "  .specflow/config.env"
 echo "  .specflow/review_spec_prompt.txt"
 echo "  .specflow/review_impl_prompt.txt"
-echo "  .specflow/state/"
 echo
 
 # Check if speckit (.specify/) is installed

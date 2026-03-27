@@ -25,23 +25,20 @@ Before starting, verify the project is initialized:
    - If `$ARGUMENTS` is empty or not a valid issue URL, ask the user: "GitHub issue URL を入力してください (例: `https://github.com/OWNER/REPO/issues/123`)" and **wait for their response**.
    - Validate the URL matches the pattern `https://<HOST>/<OWNER>/<REPO>/issues/<NUMBER>`. If invalid, ask the user to correct it.
 
-2. **Create the state directory** via Bash:
+2. **Create a temp directory** for Codex review artifacts via Bash:
    ```bash
-   timestamp=$(date +%Y%m%d-%H%M%S)
-   run_dir=".specflow/state/$timestamp"
-   mkdir -p "$run_dir"
-   echo "$run_dir"
+   mktemp -d /tmp/specflow.XXXXXX
    ```
-   Remember the `run_dir` path for all subsequent steps (used for Codex review artifacts).
+   Remember the output path as `<tmpdir>` for all subsequent steps. This directory is used only for transient Codex review files (input, jsonl, json) and issue.json — nothing here needs to be committed or persisted.
 
 ## Step 1: Fetch Issue [1/7]
 
 Run via Bash:
 ```bash
-specflow-fetch-issue "<ISSUE_URL>" > "<run_dir>/issue.json"
+specflow-fetch-issue "<ISSUE_URL>" > "<tmpdir>/issue.json"
 ```
 
-Read `<run_dir>/issue.json` and extract: title, body, url, number, state, author login, label names.
+Read `<tmpdir>/issue.json` and extract: title, body, url, number, state, author login, label names.
 
 Report to the user:
 ```
@@ -93,15 +90,15 @@ Read the current `FEATURE_SPEC` file.
 
 Step 1 — 入力ファイルを準備:
 ```bash
-cat .specflow/review_spec_prompt.txt > "<run_dir>/spec-review-input.txt" && echo "" >> "<run_dir>/spec-review-input.txt" && echo "SPEC CONTENT:" >> "<run_dir>/spec-review-input.txt" && cat "<FEATURE_SPEC>" >> "<run_dir>/spec-review-input.txt"
+cat .specflow/review_spec_prompt.txt > "<tmpdir>/spec-review-input.txt" && echo "" >> "<tmpdir>/spec-review-input.txt" && echo "SPEC CONTENT:" >> "<tmpdir>/spec-review-input.txt" && cat "<FEATURE_SPEC>" >> "<tmpdir>/spec-review-input.txt"
 ```
 
 Step 2 — Codex を実行 (Bash の `timeout` を 600000ms に設定、`run_in_background: true` で実行):
 ```bash
-cat "<run_dir>/spec-review-input.txt" | codex exec --json > "<run_dir>/spec-review.jsonl" 2>&1 && specflow-parse-jsonl.py "<run_dir>/spec-review.jsonl" > "<run_dir>/spec-review.json"
+cat "<tmpdir>/spec-review-input.txt" | codex exec --json > "<tmpdir>/spec-review.jsonl" 2>&1 && specflow-parse-jsonl.py "<tmpdir>/spec-review.jsonl" > "<tmpdir>/spec-review.json"
 ```
 
-Step 2 の完了通知を受け取ったら、`<run_dir>/spec-review.json` を Read で読み取る。
+Step 2 の完了通知を受け取ったら、`<tmpdir>/spec-review.json` を Read で読み取る。
 
 Present the review to the user:
 
@@ -187,15 +184,15 @@ Read the `FEATURE_SPEC` file.
 
 Step 1 — 入力ファイルを準備:
 ```bash
-cat .specflow/review_impl_prompt.txt > "<run_dir>/impl-review-input.txt" && echo "" >> "<run_dir>/impl-review-input.txt" && echo "CURRENT GIT DIFF:" >> "<run_dir>/impl-review-input.txt" && git diff -- . ':(exclude).specflow' ':(exclude).specify' >> "<run_dir>/impl-review-input.txt" && echo "" >> "<run_dir>/impl-review-input.txt" && echo "SPEC CONTENT:" >> "<run_dir>/impl-review-input.txt" && cat "<FEATURE_SPEC>" >> "<run_dir>/impl-review-input.txt"
+cat .specflow/review_impl_prompt.txt > "<tmpdir>/impl-review-input.txt" && echo "" >> "<tmpdir>/impl-review-input.txt" && echo "CURRENT GIT DIFF:" >> "<tmpdir>/impl-review-input.txt" && git diff -- . ':(exclude).specflow' ':(exclude).specify' >> "<tmpdir>/impl-review-input.txt" && echo "" >> "<tmpdir>/impl-review-input.txt" && echo "SPEC CONTENT:" >> "<tmpdir>/impl-review-input.txt" && cat "<FEATURE_SPEC>" >> "<tmpdir>/impl-review-input.txt"
 ```
 
 Step 2 — Codex を実行 (Bash の `timeout` を 600000ms に設定、`run_in_background: true` で実行):
 ```bash
-cat "<run_dir>/impl-review-input.txt" | codex exec --json > "<run_dir>/impl-review.jsonl" 2>&1 && specflow-parse-jsonl.py "<run_dir>/impl-review.jsonl" > "<run_dir>/impl-review.json"
+cat "<tmpdir>/impl-review-input.txt" | codex exec --json > "<tmpdir>/impl-review.jsonl" 2>&1 && specflow-parse-jsonl.py "<tmpdir>/impl-review.jsonl" > "<tmpdir>/impl-review.json"
 ```
 
-Step 2 の完了通知を受け取ったら、`<run_dir>/impl-review.json` を Read で読み取る。
+Step 2 の完了通知を受け取ったら、`<tmpdir>/impl-review.json` を Read で読み取る。
 
 Present the review:
 
@@ -252,7 +249,7 @@ Handle each choice:
    > - **skip** — コミットせずに終了
 5. ユーザーが **commit** を選択したら:
    ```bash
-   git add -A -- . ':(exclude).specflow/state'
+   git add -A -- . ':(exclude).specflow'
    ```
    続いて `git commit` を実行する。
 6. ユーザーが **edit** を選択したら、修正後のメッセージでコミットする。
@@ -315,8 +312,8 @@ Report: "Implementation approved, committed, and PR created: `<PR-URL>`" → **E
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
-- Never modify files inside `.specflow/` except under the `state/` subdirectory.
-- Codex review artifacts (issue.json, *-review.jsonl, *-review.json) go into `<run_dir>`.
+- Never modify files inside `.specflow/` — it contains only config and review prompts (read-only).
+- All Codex review artifacts (issue.json, *-review.jsonl, *-review.json) go into `<tmpdir>` (a `/tmp` directory). These are transient and do not need to be committed.
 - Spec, plan, tasks, and implementation files are managed by speckit in `.specify/` and `specs/` directories.
 - If any Bash command fails, report the error to the user and ask how to proceed. Do NOT silently continue.
 - At choice points (Step 5 and Step 7), truly **wait** for the user to make a selection. Do not proceed automatically.
