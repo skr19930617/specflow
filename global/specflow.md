@@ -1,5 +1,5 @@
 ---
-description: GitHub issue から spec → review → plan → implement → review のワークフローを実行
+description: GitHub issue から spec → clarify → Codex review → plan → implement → Codex review のワークフローを実行 (speckit 前提)
 ---
 
 ## User Input
@@ -13,8 +13,10 @@ $ARGUMENTS
 Before starting, verify the project is initialized:
 
 1. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing, tell the user: "`.specflow/config.env` が見つかりません。先に `specflow-init` を実行してください。" and **STOP**.
-2. Run `source .specflow/config.env` via Bash to load project config.
+   - If missing: "`.specflow/config.env` が見つかりません。先に `specflow-init` を実行してください。" → **STOP**.
+2. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+   - If missing: "speckit が見つかりません。speckit をインストールしてから再度実行してください。" → **STOP**.
+3. Run `source .specflow/config.env` via Bash to load project config.
 
 ## Step 0: Setup
 
@@ -30,9 +32,9 @@ Before starting, verify the project is initialized:
    mkdir -p "$run_dir"
    echo "$run_dir"
    ```
-   Remember the `run_dir` path for all subsequent steps.
+   Remember the `run_dir` path for all subsequent steps (used for Codex review artifacts).
 
-## Step 1: Fetch Issue [1/8]
+## Step 1: Fetch Issue [1/7]
 
 Run via Bash:
 ```bash
@@ -43,85 +45,61 @@ Read `<run_dir>/issue.json` and extract: title, body, url, number, state, author
 
 Report to the user:
 ```
-[1/8] Issue fetched: #<number> — <title>
+[1/7] Issue fetched: #<number> — <title>
 Author: <author> | State: <state> | Labels: <labels>
 ```
 
-Show the issue body summary (first few lines or key points).
+Show a brief summary of the issue body.
 
-## Step 2: Build Spec [2/8]
+## Step 2: Create Spec via speckit [2/7]
 
-Create `<run_dir>/spec.md` with this structure:
+Read the file `.claude/commands/speckit.specify.md` and follow its complete workflow, using the issue title and body as the feature description input.
 
-```markdown
-# Spec Seed from GitHub Issue
+This will:
+- Create a feature branch
+- Generate a spec file in the speckit directory structure (e.g., `specs/<number>-<short-name>/spec.md`)
+- Run quality validation
 
-- Source URL: <url>
-- Issue Number: <number>
-- Title: <title>
-- Author: <author>
-- State: <state>
-- Labels: <labels>
+Remember the `FEATURE_SPEC` path output by speckit — this is the spec file for all subsequent steps.
 
-## Original Issue Body
+Report: `[2/7] Spec created via speckit.specify`
 
-<full body content from issue>
+## Step 3: Clarify — 1st Round (human) [3/7]
 
-## Clarification Notes
+Read the file `.claude/commands/speckit.clarify.md` and follow its complete workflow.
 
-<!-- To be refined -->
+This will:
+- Scan the spec for ambiguity across all taxonomy categories
+- Ask the user up to 5 clarification questions **one at a time**
+- The user answers each question interactively
+- Integrate answers back into the spec file
 
-## Acceptance Criteria
+Report: `[3/7] Clarify 1st round complete`
 
-<!-- To be refined -->
-```
+## Step 4: Codex Spec Review [4/7]
 
-Write this file to `<run_dir>/spec.md` using the Write tool.
-
-Report: `[2/8] Spec seed created`
-
-## Step 3: Clarify Spec [3/8]
-
-Read the spec from `<run_dir>/spec.md`. Improve it by:
-- Identifying missing assumptions and making them explicit
-- Tightening ambiguous language
-- Expanding the **Clarification Notes** section with inferred decisions
-- Expanding the **Acceptance Criteria** section with concrete, testable criteria
-
-Update `<run_dir>/spec.md` with the refined version.
-
-Report: `[3/8] Spec clarified`
-
-Then show a summary of what was clarified/added, and present options to the user:
-
-> **Spec の clarify が完了しました。** 次のアクションを選んでください:
-> - **continue** — Codex spec review に進む
-> - **skip-review** — Codex review をスキップして plan に進む
-> - または自由にフィードバックを入力 (spec をさらに修正します)
-
-**Wait for user response.** If they provide feedback, refine the spec and ask again. If they say "continue" or "skip-review", proceed accordingly.
-
-## Step 4: Codex Spec Review [4/8]
-
-(Skip this step if the user chose "skip-review" in Step 3.)
-
-First, check if `codex` is available:
+Check if `codex` is available:
 ```bash
 command -v codex
 ```
-If not found, inform the user that `codex` is not in PATH and offer to skip the review. If user agrees, proceed to Step 6.
+If not found, inform the user that `codex` is not in PATH and offer to skip this step. If skipping, proceed directly to Step 6 (plan).
 
-If `codex` is available, run via Bash:
+If `codex` is available:
+
+Read `.specflow/review_spec_prompt.txt` for the review prompt.
+Read the current `FEATURE_SPEC` file.
+
+Run via Bash:
 ```bash
-{ cat .specflow/review_spec_prompt.txt; echo; echo "SPEC CONTENT:"; cat "<run_dir>/spec.md"; } | codex exec --json > "<run_dir>/spec-review.jsonl" && specflow-parse-jsonl.py "<run_dir>/spec-review.jsonl" > "<run_dir>/spec-review.json"
+{ cat .specflow/review_spec_prompt.txt; echo; echo "SPEC CONTENT:"; cat "<FEATURE_SPEC>"; } | codex exec --json > "<run_dir>/spec-review.jsonl" && specflow-parse-jsonl.py "<run_dir>/spec-review.jsonl" > "<run_dir>/spec-review.json"
 ```
 
 Read `<run_dir>/spec-review.json` and parse the JSON.
 
-Present the review to the user in a formatted way:
+Present the review to the user:
 
 ```
-[4/8] Codex Spec Review
+[4/7] Codex Spec Review
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>
@@ -132,102 +110,75 @@ Present the review to the user in a formatted way:
 | Q2 | medium | ... | ... | ... |
 ```
 
-- If decision is **APPROVE**: report "Spec approved by Codex" and proceed to Step 6 (skip Step 5).
-- If decision is **REQUEST_CHANGES** or **BLOCK**: proceed to Step 5.
+If decision is **APPROVE**: report "Spec approved by Codex" and proceed to Step 6.
 
-## Step 5: Resolve Spec Findings [5/8]
+If decision is **REQUEST_CHANGES** or **BLOCK**: proceed to Step 5.
 
-For each finding from the Codex review:
-1. Address the concern by updating the relevant section of the spec
-2. Preserve the original issue's intent
+## Step 5: Clarify — 2nd Round (Codex findings + human) [5/7]
 
-Update `<run_dir>/spec.md` with the resolved spec.
+Present the Codex review findings as additional context, then read the file `.claude/commands/speckit.clarify.md` and follow its workflow again.
 
-Present the changes to the user:
+When scanning the spec for ambiguity, **prioritize the Codex findings** as high-priority items to address. Include them in the clarification questions posed to the user.
 
-> **[5/8] Spec の指摘を解決しました:**
-> - Q1 (high): <how it was resolved>
-> - Q2 (medium): <how it was resolved>
->
-> 次のアクションを選んでください:
-> - **continue** — plan 作成に進む
-> - またはフィードバックを入力
+After the user has answered all clarification questions and the spec is updated, present the choice to the user. **Do not proceed automatically — wait for the user to select an option.**
 
-**Wait for user input** before proceeding.
+The user must choose one:
+- **plan** — Codex review の結果に満足。plan 作成に進む
+- **re-review** — もう一度 Codex review を実行する (Step 4 に戻る)
 
-## Step 6: Plan and Tasks [6/8]
+**Wait for the user's selection before proceeding.**
 
-Read `<run_dir>/spec.md` for the finalized spec.
+- If **plan**: proceed to Step 6.
+- If **re-review**: go back to Step 4.
 
-**Check for speckit** via Bash:
-```bash
-ls .specify/scripts/bash/setup-plan.sh 2>/dev/null && echo "SPECKIT_FOUND" || echo "SPECKIT_NOT_FOUND"
-```
+## Step 6: Plan → Tasks → Implement (auto) [6/7]
 
-**If speckit is found:**
-- Ask the user: "このプロジェクトには speckit がインストールされています。planning に speckit を使いますか? (yes = `/speckit.plan` + `/speckit.tasks` を使用, no = 組み込みの planning を使用)"
-- If yes: Tell the user to run `/speckit.plan` followed by `/speckit.tasks`, then come back and type **continue** to proceed to Step 7. **STOP here and wait.**
-- If no: Use built-in planning below.
+This step runs **automatically without user intervention** between sub-steps.
 
-**Built-in specflow planning** (or if speckit not found):
+### 6a: Plan
 
-Read the project's `CLAUDE.md` (if present) for tech stack context.
+Read the file `.claude/commands/speckit.plan.md` and follow its complete workflow.
 
-Generate `<run_dir>/plan.md` containing:
-- Technical approach
-- Architecture decisions
-- File changes needed
-- Dependencies / libraries
-- Risk areas
+This will:
+- Run `setup-plan.sh` to prepare plan structure
+- Generate research.md, data-model.md, contracts, and other plan artifacts
+- Fill the implementation plan
 
-Generate `<run_dir>/tasks.md` containing:
-- Ordered, dependency-aware task list
-- Each task: ID (T001, T002...), description, target files
-- Phases: Setup → Core → Integration → Polish
+### 6b: Tasks
 
-Write both files and report:
-```
-[6/8] Plan and tasks generated
-- Plan: <run_dir>/plan.md
-- Tasks: <run_dir>/tasks.md (<N> tasks)
-```
+Immediately after plan completes, read the file `.claude/commands/speckit.tasks.md` and follow its complete workflow.
 
-Present plan and tasks to the user, then:
+This will:
+- Generate dependency-ordered `tasks.md` from the plan artifacts
 
-> 次のアクションを選んでください:
-> - **continue** — 実装を開始
-> - **stop** — ここで一旦停止
-> - またはフィードバックを入力 (plan/tasks を修正します)
+### 6c: Implement
 
-**Wait for user response.**
+Immediately after tasks completes, read the file `.claude/commands/speckit.implement.md` and follow its complete workflow.
 
-## Step 7: Implement [7/8]
+This will:
+- Execute all tasks phase by phase
+- Create/modify source files as specified
 
-Read `<run_dir>/tasks.md`, `<run_dir>/plan.md`, and `<run_dir>/spec.md`.
+Report: `[6/7] Plan → Tasks → Implement complete`
 
-Execute tasks phase by phase:
-- Implement changes as specified in the tasks
-- After completing each task, update `<run_dir>/tasks.md` marking it as done (`- [x]`)
-- Report progress after each phase
+## Step 7: Codex Implementation Review [7/7]
 
-When all tasks are complete:
-```
-[7/8] Implementation complete
-- <N> tasks completed
-- Files changed: <list of modified/created files>
-```
+This step runs **automatically** after implementation completes.
 
-## Step 8: Codex Implementation Review [8/8]
-
-First, check if `codex` is available:
+Check if `codex` is available:
 ```bash
 command -v codex
 ```
-If not found, inform the user and offer to skip. If skipping, go straight to the approval menu below (without review findings).
+If not found, skip to the approval menu below (without review findings).
 
-If `codex` is available, run via Bash:
+If `codex` is available:
+
+Read `.specflow/review_impl_prompt.txt` for the review prompt.
+Read the `FEATURE_SPEC` file.
+
+Run via Bash:
 ```bash
-{ cat .specflow/review_impl_prompt.txt; echo; echo "CURRENT GIT DIFF:"; git diff -- . ':(exclude).specflow'; echo; echo "SPEC CONTENT:"; cat "<run_dir>/spec.md"; } | codex exec --json > "<run_dir>/impl-review.jsonl" && specflow-parse-jsonl.py "<run_dir>/impl-review.jsonl" > "<run_dir>/impl-review.json"
+{ cat .specflow/review_impl_prompt.txt; echo; echo "CURRENT GIT DIFF:"; git diff -- . ':(exclude).specflow' ':(exclude).specify'; echo; echo "SPEC CONTENT:"; cat "<FEATURE_SPEC>"; } | codex exec --json > "<run_dir>/impl-review.jsonl" && specflow-parse-jsonl.py "<run_dir>/impl-review.jsonl" > "<run_dir>/impl-review.json"
 ```
 
 Read `<run_dir>/impl-review.json` and parse the JSON.
@@ -235,7 +186,7 @@ Read `<run_dir>/impl-review.json` and parse the JSON.
 Present the review:
 
 ```
-[8/8] Codex Implementation Review
+[7/7] Codex Implementation Review
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>
@@ -246,29 +197,28 @@ Present the review:
 | F2 | medium | src/bar.ts | ... | ... |
 ```
 
-Then present the interactive menu:
+Then the user must choose one. **Do not proceed automatically — wait for the user to select an option.**
 
-> 次のアクションを選んでください:
-> 1. **approve** — 実装を承認
-> 2. **fix F1 F3** — 指定した指摘のみ修正 (例: `fix F1 F3`)
-> 3. **fix all** — すべての指摘を修正
-> 4. **reject** — 実装を破棄
-> 5. **change-spec** — spec を修正して Step 3 からやり直す
-> - または自由にインストラクションを入力
+- **approve** — 実装を承認して終了
+- **fix F1 F3** — 指定した指摘のみ修正 (例: `fix F1 F3`)
+- **fix all** — すべての指摘を修正
+- **reject** — 実装を破棄して終了
+- **change-spec** — spec を修正して Step 3 からやり直す
 
-**Wait for user response.** Handle each choice:
+**Wait for the user's selection before proceeding.**
 
-- **approve**: Report "Implementation approved. Run dir: `<run_dir>`" and **END**.
-- **fix** / **fix all**: Apply the specified fixes, then re-run Step 8 (loop).
+Handle each choice:
+- **approve**: Report "Implementation approved." and **END**.
+- **fix** / **fix all**: Apply the specified fixes, then re-run Step 7 (Codex review loop).
 - **reject**: Report "Implementation rejected." and **END**.
-- **change-spec**: Ask the user for spec changes, update `<run_dir>/spec.md`, then go back to Step 3.
-- **free-form text**: Treat as instructions, apply them, then re-run Step 8.
+- **change-spec**: Go back to Step 3 (clarify 1st round) to revise the spec.
 
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - Never modify files inside `.specflow/` except under the `state/` subdirectory.
-- All intermediate artifacts (issue.json, spec.md, plan.md, tasks.md, review files) go into `<run_dir>`.
+- Codex review artifacts (issue.json, *-review.jsonl, *-review.json) go into `<run_dir>`.
+- Spec, plan, tasks, and implementation files are managed by speckit in `.specify/` and `specs/` directories.
 - If any Bash command fails, report the error to the user and ask how to proceed. Do NOT silently continue.
-- `.specflow/state/` is gitignored — treat artifacts there as ephemeral working files.
-- At every step where user input is requested, truly **wait** for the user's response. Do not proceed automatically.
+- At choice points (Step 5 and Step 7), truly **wait** for the user to make a selection. Do not proceed automatically.
+- When reading speckit command files, follow their instructions faithfully, including running their prerequisite scripts.

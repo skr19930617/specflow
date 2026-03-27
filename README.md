@@ -20,8 +20,9 @@ GitHub issue URL を入力にして、Claude + Codex による spec → clarify 
 | `gh` | GitHub issue の取得 / テンプレート取得 | `brew install gh` |
 | `claude` | spec の clarify / plan / implement | Claude Code CLI |
 | `codex` | spec / implementation のレビュー | OpenAI Codex CLI |
-| `python3` | JSONL パース、issue→spec 変換 | macOS 標準 or `brew install python` |
+| `python3` | JSONL パース | macOS 標準 or `brew install python` |
 | `git` | リポジトリ操作 | macOS 標準 or `brew install git` |
+| speckit | spec/plan/tasks/implement 管理 | `.specify/` を各プロジェクトにセットアップ |
 
 ### 2. GitHub CLI 認証
 
@@ -172,30 +173,20 @@ GitHub Enterprise:
 specflow https://github.enterprise.local/OWNER/REPO/issues/123
 ```
 
-### 3. フロー
+### 3. `/specflow` のフロー
 
 1. issue 本文を取得
-2. spec.md を生成
-3. Claude が spec を clarify — **ユーザーがフィードバック可能**
-4. Codex が spec をレビュー — **結果をテーブル形式で表示**
-5. レビュー指摘があれば Claude が修正 — **ユーザーが確認・修正可能**
-6. Claude が plan / tasks を作成 — **speckit 検出時は選択可能**
-7. Claude が実装
-8. Codex が実装をレビュー → approve / fix (個別指定可) / reject / change-spec を選択
+2. **speckit.specify** で spec 作成 (feature branch + spec)
+3. **speckit.clarify** 1st round — 人間がインタラクティブに clarify
+4. **Codex** が spec をレビュー — 結果をテーブル形式で表示
+5. **speckit.clarify** 2nd round — Codex findings を踏まえて人間が再度 clarify
+6. **UI 選択**: plan に進む / もう一度 Codex review
+7. **speckit.plan → speckit.tasks → speckit.implement** — 自動連続実行
+8. **Codex** が実装をレビュー (自動)
+9. **UI 選択**: approve / fix (個別指定可) / reject / change-spec
 
-> `/specflow` (スラッシュコマンド) では全ステップでインタラクティブに操作可能。
-> `specflow` (bash CLI) ではステップ 8 のみインタラクティブ。
-
-### `/specflow` と `specflow` の比較
-
-| 機能 | `specflow` (bash) | `/specflow` (Claude Code) |
-|------|-------------------|---------------------------|
-| インタラクティブ性 | step 8 のみ | 全ステップで介入可能 |
-| コンテキスト | 各 `claude -p` 呼び出しが独立 | 1 セッションで全文脈を保持 |
-| Codex レビュー | JSON 生出力 | テーブル形式で提示、個別対応可能 |
-| エラー時 | 即座に exit | ユーザーに判断を委ねる |
-| speckit 連携 | 常に `/speckit.plan` + `/speckit.tasks` を呼ぶ | speckit 有無を検出して選択肢を提示 |
-| Codex なし | エラー終了 | スキップを提案 |
+> `/specflow` は speckit を前提とし、全ステップでインタラクティブに操作可能。
+> `specflow` (bash CLI) は従来方式で、speckit なしでも動作する。
 
 ## 設定一覧
 

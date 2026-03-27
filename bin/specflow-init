@@ -61,7 +61,20 @@ echo "  .specflow/review_spec_prompt.txt"
 echo "  .specflow/review_impl_prompt.txt"
 echo "  .specflow/state/"
 echo
+
+# Check if speckit (.specify/) is installed
+if [[ ! -d ".specify" ]]; then
+  echo "⚠  speckit (.specify/) が見つかりません。"
+  echo "   /specflow は speckit を前提としています。"
+  echo "   speckit をインストールしてから /specflow を使用してください。"
+  echo "   参考: https://github.com/bdobbs-amd/specify"
+  echo
+fi
+
 echo "Next steps:"
+if [[ ! -d ".specify" ]]; then
+  echo "  0. Install speckit — /specflow requires speckit (.specify/) to be set up"
+fi
 echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
 echo "  2. Edit .specflow/config.env — add project-specific env vars if needed"
 echo "  3. Optionally customize .specflow/review_*_prompt.txt"
