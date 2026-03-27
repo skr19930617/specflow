@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TEMPLATE_DIR="$(cd "$SCRIPT_DIR/../template/repo" && pwd)"
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
@@ -9,73 +12,31 @@ if [[ -d ".specflow" ]]; then
   exit 1
 fi
 
+if [[ ! -d "$TEMPLATE_DIR" ]]; then
+  echo "Template directory not found: $TEMPLATE_DIR"
+  echo "Ensure spec-scripts/template/repo/ exists."
+  exit 1
+fi
+
+# Copy .specflow/ from template
+cp -R "$TEMPLATE_DIR/.specflow" .specflow
 mkdir -p .specflow/state
 
-# config.env
-cat > .specflow/config.env <<'EOF'
-# specflow configuration
-# Add project-specific env vars here
-EOF
-
-# review_spec_prompt.txt
-cat > .specflow/review_spec_prompt.txt <<'EOF'
-You are the specification reviewer.
-
-This spec was seeded from a GitHub issue body.
-Assume the issue body is the source of intent, but not necessarily complete.
-
-Identify only:
-- ambiguity that blocks implementation
-- missing acceptance criteria
-- unresolved edge cases
-- contradictions
-- hidden assumptions
-- cases where the issue body is too vague for implementation
-
-Return strict JSON:
-{
-  "decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK",
-  "questions": [
-    {
-      "id": "Q1",
-      "severity": "high" | "medium" | "low",
-      "title": "short title",
-      "detail": "question detail",
-      "suggested_resolution": "optional"
-    }
-  ],
-  "summary": "short summary"
-}
-EOF
-
-# review_impl_prompt.txt
-cat > .specflow/review_impl_prompt.txt <<'EOF'
-You are the implementation reviewer.
-
-Compare the git diff against the spec. Check for:
-- correctness: does the implementation match the spec?
-- completeness: are all acceptance criteria addressed?
-- quality: clean code, no obvious bugs, no security issues
-- scope: no unnecessary changes beyond what the spec requires
-
-Return strict JSON:
-{
-  "decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK",
-  "findings": [
-    {
-      "id": "F1",
-      "severity": "high" | "medium" | "low",
-      "file": "path/to/file",
-      "title": "short title",
-      "detail": "what is wrong and how to fix it"
-    }
-  ],
-  "summary": "short summary"
-}
-EOF
+# Copy CLAUDE.md if not present
+if [[ ! -f "CLAUDE.md" ]]; then
+  cp "$TEMPLATE_DIR/CLAUDE.md" CLAUDE.md
+  echo "Created CLAUDE.md — edit to match your project"
+else
+  echo "CLAUDE.md already exists, skipped"
+fi
 
 echo "Initialized .specflow/ in $ROOT"
 echo "  .specflow/config.env"
 echo "  .specflow/review_spec_prompt.txt"
 echo "  .specflow/review_impl_prompt.txt"
 echo "  .specflow/state/"
+echo
+echo "Next steps:"
+echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
+echo "  2. Edit .specflow/config.env — add project-specific env vars if needed"
+echo "  3. Optionally customize .specflow/review_*_prompt.txt"

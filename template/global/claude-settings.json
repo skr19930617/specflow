@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git stash:*)",
+      "Bash(gh auth status)",
+      "Bash(gh issue view:*)"
+    ]
+  },
+  "env": {
+    "GITHUB_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
+  }
+}
