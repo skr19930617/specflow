@@ -1,6 +1,8 @@
 # specflow
 
-GitHub issue URL を入力にして、Claude + Codex による spec → clarify → review → implement → review のワークフローを自動で回すスクリプト群。
+GitHub issue URL を入力にして、Claude + Codex による spec → clarify → review → implement → review のワークフローを自動で回す CLI ツール。
+
+プロジェクトごとの設定テンプレートは別リポジトリ [specflow-template](https://github.com/YOUR_USER/specflow-template) にある。
 
 ## セットアップ
 
@@ -10,7 +12,7 @@ GitHub issue URL を入力にして、Claude + Codex による spec → clarify 
 
 | ツール | 用途 | インストール |
 |--------|------|-------------|
-| `gh` | GitHub issue の取得 | `brew install gh` |
+| `gh` | GitHub issue の取得 / テンプレート取得 | `brew install gh` |
 | `claude` | spec の clarify / plan / implement | Claude Code CLI |
 | `codex` | spec / implementation のレビュー | OpenAI Codex CLI |
 | `python3` | JSONL パース、issue→spec 変換 | macOS 標準 or `brew install python` |
@@ -35,10 +37,10 @@ PAT を使う場合は `GITHUB_TOKEN` 環境変数でも可。
 
 #### Claude Code (`~/.claude/settings.json`)
 
-`template/global/claude-settings.json` を参考に、既存の設定にマージする。
+`global/claude-settings.json` を参考に、既存の設定にマージする。
 
 ```bash
-cat template/global/claude-settings.json
+cat global/claude-settings.json
 # 必要な permissions.allow エントリを ~/.claude/settings.json に追加
 ```
 
@@ -47,11 +49,12 @@ cat template/global/claude-settings.json
 
 #### Codex (`~/.codex/config.toml`)
 
-`template/global/codex-config.toml` を参考に設定。
+`global/codex-config.toml` を参考に設定。
 
 ```bash
 # 新規の場合
-cp template/global/codex-config.toml ~/.codex/config.toml
+mkdir -p ~/.codex
+cp global/codex-config.toml ~/.codex/config.toml
 
 # 既存がある場合は手動マージ
 ```
@@ -61,7 +64,26 @@ cp template/global/codex-config.toml ~/.codex/config.toml
 - `model_reasoning_effort` — 必要に応じて調整 (`low` / `medium` / `high` / `xhigh`)
 - `[trust]` セクション — 自分のホームディレクトリのパスに変更
 
-### 4. bin/ を PATH に通す
+### 4. テンプレートリポジトリの設定
+
+`specflow-init` がプロジェクト初期化時にテンプレートを取得するリポジトリを指定する。
+
+**方法 A: スクリプト内の変数を編集**
+
+`bin/specflow-init` の `DEFAULT_TEMPLATE_REPO` を自分のリポジトリに変更:
+
+```bash
+# bin/specflow-init 内
+DEFAULT_TEMPLATE_REPO="YOUR_USER/specflow-template"
+```
+
+**方法 B: 環境変数で指定**
+
+```bash
+export SPECFLOW_TEMPLATE_REPO="your-user/specflow-template"
+```
+
+### 5. bin/ を PATH に通す
 
 **方法 A: シンボリックリンク（推奨）**
 
@@ -89,13 +111,11 @@ set -gx fish_user_paths ~/bin $fish_user_paths
 
 ```bash
 # bash/zsh
-export PATH="/path/to/spec-scripts/bin:$PATH"
+export PATH="/path/to/specflow/bin:$PATH"
 
 # fish
-set -gx fish_user_paths /path/to/spec-scripts/bin $fish_user_paths
+set -gx fish_user_paths /path/to/specflow/bin $fish_user_paths
 ```
-
-`/path/to/spec-scripts` はクローンした場所に置き換えること。
 
 ## 使い方
 
@@ -106,33 +126,12 @@ cd /path/to/your-project
 specflow-init
 ```
 
-以下が作られる:
+テンプレートリポジトリから `.specflow/` と `CLAUDE.md` が取得される。
+初期化後に編集すべきファイルは [specflow-template の README](https://github.com/YOUR_USER/specflow-template#セットアップ後に編集すべきファイル) を参照。
 
-```
-your-project/
-  CLAUDE.md                 # ← 要編集
-  .specflow/
-    config.env              # ← 必要に応じて編集
-    review_spec_prompt.txt  # ← 必要に応じて編集
-    review_impl_prompt.txt  # ← 必要に応じて編集
-    state/
-```
-
-### 2. 初期化後に編集すべきファイル
-
-| ファイル | 要変更箇所 | 説明 |
-|----------|-----------|------|
-| `CLAUDE.md` | `Tech Stack` セクション | プロジェクトの言語・FW・ランタイムを記入 |
-| `CLAUDE.md` | `Commands` セクション | ビルド・テスト・リントのコマンドを記入 |
-| `CLAUDE.md` | `Code Style` セクション | コーディング規約があれば記入 |
-| `.specflow/config.env` | 環境変数 | プロジェクト固有の変数があれば追加 |
-| `.specflow/review_spec_prompt.txt` | レビュー観点 | spec レビューの観点をカスタマイズ（JSON フォーマット部分は維持） |
-| `.specflow/review_impl_prompt.txt` | レビュー観点 | 実装レビューの観点をカスタマイズ（JSON フォーマット部分は維持） |
-
-### 3. issue URL を渡して実行
+### 2. issue URL を渡して実行
 
 ```bash
-cd /path/to/your-project
 specflow https://github.com/OWNER/REPO/issues/123
 ```
 
@@ -142,7 +141,7 @@ GitHub Enterprise:
 specflow https://github.enterprise.local/OWNER/REPO/issues/123
 ```
 
-### 4. フロー
+### 3. フロー
 
 1. issue 本文を取得
 2. spec.md を生成
@@ -153,24 +152,34 @@ specflow https://github.enterprise.local/OWNER/REPO/issues/123
 7. Claude が実装
 8. Codex が実装をレビュー → あなたが approve / fix / reject / change-spec を選択
 
+## 設定一覧
+
+| 設定 | 場所 | 要変更 |
+|------|------|--------|
+| テンプレートリポジトリ | `bin/specflow-init` の `DEFAULT_TEMPLATE_REPO` or 環境変数 `SPECFLOW_TEMPLATE_REPO` | **必須** — 自分のリポジトリ名に変更 |
+| Claude Code 権限 | `~/.claude/settings.json` (参考: `global/claude-settings.json`) | 任意 |
+| Codex モデル・trust | `~/.codex/config.toml` (参考: `global/codex-config.toml`) | 任意 |
+
 ## ファイル構成
 
 ```
-spec-scripts/
+specflow/                      # このリポジトリ（ツール）
   bin/
-    specflow                 # メインオーケストレーション
-    specflow-fetch-issue     # gh で issue 取得
-    specflow-parse-jsonl.py  # Codex JSONL → JSON 変換
-    specflow-init            # 対象リポジトリに .specflow/ と CLAUDE.md を初期化
-  template/
-    repo/                    # specflow-init がコピーするテンプレート
-      CLAUDE.md              #   Claude Code 用プロジェクト設定
-      .specflow/
-        config.env           #   環境変数
-        review_spec_prompt.txt   # spec レビュープロンプト
-        review_impl_prompt.txt   # 実装レビュープロンプト
-    global/                  # ホームに配置するグローバル設定のサンプル
-      claude-settings.json   #   ~/.claude/settings.json 用
-      codex-config.toml      #   ~/.codex/config.toml 用
+    specflow                   #   メインオーケストレーション
+    specflow-fetch-issue       #   gh で issue 取得
+    specflow-parse-jsonl.py    #   Codex JSONL → JSON 変換
+    specflow-init              #   テンプレートリポジトリから .specflow/ を初期化
+  global/                      # グローバル設定のサンプル
+    claude-settings.json       #   ~/.claude/settings.json 用
+    codex-config.toml          #   ~/.codex/config.toml 用
+  README.md
+
+specflow-template/             # 別リポジトリ（プロジェクトテンプレート）
+  CLAUDE.md                    #   Claude Code 用プロジェクト設定
+  .specflow/
+    config.env                 #   環境変数
+    review_spec_prompt.txt     #   spec レビュープロンプト
+    review_impl_prompt.txt     #   実装レビュープロンプト
+  .gitignore                   #   .specflow/state/ を除外
   README.md
 ```

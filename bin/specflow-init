@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TEMPLATE_DIR="$(cd "$SCRIPT_DIR/../template/repo" && pwd)"
+# テンプレートリポジトリの設定
+# 環境変数 SPECFLOW_TEMPLATE_REPO で上書き可能
+DEFAULT_TEMPLATE_REPO="YOUR_USER/specflow-template"
+TEMPLATE_REPO="${SPECFLOW_TEMPLATE_REPO:-$DEFAULT_TEMPLATE_REPO}"
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
@@ -12,19 +14,30 @@ if [[ -d ".specflow" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$TEMPLATE_DIR" ]]; then
-  echo "Template directory not found: $TEMPLATE_DIR"
-  echo "Ensure spec-scripts/template/repo/ exists."
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
+
+echo "Fetching template from $TEMPLATE_REPO..."
+
+# gh repo clone でテンプレートを取得（shallow clone）
+if ! gh repo clone "$TEMPLATE_REPO" "$TMPDIR/template" -- --depth 1 2>/dev/null; then
+  echo "Failed to clone template repo: $TEMPLATE_REPO"
+  echo
+  echo "Ensure:"
+  echo "  1. gh auth login is done"
+  echo "  2. SPECFLOW_TEMPLATE_REPO is set correctly (or edit DEFAULT_TEMPLATE_REPO in this script)"
+  echo
+  echo "Current value: $TEMPLATE_REPO"
   exit 1
 fi
 
 # Copy .specflow/ from template
-cp -R "$TEMPLATE_DIR/.specflow" .specflow
+cp -R "$TMPDIR/template/.specflow" .specflow
 mkdir -p .specflow/state
 
 # Copy CLAUDE.md if not present
 if [[ ! -f "CLAUDE.md" ]]; then
-  cp "$TEMPLATE_DIR/CLAUDE.md" CLAUDE.md
+  cp "$TMPDIR/template/CLAUDE.md" CLAUDE.md
   echo "Created CLAUDE.md — edit to match your project"
 else
   echo "CLAUDE.md already exists, skipped"
