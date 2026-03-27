@@ -89,12 +89,19 @@ If `codex` is available:
 Read `.specflow/review_spec_prompt.txt` for the review prompt.
 Read the current `FEATURE_SPEC` file.
 
-Run via Bash:
+**Note:** `codex exec` は API 呼び出しを含むため、完了まで数分かかる場合があります。ユーザーに "Codex review を実行中です。数分かかる場合があります..." と伝えてから実行してください。
+
+Step 1 — 入力ファイルを準備:
 ```bash
-{ cat .specflow/review_spec_prompt.txt; echo; echo "SPEC CONTENT:"; cat "<FEATURE_SPEC>"; } | codex exec --json > "<run_dir>/spec-review.jsonl" && specflow-parse-jsonl.py "<run_dir>/spec-review.jsonl" > "<run_dir>/spec-review.json"
+cat .specflow/review_spec_prompt.txt > "<run_dir>/spec-review-input.txt" && echo "" >> "<run_dir>/spec-review-input.txt" && echo "SPEC CONTENT:" >> "<run_dir>/spec-review-input.txt" && cat "<FEATURE_SPEC>" >> "<run_dir>/spec-review-input.txt"
 ```
 
-Read `<run_dir>/spec-review.json` and parse the JSON.
+Step 2 — Codex を実行 (Bash の `timeout` を 600000ms に設定、`run_in_background: true` で実行):
+```bash
+cat "<run_dir>/spec-review-input.txt" | codex exec --json > "<run_dir>/spec-review.jsonl" 2>&1 && specflow-parse-jsonl.py "<run_dir>/spec-review.jsonl" > "<run_dir>/spec-review.json"
+```
+
+Step 2 の完了通知を受け取ったら、`<run_dir>/spec-review.json` を Read で読み取る。
 
 Present the review to the user:
 
@@ -176,12 +183,19 @@ If `codex` is available:
 Read `.specflow/review_impl_prompt.txt` for the review prompt.
 Read the `FEATURE_SPEC` file.
 
-Run via Bash:
+**Note:** `codex exec` は API 呼び出しを含むため、完了まで数分かかる場合があります。ユーザーに "Codex implementation review を実行中です。数分かかる場合があります..." と伝えてから実行してください。
+
+Step 1 — 入力ファイルを準備:
 ```bash
-{ cat .specflow/review_impl_prompt.txt; echo; echo "CURRENT GIT DIFF:"; git diff -- . ':(exclude).specflow' ':(exclude).specify'; echo; echo "SPEC CONTENT:"; cat "<FEATURE_SPEC>"; } | codex exec --json > "<run_dir>/impl-review.jsonl" && specflow-parse-jsonl.py "<run_dir>/impl-review.jsonl" > "<run_dir>/impl-review.json"
+cat .specflow/review_impl_prompt.txt > "<run_dir>/impl-review-input.txt" && echo "" >> "<run_dir>/impl-review-input.txt" && echo "CURRENT GIT DIFF:" >> "<run_dir>/impl-review-input.txt" && git diff -- . ':(exclude).specflow' ':(exclude).specify' >> "<run_dir>/impl-review-input.txt" && echo "" >> "<run_dir>/impl-review-input.txt" && echo "SPEC CONTENT:" >> "<run_dir>/impl-review-input.txt" && cat "<FEATURE_SPEC>" >> "<run_dir>/impl-review-input.txt"
 ```
 
-Read `<run_dir>/impl-review.json` and parse the JSON.
+Step 2 — Codex を実行 (Bash の `timeout` を 600000ms に設定、`run_in_background: true` で実行):
+```bash
+cat "<run_dir>/impl-review-input.txt" | codex exec --json > "<run_dir>/impl-review.jsonl" 2>&1 && specflow-parse-jsonl.py "<run_dir>/impl-review.jsonl" > "<run_dir>/impl-review.json"
+```
+
+Step 2 の完了通知を受け取ったら、`<run_dir>/impl-review.json` を Read で読み取る。
 
 Present the review:
 
