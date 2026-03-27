@@ -42,7 +42,11 @@ export OPENAI_API_KEY="sk-..."
 set -gx OPENAI_API_KEY "sk-..."
 ```
 
-`specflow-init` を実行すると `.mcp.json` がプロジェクトに自動コピーされ、Claude Code が OpenAI MCP サーバーを自動起動する。
+`specflow-init` を実行すると `.mcp.json` がプロジェクトに自動コピーされ、Claude Code が OpenAI MCP サーバーを自動起動する。手動で設定する場合は `global/mcp.json` をプロジェクトルートに `.mcp.json` としてコピー:
+
+```bash
+cp global/mcp.json /path/to/your-project/.mcp.json
+```
 
 ### 4. Claude Code 権限
 
