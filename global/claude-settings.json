@@ -17,8 +17,5 @@
       "Bash(ls .specify/*)",
       "mcp__openai__*"
     ]
-  },
-  "env": {
-    "GITHUB_TOKEN": "YOUR_GITHUB_TOKEN_HERE"
   }
 }

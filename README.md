@@ -1,11 +1,6 @@
 # specflow
 
-GitHub issue URL を入力にして、Claude + OpenAI による spec → clarify → review → implement → review のワークフローを自動で回すツール。
-
-2 つの実行方法がある:
-
-- **`/specflow` (Claude Code スラッシュコマンド、推奨)** — Claude Code 内でインタラクティブに実行。全ステップで介入・修正可能。レビューは OpenAI MCP サーバー経由
-- **`specflow` (bash CLI)** — ターミナルから非インタラクティブに実行（従来方式、Codex CLI 使用）
+GitHub issue URL を入力にして、Claude + OpenAI による spec → clarify → review → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
 
 プロジェクトごとの設定テンプレートは別リポジトリ [specflow-template](https://github.com/skr19930617/specflow-template) にある。
 
@@ -15,17 +10,11 @@ GitHub issue URL を入力にして、Claude + OpenAI による spec → clarify
 
 | ツール | 用途 | インストール |
 |--------|------|-------------|
-| `gh` | GitHub issue の取得 / テンプレート取得 | `brew install gh` |
+| `gh` | GitHub issue の取得 / テンプレート取得 | `brew install gh && gh auth login` |
 | `claude` | spec の clarify / plan / implement | Claude Code CLI |
 | `git` | リポジトリ操作 | macOS 標準 or `brew install git` |
 | speckit | spec/plan/tasks/implement 管理 | `.specify/` を各プロジェクトにセットアップ |
-
-`/specflow` (スラッシュコマンド) では以下も必要:
-
-| ツール | 用途 | 設定 |
-|--------|------|------|
-| OpenAI MCP サーバー | spec / implementation のレビュー | `~/.claude/settings.json` の `mcpServers` に設定 |
-| `OPENAI_API_KEY` | OpenAI API 認証 | 環境変数に設定 |
+| `OPENAI_API_KEY` | OpenAI API 認証 (レビュー用) | 環境変数に設定 |
 
 ### 2. GitHub CLI 認証
 
@@ -40,26 +29,7 @@ gh auth login --hostname your.github.enterprise.host
 gh auth status
 ```
 
-PAT を使う場合は `GITHUB_TOKEN` 環境変数でも可。
-
-### 3. OpenAI MCP サーバーの設定
-
-`specflow-init` を実行すると `.mcp.json` が自動でプロジェクトにコピーされる。手動で作成する場合:
-
-```json
-// プロジェクトルートの .mcp.json
-{
-  "mcpServers": {
-    "openai": {
-      "command": "npx",
-      "args": ["-y", "@mzxrai/mcp-openai"],
-      "env": {
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
-      }
-    }
-  }
-}
-```
+### 3. OpenAI API キーの設定
 
 環境変数 `OPENAI_API_KEY` をシェルに設定:
 
@@ -72,16 +42,11 @@ export OPENAI_API_KEY="sk-..."
 set -gx OPENAI_API_KEY "sk-..."
 ```
 
-Claude Code がプロジェクトを開くと `.mcp.json` から MCP サーバーが自動で起動される。手動でサーバーを管理する必要はない。
+`specflow-init` を実行すると `.mcp.json` がプロジェクトに自動コピーされ、Claude Code が OpenAI MCP サーバーを自動起動する。
 
 ### 4. Claude Code 権限
 
 `global/claude-settings.json` を参考に、`~/.claude/settings.json` に権限をマージする。
-
-```bash
-cat global/claude-settings.json
-# 必要な permissions.allow エントリを ~/.claude/settings.json に追加
-```
 
 ### 5. テンプレートリポジトリの設定
 
@@ -113,12 +78,9 @@ cp global/specflow*.md ~/.claude/commands/
 
 ### 7. bin/ を PATH に通す
 
-bash CLI (`specflow`) を使う場合のみ必要。`/specflow` スラッシュコマンドのみ使う場合は `specflow-fetch-issue` と `specflow-init` だけで可。
-
 ```bash
 mkdir -p ~/bin
 
-ln -sf "$(pwd)/bin/specflow" ~/bin/specflow
 ln -sf "$(pwd)/bin/specflow-fetch-issue" ~/bin/specflow-fetch-issue
 ln -sf "$(pwd)/bin/specflow-init" ~/bin/specflow-init
 ```
@@ -142,7 +104,7 @@ cd /path/to/your-project
 specflow-init
 ```
 
-テンプレートリポジトリから `.specflow/` と `CLAUDE.md` が取得される。
+テンプレートリポジトリから `.specflow/`、`.mcp.json`、`CLAUDE.md` が取得される。
 `~/.claude/commands/specflow*.md` も自動でインストールされる。
 初期化後に編集すべきファイルは [specflow-template の README](https://github.com/skr19930617/specflow-template#セットアップ後に編集すべきファイル) を参照。
 
@@ -205,7 +167,6 @@ URL なしで起動してインタラクティブに入力:
 ```
 specflow/                      # このリポジトリ（ツール）
   bin/
-    specflow                   #   メインオーケストレーション (bash CLI)
     specflow-fetch-issue       #   gh で issue 取得
     specflow-init              #   テンプレートリポジトリから .specflow/ を初期化
   global/                      # グローバル設定のサンプル
