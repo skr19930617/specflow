@@ -222,10 +222,43 @@ Then the user must choose one. **Do not proceed automatically — wait for the u
 **Wait for the user's selection before proceeding.**
 
 Handle each choice:
-- **approve**: Report "Implementation approved." and **END**.
+- **approve**: Proceed to **Commit** (below), then **END**.
 - **fix** / **fix all**: Apply the specified fixes, then re-run Step 7 (Codex review loop).
 - **reject**: Report "Implementation rejected." and **END**.
 - **change-spec**: Go back to Step 3 (clarify 1st round) to revise the spec.
+
+## Commit (on approve)
+
+ユーザーが **approve** を選択した場合のみ実行する。
+
+1. `git status` で変更ファイルを確認し、一覧をユーザーに表示する。
+2. `git diff --stat` で変更量を表示する。
+3. issue タイトルと spec の内容に基づいてコミットメッセージを生成する。フォーマット:
+   ```
+   <type>: <short summary> (#<issue-number>)
+
+   <body — what was implemented and why>
+
+   Issue: <issue-url>
+   ```
+   - `<type>` は feat / fix / refactor / docs / chore などから適切なものを選ぶ
+4. 生成したコミットメッセージをユーザーに表示し、確認を求める:
+   > コミットメッセージ:
+   > ```
+   > (generated message)
+   > ```
+   > - **commit** — このメッセージでコミット
+   > - **edit** — メッセージを修正してからコミット (修正内容を入力)
+   > - **skip** — コミットせずに終了
+5. ユーザーが **commit** を選択したら:
+   ```bash
+   git add -A -- . ':(exclude).specflow/state'
+   ```
+   続いて `git commit` を実行する。
+6. ユーザーが **edit** を選択したら、修正後のメッセージでコミットする。
+7. ユーザーが **skip** を選択したら、コミットせずに終了する。
+
+Report: "Implementation approved and committed." → **END**.
 
 ## Important Rules
 
