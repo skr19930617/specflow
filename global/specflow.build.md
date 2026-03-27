@@ -1,12 +1,12 @@
 ---
-description: speckit で Plan → Tasks → Implement を実行し、Codex で実装レビュー
+description: speckit で Plan → Tasks → Implement を実行し、OpenAI で実装レビュー
 handoffs:
   - label: Approve & Commit
     agent: specflow.approve
     prompt: 実装を承認してコミット・PR 作成
   - label: Fix All
     agent: specflow.fix
-    prompt: Codex の指摘をすべて修正
+    prompt: 指摘をすべて修正
   - label: Reject (全変更破棄)
     agent: specflow.reject
     prompt: 実装を破棄
@@ -42,17 +42,11 @@ Immediately after tasks completes, read the file `.claude/commands/speckit.imple
 
 Report: `[6/7] Plan → Tasks → Implement complete`
 
-## Codex Implementation Review [7/7]
+## OpenAI Implementation Review [7/7]
 
 This runs **automatically** after implementation completes.
 
 ### Setup
-
-Create a temp directory:
-```bash
-mktemp -d /tmp/specflow.XXXXXX
-```
-Remember the output path as `<tmpdir>`.
 
 Determine `FEATURE_SPEC` by running:
 ```bash
@@ -62,31 +56,30 @@ Parse the JSON output to get `FEATURE_SPEC`.
 
 ### Review
 
-Check if `codex` is available:
-```bash
-command -v codex
-```
-If not found, report "Codex not found — skipping implementation review." and **END**.
-
 Read `.specflow/review_impl_prompt.txt` and `FEATURE_SPEC`.
 
-ユーザーに "Codex implementation review を実行中です。数分かかる場合があります..." と伝えてから実行。
-
-Step 1 — 入力ファイルを準備:
+Get the current git diff:
 ```bash
-cat .specflow/review_impl_prompt.txt > "<tmpdir>/impl-review-input.txt" && echo "" >> "<tmpdir>/impl-review-input.txt" && echo "CURRENT GIT DIFF:" >> "<tmpdir>/impl-review-input.txt" && git diff -- . ':(exclude).specflow' ':(exclude).specify' >> "<tmpdir>/impl-review-input.txt" && echo "" >> "<tmpdir>/impl-review-input.txt" && echo "SPEC CONTENT:" >> "<tmpdir>/impl-review-input.txt" && cat "<FEATURE_SPEC>" >> "<tmpdir>/impl-review-input.txt"
+git diff -- . ':(exclude).specflow' ':(exclude).specify'
 ```
 
-Step 2 — Codex を実行 (Bash の `timeout` を 600000ms に設定、`run_in_background: true` で実行):
-```bash
-cat "<tmpdir>/impl-review-input.txt" | codex exec --json > "<tmpdir>/impl-review.jsonl" 2>&1 && specflow-parse-jsonl.py "<tmpdir>/impl-review.jsonl" > "<tmpdir>/impl-review.json"
+Call the `openai` MCP server tool to review the implementation. Pass the following as the prompt:
+
+```
+<review_impl_prompt.txt の内容>
+
+CURRENT GIT DIFF:
+<git diff の内容>
+
+SPEC CONTENT:
+<FEATURE_SPEC の内容>
 ```
 
-完了通知を受け取ったら `<tmpdir>/impl-review.json` を Read で読み取る。
+Parse the response as JSON.
 
 Present the review:
 ```
-[7/7] Codex Implementation Review
+[7/7] OpenAI Implementation Review
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>

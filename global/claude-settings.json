@@ -9,15 +9,13 @@
       "Bash(git stash:*)",
       "Bash(gh auth status)",
       "Bash(gh issue view:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh repo view:*)",
       "Bash(specflow-fetch-issue:*)",
-      "Bash(specflow-parse-jsonl.py:*)",
-      "Bash(codex exec:*)",
       "Bash(source .specflow/config.env)",
-      "Bash(command -v codex)",
       "Bash(ls .specflow/*)",
       "Bash(ls .specify/*)",
-      "Bash(mkdir -p .specflow/state/*)",
-      "Bash(date:*)"
+      "mcp__openai__*"
     ]
   },
   "env": {

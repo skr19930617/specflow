@@ -34,6 +34,16 @@ fi
 # Copy .specflow/ from template
 cp -R "$TMPDIR/template/.specflow" .specflow
 
+# Copy .mcp.json if not present (OpenAI MCP server config)
+if [[ ! -f ".mcp.json" ]]; then
+  if [[ -f "$TMPDIR/template/.mcp.json" ]]; then
+    cp "$TMPDIR/template/.mcp.json" .mcp.json
+    echo "Created .mcp.json — OpenAI MCP server configured"
+  fi
+else
+  echo ".mcp.json already exists, skipped"
+fi
+
 # Copy CLAUDE.md if not present
 if [[ ! -f "CLAUDE.md" ]]; then
   cp "$TMPDIR/template/CLAUDE.md" CLAUDE.md
@@ -42,16 +52,17 @@ else
   echo "CLAUDE.md already exists, skipped"
 fi
 
-# Install /specflow slash command to ~/.claude/commands/ if not present
-SPECFLOW_CMD_SRC="$(cd "$(dirname "$0")/../global" && pwd)/specflow.md"
-if [[ -f "$SPECFLOW_CMD_SRC" ]]; then
-  if [[ ! -f "$HOME/.claude/commands/specflow.md" ]]; then
-    mkdir -p "$HOME/.claude/commands"
-    cp "$SPECFLOW_CMD_SRC" "$HOME/.claude/commands/specflow.md"
-    echo "Installed /specflow slash command to ~/.claude/commands/specflow.md"
-  else
-    echo "~/.claude/commands/specflow.md already exists, skipped"
-  fi
+# Install /specflow slash commands to ~/.claude/commands/
+GLOBAL_DIR="$(cd "$(dirname "$0")/../global" && pwd)"
+if [[ -d "$GLOBAL_DIR" ]]; then
+  mkdir -p "$HOME/.claude/commands"
+  for cmd_file in "$GLOBAL_DIR"/specflow*.md; do
+    base="$(basename "$cmd_file")"
+    if [[ ! -f "$HOME/.claude/commands/$base" ]]; then
+      cp "$cmd_file" "$HOME/.claude/commands/$base"
+      echo "Installed /$base → ~/.claude/commands/$base"
+    fi
+  done
 fi
 
 echo "Initialized .specflow/ in $ROOT"
@@ -76,3 +87,5 @@ fi
 echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
 echo "  2. Edit .specflow/config.env — add project-specific env vars if needed"
 echo "  3. Optionally customize .specflow/review_*_prompt.txt"
+echo "  4. Set OPENAI_API_KEY env var and add mcpServers to ~/.claude/settings.json"
+echo "     (see global/claude-settings.json for reference)"
