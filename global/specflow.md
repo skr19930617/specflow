@@ -258,7 +258,59 @@ Handle each choice:
 6. ユーザーが **edit** を選択したら、修正後のメッセージでコミットする。
 7. ユーザーが **skip** を選択したら、コミットせずに終了する。
 
-Report: "Implementation approved and committed." → **END**.
+コミット完了後、Push & PR の作成に進む。
+
+## Push & Pull Request (after commit)
+
+コミットが完了した場合のみ実行する (skip した場合はここも skip して **END**)。
+
+1. 現在のブランチ名を取得:
+   ```bash
+   git branch --show-current
+   ```
+
+2. リモートに同名ブランチで push:
+   ```bash
+   git push -u origin <branch-name>
+   ```
+
+3. PR のタイトルと本文を生成する:
+   - **タイトル**: コミットメッセージの1行目をそのまま使う
+   - **本文**: 以下のフォーマット
+     ```markdown
+     ## Summary
+     <spec の Acceptance Criteria や実装内容を箇条書きで 3-5 行>
+
+     ## Issue
+     Closes <issue-url>
+
+     ## Codex Review
+     - Spec review: <APPROVE | REQUEST_CHANGES> — <summary>
+     - Impl review: <APPROVE | REQUEST_CHANGES> — <summary>
+     ```
+
+4. 生成した PR 情報をユーザーに表示し、確認を求める:
+   > **PR を作成します:**
+   > - Title: `<title>`
+   > - Base: `main` (or default branch)
+   > - Head: `<branch-name>`
+   >
+   > - **create** — この内容で PR を作成
+   > - **edit** — タイトルや本文を修正してから作成 (修正内容を入力)
+   > - **skip** — PR を作成せずに終了
+
+5. ユーザーが **create** または **edit** を選択したら、`gh pr create` で PR を作成する:
+   ```bash
+   gh pr create --title "<title>" --body "<body>" --base main
+   ```
+   - base ブランチはリポジトリのデフォルトブランチを使う。確認方法:
+     ```bash
+     gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
+     ```
+
+6. PR 作成後、PR の URL をユーザーに表示する。
+
+Report: "Implementation approved, committed, and PR created: `<PR-URL>`" → **END**.
 
 ## Important Rules
 
