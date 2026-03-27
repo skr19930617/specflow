@@ -3,7 +3,7 @@ set -euo pipefail
 
 # テンプレートリポジトリの設定
 # 環境変数 SPECFLOW_TEMPLATE_REPO で上書き可能
-DEFAULT_TEMPLATE_REPO="YOUR_USER/specflow-template"
+DEFAULT_TEMPLATE_REPO="skr19930617/specflow-template"
 TEMPLATE_REPO="${SPECFLOW_TEMPLATE_REPO:-$DEFAULT_TEMPLATE_REPO}"
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"

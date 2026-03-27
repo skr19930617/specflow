@@ -2,7 +2,7 @@
 
 GitHub issue URL を入力にして、Claude + Codex による spec → clarify → review → implement → review のワークフローを自動で回す CLI ツール。
 
-プロジェクトごとの設定テンプレートは別リポジトリ [specflow-template](https://github.com/YOUR_USER/specflow-template) にある。
+プロジェクトごとの設定テンプレートは別リポジトリ [specflow-template](https://github.com/skr19930617/specflow-template) にある。
 
 ## セットアップ
 
@@ -74,7 +74,7 @@ cp global/codex-config.toml ~/.codex/config.toml
 
 ```bash
 # bin/specflow-init 内
-DEFAULT_TEMPLATE_REPO="YOUR_USER/specflow-template"
+DEFAULT_TEMPLATE_REPO="skr19930617/specflow-template"
 ```
 
 **方法 B: 環境変数で指定**
@@ -127,7 +127,7 @@ specflow-init
 ```
 
 テンプレートリポジトリから `.specflow/` と `CLAUDE.md` が取得される。
-初期化後に編集すべきファイルは [specflow-template の README](https://github.com/YOUR_USER/specflow-template#セットアップ後に編集すべきファイル) を参照。
+初期化後に編集すべきファイルは [specflow-template の README](https://github.com/skr19930617/specflow-template#セットアップ後に編集すべきファイル) を参照。
 
 ### 2. issue URL を渡して実行
 
