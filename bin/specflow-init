@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$ROOT"
+
+if [[ -d ".specflow" ]]; then
+  echo ".specflow/ already exists in $ROOT"
+  exit 1
+fi
+
+mkdir -p .specflow/state
+
+# config.env
+cat > .specflow/config.env <<'EOF'
+# specflow configuration
+# Add project-specific env vars here
+EOF
+
+# review_spec_prompt.txt
+cat > .specflow/review_spec_prompt.txt <<'EOF'
+You are the specification reviewer.
+
+This spec was seeded from a GitHub issue body.
+Assume the issue body is the source of intent, but not necessarily complete.
+
+Identify only:
+- ambiguity that blocks implementation
+- missing acceptance criteria
+- unresolved edge cases
+- contradictions
+- hidden assumptions
+- cases where the issue body is too vague for implementation
+
+Return strict JSON:
+{
+  "decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK",
+  "questions": [
+    {
+      "id": "Q1",
+      "severity": "high" | "medium" | "low",
+      "title": "short title",
+      "detail": "question detail",
+      "suggested_resolution": "optional"
+    }
+  ],
+  "summary": "short summary"
+}
+EOF
+
+# review_impl_prompt.txt
+cat > .specflow/review_impl_prompt.txt <<'EOF'
+You are the implementation reviewer.
+
+Compare the git diff against the spec. Check for:
+- correctness: does the implementation match the spec?
+- completeness: are all acceptance criteria addressed?
+- quality: clean code, no obvious bugs, no security issues
+- scope: no unnecessary changes beyond what the spec requires
+
+Return strict JSON:
+{
+  "decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "high" | "medium" | "low",
+      "file": "path/to/file",
+      "title": "short title",
+      "detail": "what is wrong and how to fix it"
+    }
+  ],
+  "summary": "short summary"
+}
+EOF
+
+echo "Initialized .specflow/ in $ROOT"
+echo "  .specflow/config.env"
+echo "  .specflow/review_spec_prompt.txt"
+echo "  .specflow/review_impl_prompt.txt"
+echo "  .specflow/state/"
