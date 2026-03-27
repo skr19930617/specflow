@@ -43,6 +43,18 @@ else
   echo "CLAUDE.md already exists, skipped"
 fi
 
+# Install /specflow slash command to ~/.claude/commands/ if not present
+SPECFLOW_CMD_SRC="$(cd "$(dirname "$0")/../global" && pwd)/specflow.md"
+if [[ -f "$SPECFLOW_CMD_SRC" ]]; then
+  if [[ ! -f "$HOME/.claude/commands/specflow.md" ]]; then
+    mkdir -p "$HOME/.claude/commands"
+    cp "$SPECFLOW_CMD_SRC" "$HOME/.claude/commands/specflow.md"
+    echo "Installed /specflow slash command to ~/.claude/commands/specflow.md"
+  else
+    echo "~/.claude/commands/specflow.md already exists, skipped"
+  fi
+fi
+
 echo "Initialized .specflow/ in $ROOT"
 echo "  .specflow/config.env"
 echo "  .specflow/review_spec_prompt.txt"

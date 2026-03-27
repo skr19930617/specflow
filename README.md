@@ -2,6 +2,11 @@
 
 GitHub issue URL を入力にして、Claude + Codex による spec → clarify → review → implement → review のワークフローを自動で回す CLI ツール。
 
+2 つの実行方法がある:
+
+- **`/specflow` (Claude Code スラッシュコマンド、推奨)** — Claude Code 内でインタラクティブに実行。全ステップで介入・修正可能
+- **`specflow` (bash CLI)** — ターミナルから非インタラクティブに実行（従来方式）
+
 プロジェクトごとの設定テンプレートは別リポジトリ [specflow-template](https://github.com/skr19930617/specflow-template) にある。
 
 ## セットアップ
@@ -83,7 +88,16 @@ DEFAULT_TEMPLATE_REPO="skr19930617/specflow-template"
 export SPECFLOW_TEMPLATE_REPO="your-user/specflow-template"
 ```
 
-### 5. bin/ を PATH に通す
+### 5. `/specflow` スラッシュコマンドのインストール
+
+`specflow-init` を実行すると自動で `~/.claude/commands/specflow.md` がコピーされる。手動でインストールする場合:
+
+```bash
+mkdir -p ~/.claude/commands
+cp global/specflow.md ~/.claude/commands/specflow.md
+```
+
+### 6. bin/ を PATH に通す
 
 **方法 A: シンボリックリンク（推奨）**
 
@@ -127,9 +141,26 @@ specflow-init
 ```
 
 テンプレートリポジトリから `.specflow/` と `CLAUDE.md` が取得される。
+`~/.claude/commands/specflow.md` も自動でインストールされる。
 初期化後に編集すべきファイルは [specflow-template の README](https://github.com/skr19930617/specflow-template#セットアップ後に編集すべきファイル) を参照。
 
 ### 2. issue URL を渡して実行
+
+#### Claude Code スラッシュコマンド（推奨）
+
+Claude Code 内で:
+
+```
+/specflow https://github.com/OWNER/REPO/issues/123
+```
+
+URL なしで起動してインタラクティブに入力:
+
+```
+/specflow
+```
+
+#### bash CLI（従来方式）
 
 ```bash
 specflow https://github.com/OWNER/REPO/issues/123
@@ -145,18 +176,33 @@ specflow https://github.enterprise.local/OWNER/REPO/issues/123
 
 1. issue 本文を取得
 2. spec.md を生成
-3. Claude が spec を clarify
-4. Codex が spec をレビュー
-5. レビュー指摘があれば Claude が修正
-6. Claude が plan / tasks を作成
+3. Claude が spec を clarify — **ユーザーがフィードバック可能**
+4. Codex が spec をレビュー — **結果をテーブル形式で表示**
+5. レビュー指摘があれば Claude が修正 — **ユーザーが確認・修正可能**
+6. Claude が plan / tasks を作成 — **speckit 検出時は選択可能**
 7. Claude が実装
-8. Codex が実装をレビュー → あなたが approve / fix / reject / change-spec を選択
+8. Codex が実装をレビュー → approve / fix (個別指定可) / reject / change-spec を選択
+
+> `/specflow` (スラッシュコマンド) では全ステップでインタラクティブに操作可能。
+> `specflow` (bash CLI) ではステップ 8 のみインタラクティブ。
+
+### `/specflow` と `specflow` の比較
+
+| 機能 | `specflow` (bash) | `/specflow` (Claude Code) |
+|------|-------------------|---------------------------|
+| インタラクティブ性 | step 8 のみ | 全ステップで介入可能 |
+| コンテキスト | 各 `claude -p` 呼び出しが独立 | 1 セッションで全文脈を保持 |
+| Codex レビュー | JSON 生出力 | テーブル形式で提示、個別対応可能 |
+| エラー時 | 即座に exit | ユーザーに判断を委ねる |
+| speckit 連携 | 常に `/speckit.plan` + `/speckit.tasks` を呼ぶ | speckit 有無を検出して選択肢を提示 |
+| Codex なし | エラー終了 | スキップを提案 |
 
 ## 設定一覧
 
 | 設定 | 場所 | 要変更 |
 |------|------|--------|
 | テンプレートリポジトリ | `bin/specflow-init` の `DEFAULT_TEMPLATE_REPO` or 環境変数 `SPECFLOW_TEMPLATE_REPO` | **必須** — 自分のリポジトリ名に変更 |
+| `/specflow` スラッシュコマンド | `~/.claude/commands/specflow.md` (ソース: `global/specflow.md`) | `specflow-init` で自動インストール |
 | Claude Code 権限 | `~/.claude/settings.json` (参考: `global/claude-settings.json`) | 任意 |
 | Codex モデル・trust | `~/.codex/config.toml` (参考: `global/codex-config.toml`) | 任意 |
 
@@ -170,6 +216,7 @@ specflow/                      # このリポジトリ（ツール）
     specflow-parse-jsonl.py    #   Codex JSONL → JSON 変換
     specflow-init              #   テンプレートリポジトリから .specflow/ を初期化
   global/                      # グローバル設定のサンプル
+    specflow.md                #   ~/.claude/commands/ 用スラッシュコマンド
     claude-settings.json       #   ~/.claude/settings.json 用
     codex-config.toml          #   ~/.codex/config.toml 用
   README.md
