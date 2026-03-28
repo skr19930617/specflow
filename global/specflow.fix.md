@@ -78,4 +78,17 @@ Codex Implementation Review (after fix)
 | F1 | high | src/foo.ts | ... | ... |
 ```
 
-Report the review results and **END**. The handoff buttons will let the user choose the next action.
+Report the review results.
+
+## CRITICAL STOP RULES
+
+**You MUST stop here. Do NOT continue beyond this point.**
+
+- Do NOT attempt further fixes based on the re-review results.
+- Do NOT start another fix cycle automatically.
+- Do NOT run any additional commands after presenting results.
+- Do NOT suggest next steps or describe what buttons will appear.
+- Your response MUST end after the review table and summary.
+- The handoff buttons (Approve / Fix All / Reject) will appear AUTOMATICALLY and allow the user to choose whether to fix again, approve, or reject.
+
+**IMPORTANT:** Do NOT present next-action choices as text. Do NOT suggest commands to run. Simply end your response — the handoff buttons will appear automatically.

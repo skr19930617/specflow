@@ -62,8 +62,16 @@ If **REQUEST_CHANGES** or **BLOCK**: proceed to Clarify below.
 
 ## Clarify — 2nd Round (review findings + human)
 
-Present the review findings as additional context, then read the file `.claude/commands/speckit.clarify.md` and follow its workflow.
+### Clarify Override: AskUserQuestion でボタン表示
+
+Present the review findings as additional context, then read the file `.claude/commands/speckit.clarify.md` and follow its workflow, **but apply these overrides** for ALL user-facing questions:
+
+- **選択式の質問:** マークダウンテーブルで選択肢を並べて「A/B/C で回答してください」と書く代わりに、`AskUserQuestion` ツールを使う。各選択肢をボタンオプションとして渡す。推奨オプションとその理由を質問テキストに含める。自由回答が適切な場合は「その他（短い回答）」をオプションに追加する。
+- **自由回答の質問:** `AskUserQuestion` ツールで質問を提示する（ボタンなし、フリーテキスト入力）。提案する回答を質問テキストに含める。
+- マークダウンの選択肢テーブルは **表示しない**。「A/B/C で回答してください」とは **書かない**。
 
 **Prioritize the review findings** as high-priority items in the clarification questions.
 
-After clarification is complete, report the summary and **END**. The handoff buttons will let the user choose the next step.
+After clarification is complete, report the summary and **IMMEDIATELY END YOUR RESPONSE**.
+
+**CRITICAL:** Do NOT suggest next steps. Do NOT present choices as text. Do NOT continue with any further actions. The handoff buttons will appear automatically after you end.

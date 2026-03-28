@@ -64,12 +64,18 @@ Report: `[2/7] Spec created via speckit.specify`
 
 ## Step 3: Clarify — 1st Round (human) [3/7]
 
-Read the file `.claude/commands/speckit.clarify.md` and follow its complete workflow.
+### Clarify Override: AskUserQuestion でボタン表示
+
+Read the file `.claude/commands/speckit.clarify.md` and follow its complete workflow, **but apply these overrides** for ALL user-facing questions:
+
+- **選択式の質問:** マークダウンテーブルで選択肢を並べて「A/B/C で回答してください」と書く代わりに、`AskUserQuestion` ツールを使う。各選択肢をボタンオプションとして渡す。推奨オプションとその理由を質問テキストに含める。自由回答が適切な場合は「その他（短い回答）」をオプションに追加する。
+- **自由回答の質問:** `AskUserQuestion` ツールで質問を提示する（ボタンなし、フリーテキスト入力）。提案する回答を質問テキストに含める。
+- マークダウンの選択肢テーブルは **表示しない**。「A/B/C で回答してください」とは **書かない**。
 
 This will:
 - Scan the spec for ambiguity across all taxonomy categories
-- Ask the user up to 5 clarification questions **one at a time**
-- The user answers each question interactively
+- Ask the user up to 5 clarification questions **one at a time** via AskUserQuestion buttons
+- The user answers each question by clicking a button or typing a short answer
 - Integrate answers back into the spec file
 
 Report: `[3/7] Clarify 1st round complete`
@@ -103,17 +109,25 @@ Present the review:
 | Q2 | medium | ... | ... | ... |
 ```
 
-If decision is **APPROVE**: report "Spec approved" and **END** (handoff buttons will let user proceed to plan).
+If decision is **APPROVE**: report "Spec approved" and **END**.
 
 If decision is **REQUEST_CHANGES** or **BLOCK**: proceed to Step 5.
 
 ## Step 5: Clarify — 2nd Round (review findings + human) [5/7]
 
-Present the review findings as additional context, then read the file `.claude/commands/speckit.clarify.md` and follow its workflow again.
+### Clarify Override: AskUserQuestion でボタン表示
+
+Present the review findings as additional context, then read the file `.claude/commands/speckit.clarify.md` and follow its workflow again, **but apply these overrides** for ALL user-facing questions:
+
+- **選択式の質問:** マークダウンテーブルで選択肢を並べて「A/B/C で回答してください」と書く代わりに、`AskUserQuestion` ツールを使う。各選択肢をボタンオプションとして渡す。推奨オプションとその理由を質問テキストに含める。自由回答が適切な場合は「その他（短い回答）」をオプションに追加する。
+- **自由回答の質問:** `AskUserQuestion` ツールで質問を提示する（ボタンなし、フリーテキスト入力）。提案する回答を質問テキストに含める。
+- マークダウンの選択肢テーブルは **表示しない**。「A/B/C で回答してください」とは **書かない**。
 
 When scanning the spec for ambiguity, **prioritize the review findings** as high-priority items to address.
 
-After clarification is complete, report the summary and **END**. The handoff buttons will let the user choose: "Plan に進む" or "もう一度 Review".
+After clarification is complete, report the summary and **END**.
+
+**IMPORTANT:** Do NOT present next-action choices as text. Do NOT suggest commands to run. Simply end your response after reporting the results — the handoff buttons will appear automatically.
 
 ## Important Rules
 

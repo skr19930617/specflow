@@ -90,4 +90,17 @@ Present the review:
 | F2 | medium | src/bar.ts | ... | ... |
 ```
 
-Report the review results and **END**. The handoff buttons will let the user choose: "Approve & Commit", "Fix All", or "Reject".
+Report the review results.
+
+## CRITICAL STOP RULES
+
+**You MUST stop here. Do NOT continue beyond this point.**
+
+- Do NOT attempt to fix any issues found in the review.
+- Do NOT suggest fixes or apply changes.
+- Do NOT run any additional commands after presenting results.
+- Do NOT offer to help with the next steps.
+- Your response MUST end after the review table and summary.
+- The handoff buttons (Approve / Fix / Reject) will appear AUTOMATICALLY.
+
+**IMPORTANT:** Do NOT present next-action choices as text. Do NOT suggest commands to run. Simply end your response — the handoff buttons will appear automatically.
