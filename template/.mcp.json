@@ -2,7 +2,7 @@
   "mcpServers": {
     "codex": {
       "command": "codex",
-      "args": ["--as-mcp-server"]
+      "args": ["mcp-server"]
     }
   }
 }
