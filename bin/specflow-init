@@ -1,91 +1,155 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# テンプレートリポジトリの設定
-# 環境変数 SPECFLOW_TEMPLATE_REPO で上書き可能
-DEFAULT_TEMPLATE_REPO="skr19930617/specflow-template"
-TEMPLATE_REPO="${SPECFLOW_TEMPLATE_REPO:-$DEFAULT_TEMPLATE_REPO}"
+CONFIG_DIR="$HOME/.config/specflow"
 
+# --- フラグ解析 ---
+UPDATE_MODE=false
+for arg in "$@"; do
+  case "$arg" in
+    --update) UPDATE_MODE=true ;;
+    -h|--help)
+      echo "Usage: specflow-init [--update]"
+      echo
+      echo "  (default)   Initialize .specflow/, .mcp.json, CLAUDE.md and install slash commands"
+      echo "  --update    Force-update ~/.claude/commands/specflow*.md only"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg"
+      echo "Usage: specflow-init [--update]"
+      exit 1
+      ;;
+  esac
+done
+
+# --- インストール済みチェック ---
+if [[ ! -d "$CONFIG_DIR/template" ]]; then
+  echo "Error: specflow is not installed."
+  echo "Run 'specflow-install' first (from the specflow repository)."
+  exit 1
+fi
+
+# --- プロジェクトルート ---
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+# --- --update モード: コマンドだけ更新して終了 ---
+if [[ "$UPDATE_MODE" == true ]]; then
+  GLOBAL_DIR="$CONFIG_DIR/global"
+  if [[ ! -d "$GLOBAL_DIR" ]]; then
+    echo "Error: global/ not found at $GLOBAL_DIR"
+    echo "Run 'specflow-install' to update."
+    exit 1
+  fi
+  mkdir -p "$HOME/.claude/commands"
+  for cmd_file in "$GLOBAL_DIR"/specflow*.md; do
+    [[ -f "$cmd_file" ]] || continue
+    base="$(basename "$cmd_file")"
+    cp "$cmd_file" "$HOME/.claude/commands/$base"
+    echo "Updated ~/.claude/commands/$base"
+  done
+  echo "Done. Slash commands updated."
+  exit 0
+fi
+
+# --- 初回セットアップ ---
 if [[ -d ".specflow" ]]; then
   echo ".specflow/ already exists in $ROOT"
+  echo "Use --update to refresh slash commands only."
   exit 1
 fi
 
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
+# --- テンプレート取得 ---
+TEMPLATE_DIR=""
 
-echo "Fetching template from $TEMPLATE_REPO..."
+if [[ -n "${SPECFLOW_TEMPLATE_REPO:-}" ]]; then
+  # 外部テンプレートリポジトリからクローン
+  TMPDIR="$(mktemp -d)"
+  trap 'rm -rf "$TMPDIR"' EXIT
 
-# gh repo clone でテンプレートを取得（shallow clone）
-if ! gh repo clone "$TEMPLATE_REPO" "$TMPDIR/template" -- --depth 1 2>/dev/null; then
-  echo "Failed to clone template repo: $TEMPLATE_REPO"
-  echo
-  echo "Ensure:"
-  echo "  1. gh auth login is done"
-  echo "  2. SPECFLOW_TEMPLATE_REPO is set correctly (or edit DEFAULT_TEMPLATE_REPO in this script)"
-  echo
-  echo "Current value: $TEMPLATE_REPO"
+  echo "Fetching template from $SPECFLOW_TEMPLATE_REPO..."
+  if ! gh repo clone "$SPECFLOW_TEMPLATE_REPO" "$TMPDIR/template" -- --depth 1 2>/dev/null; then
+    echo "Failed to clone template repo: $SPECFLOW_TEMPLATE_REPO"
+    echo
+    echo "Ensure:"
+    echo "  1. gh auth login is done"
+    echo "  2. SPECFLOW_TEMPLATE_REPO is set correctly"
+    echo
+    echo "Current value: $SPECFLOW_TEMPLATE_REPO"
+    exit 1
+  fi
+  TEMPLATE_DIR="$TMPDIR/template"
+else
+  # インストール済みテンプレートを使用
+  TEMPLATE_DIR="$CONFIG_DIR/template"
+fi
+
+# テンプレート検証
+if [[ ! -d "$TEMPLATE_DIR/.specflow" ]]; then
+  echo "Error: .specflow/ not found in template ($TEMPLATE_DIR)"
   exit 1
 fi
 
-# Copy .specflow/ from template
-cp -R "$TMPDIR/template/.specflow" .specflow
+# --- ファイルコピー ---
 
-# Copy .mcp.json if not present (OpenAI MCP server config)
+# .specflow/
+cp -R "$TEMPLATE_DIR/.specflow" .specflow
+echo "Created .specflow/"
+
+# .mcp.json
 if [[ ! -f ".mcp.json" ]]; then
-  if [[ -f "$TMPDIR/template/.mcp.json" ]]; then
-    cp "$TMPDIR/template/.mcp.json" .mcp.json
-    echo "Created .mcp.json — OpenAI MCP server configured"
+  if [[ -f "$TEMPLATE_DIR/.mcp.json" ]]; then
+    cp "$TEMPLATE_DIR/.mcp.json" .mcp.json
+    echo "Created .mcp.json"
   fi
 else
   echo ".mcp.json already exists, skipped"
 fi
 
-# Copy CLAUDE.md if not present
+# CLAUDE.md
 if [[ ! -f "CLAUDE.md" ]]; then
-  cp "$TMPDIR/template/CLAUDE.md" CLAUDE.md
-  echo "Created CLAUDE.md — edit to match your project"
+  if [[ -f "$TEMPLATE_DIR/CLAUDE.md" ]]; then
+    cp "$TEMPLATE_DIR/CLAUDE.md" CLAUDE.md
+    echo "Created CLAUDE.md — edit to match your project"
+  fi
 else
   echo "CLAUDE.md already exists, skipped"
 fi
 
-# Install /specflow slash commands to ~/.claude/commands/
-GLOBAL_DIR="$(cd "$(dirname "$0")/../global" && pwd)"
+# --- スラッシュコマンドのインストール ---
+GLOBAL_DIR="$CONFIG_DIR/global"
 if [[ -d "$GLOBAL_DIR" ]]; then
   mkdir -p "$HOME/.claude/commands"
   for cmd_file in "$GLOBAL_DIR"/specflow*.md; do
+    [[ -f "$cmd_file" ]] || continue
     base="$(basename "$cmd_file")"
     if [[ ! -f "$HOME/.claude/commands/$base" ]]; then
       cp "$cmd_file" "$HOME/.claude/commands/$base"
-      echo "Installed /$base → ~/.claude/commands/$base"
+      echo "Installed ~/.claude/commands/$base"
     fi
   done
 fi
 
+echo
 echo "Initialized .specflow/ in $ROOT"
 echo "  .specflow/config.env"
 echo "  .specflow/review_spec_prompt.txt"
 echo "  .specflow/review_impl_prompt.txt"
 echo
 
-# Check if speckit (.specify/) is installed
+# speckit チェック
 if [[ ! -d ".specify" ]]; then
-  echo "⚠  speckit (.specify/) が見つかりません。"
-  echo "   /specflow は speckit を前提としています。"
-  echo "   speckit をインストールしてから /specflow を使用してください。"
-  echo "   参考: https://github.com/bdobbs-amd/specify"
+  echo "Warning: speckit (.specify/) not found."
+  echo "  /specflow requires speckit. Install it first."
+  echo "  See: https://github.com/bdobbs-amd/specify"
   echo
 fi
 
 echo "Next steps:"
 if [[ ! -d ".specify" ]]; then
-  echo "  0. Install speckit — /specflow requires speckit (.specify/) to be set up"
+  echo "  0. Install speckit (.specify/)"
 fi
 echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
 echo "  2. Edit .specflow/config.env — add project-specific env vars if needed"
-echo "  3. Optionally customize .specflow/review_*_prompt.txt"
-echo "  4. Set OPENAI_API_KEY env var and add mcpServers to ~/.claude/settings.json"
-echo "     (see global/claude-settings.json for reference)"
+echo "  3. Set OPENAI_API_KEY env var"
