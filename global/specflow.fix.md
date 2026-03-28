@@ -1,5 +1,5 @@
 ---
-description: レビュー指摘を修正し、再度 OpenAI review を実行
+description: レビュー指摘を修正し、再度 Codex review を実行
 handoffs:
   - label: Approve & Commit
     agent: specflow.approve
@@ -43,7 +43,7 @@ Based on the review findings from the previous step (the user has just seen them
 
 Report what was fixed.
 
-## Re-run OpenAI Implementation Review
+## Re-run Codex Implementation Review
 
 Read `.specflow/review_impl_prompt.txt` and `FEATURE_SPEC`.
 
@@ -52,7 +52,7 @@ Get the current git diff:
 git diff -- . ':(exclude).specflow' ':(exclude).specify'
 ```
 
-Call the `openai` MCP server tool to review the implementation. Pass the following as the prompt:
+Call the `codex` MCP server tool to review the implementation. Pass the following as the prompt:
 
 ```
 <review_impl_prompt.txt の内容>
@@ -68,7 +68,7 @@ Parse the response as JSON.
 
 Present the review:
 ```
-OpenAI Implementation Review (after fix)
+Codex Implementation Review (after fix)
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>

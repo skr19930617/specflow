@@ -1,12 +1,12 @@
 ---
-description: OpenAI spec review を再実行し、clarify 2nd round を行う
+description: Codex spec review を再実行し、clarify 2nd round を行う
 handoffs:
   - label: Plan に進む
     agent: specflow.build
     prompt: Plan → Tasks → Implement を実行
   - label: もう一度 Review
     agent: specflow.review
-    prompt: OpenAI spec review を再実行
+    prompt: Codex spec review を再実行
 ---
 
 ## User Input
@@ -29,11 +29,11 @@ Determine `FEATURE_SPEC` by running:
 ```
 Parse the JSON output to get `FEATURE_SPEC`.
 
-## OpenAI Spec Review
+## Codex Spec Review
 
 Read `.specflow/review_spec_prompt.txt` and `FEATURE_SPEC`.
 
-Call the `openai` MCP server tool to review the spec. Pass the following as the prompt:
+Call the `codex` MCP server tool to review the spec. Pass the following as the prompt:
 
 ```
 <review_spec_prompt.txt の内容>
@@ -46,7 +46,7 @@ Parse the response as JSON.
 
 Present the review:
 ```
-OpenAI Spec Review (re-run)
+Codex Spec Review (re-run)
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>

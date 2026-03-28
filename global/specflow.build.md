@@ -1,5 +1,5 @@
 ---
-description: speckit で Plan → Tasks → Implement を実行し、OpenAI で実装レビュー
+description: speckit で Plan → Tasks → Implement を実行し、Codex で実装レビュー
 handoffs:
   - label: Approve & Commit
     agent: specflow.approve
@@ -42,7 +42,7 @@ Immediately after tasks completes, read the file `.claude/commands/speckit.imple
 
 Report: `[6/7] Plan → Tasks → Implement complete`
 
-## OpenAI Implementation Review [7/7]
+## Codex Implementation Review [7/7]
 
 This runs **automatically** after implementation completes.
 
@@ -63,7 +63,7 @@ Get the current git diff:
 git diff -- . ':(exclude).specflow' ':(exclude).specify'
 ```
 
-Call the `openai` MCP server tool to review the implementation. Pass the following as the prompt:
+Call the `codex` MCP server tool to review the implementation. Pass the following as the prompt:
 
 ```
 <review_impl_prompt.txt の内容>
@@ -79,7 +79,7 @@ Parse the response as JSON.
 
 Present the review:
 ```
-[7/7] OpenAI Implementation Review
+[7/7] Codex Implementation Review
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>

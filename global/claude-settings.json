@@ -15,7 +15,7 @@
       "Bash(source .specflow/config.env)",
       "Bash(ls .specflow/*)",
       "Bash(ls .specify/*)",
-      "mcp__openai__*"
+      "mcp__codex__*"
     ]
   }
 }

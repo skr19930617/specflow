@@ -1,12 +1,12 @@
 ---
-description: GitHub issue から spec 作成 → clarify → OpenAI review → clarify を実行
+description: GitHub issue から spec 作成 → clarify → Codex review → clarify を実行
 handoffs:
   - label: Plan に進む
     agent: specflow.build
     prompt: Plan → Tasks → Implement を実行
   - label: もう一度 Review
     agent: specflow.review
-    prompt: OpenAI spec review を再実行
+    prompt: Codex spec review を再実行
 ---
 
 ## User Input
@@ -74,12 +74,12 @@ This will:
 
 Report: `[3/7] Clarify 1st round complete`
 
-## Step 4: OpenAI Spec Review [4/7]
+## Step 4: Codex Spec Review [4/7]
 
 Read `.specflow/review_spec_prompt.txt` for the review prompt.
 Read the current `FEATURE_SPEC` file.
 
-Call the `openai` MCP server tool to review the spec. Pass the following as the prompt:
+Call the `codex` MCP server tool to review the spec. Pass the following as the prompt:
 
 ```
 <review_spec_prompt.txt の内容>
@@ -92,7 +92,7 @@ Parse the response as JSON (the review prompt instructs the model to return stri
 
 Present the review:
 ```
-[4/7] OpenAI Spec Review
+[4/7] Codex Spec Review
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>

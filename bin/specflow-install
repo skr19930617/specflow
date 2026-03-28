@@ -94,16 +94,18 @@ done
 # -------------------------------------------------------
 # 4. claude-settings.json の権限を ~/.claude/settings.json にマージ
 # -------------------------------------------------------
+
+SETTINGS_DST="$HOME/.claude/settings.json"
+
 echo
 echo "--- permissions → ~/.claude/settings.json ---"
 
 SETTINGS_SRC="$CONFIG_DIR/global/claude-settings.json"
-SETTINGS_DST="$HOME/.claude/settings.json"
 
 if [[ ! -f "$SETTINGS_SRC" ]]; then
   echo "  Warning: $SETTINGS_SRC not found, skipped"
 elif ! command -v jq &>/dev/null; then
-  echo "  Warning: jq not found. Skipping permissions merge."
+  echo "  Warning: jq not found. Skipping settings merge."
   echo "  Manually merge $SETTINGS_SRC into $SETTINGS_DST"
 else
   if [[ ! -f "$SETTINGS_DST" ]]; then
@@ -111,10 +113,12 @@ else
     cp "$SETTINGS_SRC" "$SETTINGS_DST"
     echo "  Created $SETTINGS_DST"
   else
-    ADDED=0
-    SKIPPED=0
     TMPFILE="$(mktemp)"
     cp "$SETTINGS_DST" "$TMPFILE"
+
+    # --- permissions マージ ---
+    ADDED=0
+    SKIPPED=0
 
     while IFS= read -r perm; do
       if jq -e --arg p "$perm" '.permissions.allow | index($p) != null' "$TMPFILE" &>/dev/null; then
@@ -128,13 +132,15 @@ else
     done < <(jq -r '.permissions.allow[]' "$SETTINGS_SRC")
 
     if [[ "$ADDED" -gt 0 ]]; then
-      cp "$TMPFILE" "$SETTINGS_DST"
       echo "  Added $ADDED permissions ($SKIPPED already present)"
     else
       echo "  All permissions already present ($SKIPPED)"
     fi
+
+    cp "$TMPFILE" "$SETTINGS_DST"
     rm -f "$TMPFILE" "${TMPFILE}.new"
   fi
+
 fi
 
 # -------------------------------------------------------

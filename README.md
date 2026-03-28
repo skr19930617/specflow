@@ -1,6 +1,6 @@
 # specflow
 
-GitHub issue URL を入力にして、Claude + OpenAI による spec → clarify → review → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
+GitHub issue URL を入力にして、Claude + Codex による spec → clarify → review → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
 
 ## セットアップ
 
@@ -13,7 +13,7 @@ GitHub issue URL を入力にして、Claude + OpenAI による spec → clarify
 | `git` | リポジトリ操作 | macOS 標準 or `brew install git` |
 | `jq` | 設定マージ（install 時） | `brew install jq` |
 | speckit | spec/plan/tasks/implement 管理 | `.specify/` を各プロジェクトにセットアップ |
-| `OPENAI_API_KEY` | OpenAI API 認証 (MCP サーバー用) | 環境変数に設定 |
+| `codex` | Codex CLI (レビュー用 MCP サーバー) | `npm install -g @openai/codex` |
 
 ### 2. GitHub CLI 認証
 
@@ -22,17 +22,7 @@ gh auth login
 gh auth status
 ```
 
-### 3. OpenAI API キーの設定
-
-```bash
-# bash/zsh
-export OPENAI_API_KEY="sk-..."
-
-# fish
-set -gx OPENAI_API_KEY "sk-..."
-```
-
-### 4. インストール
+### 3. インストール
 
 ```bash
 git clone https://github.com/skr19930617/specflow.git
@@ -80,7 +70,7 @@ specflow-init
 以下がプロジェクトルートにコピーされる:
 
 - `.specflow/` — レビュープロンプト、設定ファイル
-- `.mcp.json` — OpenAI MCP サーバー設定（`OPENAI_API_KEY` 環境変数を参照）
+- `.mcp.json` — Codex MCP サーバー設定
 - `CLAUDE.md` — Claude Code 用プロジェクト設定テンプレート
 
 スラッシュコマンドを最新に更新したい場合:
@@ -116,21 +106,21 @@ URL なしで起動してインタラクティブに入力:
 ### 4. `/specflow` のフロー
 
 ```
-/specflow           fetch → specify → clarify → OpenAI review → clarify
+/specflow           fetch → specify → clarify → Codex review → clarify
                     ┌─ [Plan に進む]        → /specflow.build
                     └─ [もう一度 Review]    → /specflow.review
 
-/specflow.review    OpenAI spec review 再実行 + clarify
+/specflow.review    Codex spec review 再実行 + clarify
                     ┌─ [Plan に進む]        → /specflow.build
                     └─ [もう一度 Review]    → /specflow.review
 
-/specflow.build     plan → tasks → implement → OpenAI impl review
+/specflow.build     plan → tasks → implement → Codex impl review
                     ┌─ [Approve & Commit]   → /specflow.approve
                     ├─ [Fix All]            → /specflow.fix
                     └─ [Reject (全変更破棄)] → /specflow.reject
 
 /specflow.approve   commit → push → PR 作成
-/specflow.fix       指摘を修正 → OpenAI re-review → 同じ3ボタン
+/specflow.fix       指摘を修正 → Codex re-review → 同じ3ボタン
 /specflow.reject    git checkout + git clean で全変更破棄
 /specflow.setup     CLAUDE.md をインタラクティブに設定
 ```
@@ -138,42 +128,39 @@ URL なしで起動してインタラクティブに入力:
 1. issue 本文を取得
 2. **speckit.specify** で spec 作成 (feature branch + spec)
 3. **speckit.clarify** 1st round — 人間がインタラクティブに clarify
-4. **OpenAI** が spec をレビュー — 結果をテーブル形式で表示
+4. **Codex** が spec をレビュー — 結果をテーブル形式で表示
 5. **speckit.clarify** 2nd round — review findings を踏まえて人間が再度 clarify
 6. **UI 選択**: plan に進む / もう一度 review
 7. **speckit.plan → speckit.tasks → speckit.implement** — 自動連続実行
-8. **OpenAI** が実装をレビュー (自動)
+8. **Codex** が実装をレビュー (自動)
 9. **UI 選択**: approve & commit / fix all / reject
 
 ## MCP サーバー設定
 
-specflow は OpenAI MCP サーバーを使って spec/実装のレビューを行う。
+specflow は Codex CLI を MCP サーバーとして使い、spec/実装のレビューを行う。
 
 `specflow-init` がプロジェクトルートに `.mcp.json` を自動コピーする:
 
 ```json
 {
   "mcpServers": {
-    "openai": {
-      "command": "npx",
-      "args": ["-y", "@mzxrai/mcp-openai"],
-      "env": {
-        "OPENAI_API_KEY": "${OPENAI_API_KEY}"
-      }
+    "codex": {
+      "command": "codex",
+      "args": ["--as-mcp-server"]
     }
   }
 }
 ```
 
-Claude Code がプロジェクトを開くと `.mcp.json` を読み込み、`openai` MCP サーバーを自動起動する。
-`OPENAI_API_KEY` 環境変数が設定されていれば追加設定は不要。
+Claude Code がプロジェクトを開くと `.mcp.json` を読み込み、`codex` MCP サーバーを自動起動する。
+Codex CLI がインストール済みであれば追加設定は不要（Codex team プランの課金で動作）。
 
 ## 設定一覧
 
 | 設定 | 場所 | 設定方法 |
 |------|------|----------|
-| OpenAI MCP サーバー | プロジェクトルートの `.mcp.json` | `specflow-init` で自動コピー |
-| OpenAI API キー | 環境変数 `OPENAI_API_KEY` | **必須** — シェル設定に追加 |
+| Codex MCP サーバー | プロジェクトルートの `.mcp.json` | `specflow-init` で自動コピー |
+| Codex CLI | `codex` コマンド | `npm install -g @openai/codex` |
 | スラッシュコマンド | `~/.claude/commands/specflow*.md` | `specflow-install` で自動インストール |
 | Claude Code 権限 | `~/.claude/settings.json` | `specflow-install` で自動マージ |
 | プロジェクト設定 | プロジェクトルートの `CLAUDE.md` | `/specflow.setup` でインタラクティブに設定 |
@@ -201,7 +188,7 @@ specflow/                      # このリポジトリ（ツール）
       config.env               #   環境変数
       review_spec_prompt.txt   #   spec レビュープロンプト
       review_impl_prompt.txt   #   実装レビュープロンプト
-    .mcp.json                  #   OpenAI MCP サーバー設定
+    .mcp.json                  #   Codex MCP サーバー設定
     CLAUDE.md                  #   Claude Code 用プロジェクト設定テンプレート
   README.md
 

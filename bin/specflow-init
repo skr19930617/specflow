@@ -152,4 +152,4 @@ if [[ ! -d ".specify" ]]; then
 fi
 echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
 echo "  2. Edit .specflow/config.env — add project-specific env vars if needed"
-echo "  3. Set OPENAI_API_KEY env var"
+echo "  3. Ensure Codex CLI is installed (npm install -g @openai/codex)"
