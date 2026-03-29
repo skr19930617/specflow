@@ -1,6 +1,6 @@
 # specflow
 
-GitHub issue URL を入力にして、Claude + Codex による spec → clarify → review → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
+GitHub issue URL を入力にして、Claude + Codex による spec → clarify → review → plan → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
 
 ## セットアップ
 
@@ -79,6 +79,8 @@ specflow-init
 specflow-init --update
 ```
 
+> **Note:** 既存プロジェクトで `review_plan_prompt.txt` が `.specflow/` に存在しない場合は、`~/.config/specflow/template/.specflow/review_plan_prompt.txt` を手動でコピーしてください。
+
 ### 2. CLAUDE.md のセットアップ
 
 Claude Code 内で:
@@ -105,39 +107,59 @@ URL なしで起動してインタラクティブに入力:
 
 ### 4. `/specflow` のフロー
 
+各コマンドは1つのフェーズだけを担当し、終了時に handoff ボタンで次のステップに進む。
+
 ```
-/specflow           fetch → specify → clarify → Codex review → clarify
-                    ┌─ [Plan に進む]        → /specflow.build
-                    └─ [もう一度 Review]    → /specflow.review
+/specflow           fetch → specify → clarify → Codex spec review
+                    ┌─ [Plan に進む]        → /specflow.plan
+                    ├─ [Spec を修正]        → /specflow.spec_fix
+                    └─ [中止]              → /specflow.reject
 
-/specflow.review    Codex spec review 再実行 + clarify
-                    ┌─ [Plan に進む]        → /specflow.build
-                    └─ [もう一度 Review]    → /specflow.review
+/specflow.spec_fix  Spec 修正 → Codex spec review 再実行
+                    ┌─ [Plan に進む]        → /specflow.plan
+                    ├─ [Spec を修正]        → /specflow.spec_fix
+                    └─ [中止]              → /specflow.reject
 
-/specflow.build     plan → tasks → implement → Codex impl review
+/specflow.plan      plan → tasks → Codex plan/tasks review
+                    ┌─ [実装に進む]         → /specflow.impl
+                    ├─ [Plan を修正]        → /specflow.plan_fix
+                    └─ [中止]              → /specflow.reject
+
+/specflow.plan_fix  Plan/Tasks 修正 → Codex plan/tasks review 再実行
+                    ┌─ [実装に進む]         → /specflow.impl
+                    ├─ [Plan を修正]        → /specflow.plan_fix
+                    └─ [中止]              → /specflow.reject
+
+/specflow.impl      implement → Codex impl review
                     ┌─ [Approve & Commit]   → /specflow.approve
                     ├─ [Fix All]            → /specflow.fix
-                    └─ [Reject (全変更破棄)] → /specflow.reject
+                    └─ [Reject]             → /specflow.reject
+
+/specflow.fix       指摘を修正 → Codex impl re-review
+                    ┌─ [Approve & Commit]   → /specflow.approve
+                    ├─ [Fix All]            → /specflow.fix
+                    └─ [Reject]             → /specflow.reject
 
 /specflow.approve   commit → push → PR 作成
-/specflow.fix       指摘を修正 → Codex re-review → 同じ3ボタン
-/specflow.reject    git checkout + git clean で全変更破棄
+/specflow.reject    全変更破棄
 /specflow.setup     CLAUDE.md をインタラクティブに設定
 ```
 
-1. issue 本文を取得
-2. **speckit.specify** で spec 作成 (feature branch + spec)
-3. **speckit.clarify** 1st round — 人間がインタラクティブに clarify
-4. **Codex** が spec をレビュー — 結果をテーブル形式で表示
-5. **speckit.clarify** 2nd round — review findings を踏まえて人間が再度 clarify
-6. **UI 選択**: plan に進む / もう一度 review
-7. **speckit.plan → speckit.tasks → speckit.implement** — 自動連続実行
-8. **Codex** が実装をレビュー (自動)
-9. **UI 選択**: approve & commit / fix all / reject
+#### フェーズの流れ
+
+1. `/specflow` — issue 取得 → spec 作成 → clarify → Codex spec review
+2. `/specflow.plan` — plan 作成 → tasks 作成 → Codex plan/tasks review
+3. `/specflow.impl` — speckit.implement → Codex impl review
+4. `/specflow.approve` — commit → push → PR 作成
+
+修正ループ:
+- Spec に問題 → `/specflow.spec_fix` → spec 修正 → Codex spec re-review
+- Plan に問題 → `/specflow.plan_fix` → plan/tasks 修正 → Codex plan/tasks re-review
+- 実装に問題 → `/specflow.fix` → 修正 → Codex impl re-review
 
 ## MCP サーバー設定
 
-specflow は Codex CLI を MCP サーバーとして使い、spec/実装のレビューを行う。
+specflow は Codex CLI を MCP サーバーとして使い、spec/plan/実装のレビューを行う。
 
 `specflow-init` がプロジェクトルートに `.mcp.json` を自動コピーする:
 
@@ -175,18 +197,21 @@ specflow/                      # このリポジトリ（ツール）
     specflow-fetch-issue       #   gh で issue 取得
     specflow-init              #   プロジェクト初期化 / コマンド更新
   global/                      # グローバル設定・スラッシュコマンド
-    specflow.md                #   /specflow メインコマンド
-    specflow.setup.md          #   /specflow.setup (CLAUDE.md インタラクティブ設定)
-    specflow.review.md         #   /specflow.review (spec review 再実行)
-    specflow.build.md          #   /specflow.build (plan → implement → review)
-    specflow.approve.md        #   /specflow.approve (commit → push → PR)
-    specflow.fix.md            #   /specflow.fix (修正 → re-review)
-    specflow.reject.md         #   /specflow.reject (全変更破棄)
+    specflow.md                #   /specflow メインコマンド（spec フェーズ）
+    specflow.spec_fix.md       #   /specflow.spec_fix（spec 修正 → re-review）
+    specflow.plan.md           #   /specflow.plan（plan → tasks → review）
+    specflow.plan_fix.md       #   /specflow.plan_fix（plan/tasks 修正 → re-review）
+    specflow.impl.md           #   /specflow.impl（implement → review）
+    specflow.fix.md            #   /specflow.fix（impl 修正 → re-review）
+    specflow.approve.md        #   /specflow.approve（commit → push → PR）
+    specflow.reject.md         #   /specflow.reject（全変更破棄）
+    specflow.setup.md          #   /specflow.setup（CLAUDE.md インタラクティブ設定）
     claude-settings.json       #   ~/.claude/settings.json 用権限テンプレート
   template/                    # プロジェクトテンプレート（init でコピーされる）
     .specflow/
       config.env               #   環境変数
       review_spec_prompt.txt   #   spec レビュープロンプト
+      review_plan_prompt.txt   #   plan/tasks レビュープロンプト
       review_impl_prompt.txt   #   実装レビュープロンプト
     .mcp.json                  #   Codex MCP サーバー設定
     CLAUDE.md                  #   Claude Code 用プロジェクト設定テンプレート

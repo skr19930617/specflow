@@ -18,6 +18,12 @@ handoffs:
 $ARGUMENTS
 ```
 
+## Prerequisites
+
+1. Run `ls .specflow/config.env` via Bash. If missing → **STOP**.
+2. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash. If missing → **STOP**.
+3. Run `source .specflow/config.env` via Bash.
+
 ## Setup
 
 Determine `FEATURE_SPEC` by running:

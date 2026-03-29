@@ -1,5 +1,5 @@
 ---
-description: speckit で Plan → Tasks → Implement を実行し、Codex で実装レビュー
+description: speckit で実装を実行し、Codex で実装レビュー
 handoffs:
   - label: Approve & Commit
     agent: specflow.approve
@@ -24,27 +24,19 @@ $ARGUMENTS
 2. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash. If missing → **STOP**.
 3. Run `source .specflow/config.env` via Bash.
 
-## Plan → Tasks → Implement [6/7]
+## Step 1: Implement
 
-This runs **automatically** without user intervention between sub-steps.
+Read the file `.claude/commands/speckit.implement.md` and follow its complete workflow.
 
-### Plan
+This will:
+- Load tasks.md and plan.md
+- Execute tasks phase-by-phase
+- Mark completed tasks in tasks.md
+- Validate implementation against spec
 
-Read the file `.claude/commands/speckit.plan.md` and follow its complete workflow.
+Report: `Step 1 complete — Implementation done`
 
-### Tasks
-
-Immediately after plan completes, read the file `.claude/commands/speckit.tasks.md` and follow its complete workflow.
-
-### Implement
-
-Immediately after tasks completes, read the file `.claude/commands/speckit.implement.md` and follow its complete workflow.
-
-Report: `[6/7] Plan → Tasks → Implement complete`
-
-## Codex Implementation Review [7/7]
-
-This runs **automatically** after implementation completes.
+## Step 2: Codex Implementation Review
 
 ### Setup
 
@@ -79,7 +71,7 @@ Parse the response as JSON.
 
 Present the review:
 ```
-[7/7] Codex Implementation Review
+Codex Implementation Review
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>
@@ -101,6 +93,14 @@ Report the review results.
 - Do NOT run any additional commands after presenting results.
 - Do NOT offer to help with the next steps.
 - Your response MUST end after the review table and summary.
-- The handoff buttons (Approve / Fix / Reject) will appear AUTOMATICALLY.
+- The handoff buttons (Approve & Commit / Fix All / Reject) will appear AUTOMATICALLY.
 
 **IMPORTANT:** Do NOT present next-action choices as text. Do NOT suggest commands to run. Simply end your response — the handoff buttons will appear automatically.
+
+## Important Rules
+
+- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
+- Never modify files inside `.specflow/` — read-only.
+- Spec, plan, tasks are managed by speckit in `.specify/` and `specs/`.
+- If any tool call fails, report the error and ask the user how to proceed.
+- When reading speckit command files, follow their instructions faithfully.
