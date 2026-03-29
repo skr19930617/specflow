@@ -1,15 +1,5 @@
 ---
 description: Spec のレビュー指摘を修正し、再度 Codex spec review を実行
-handoffs:
-  - label: Plan に進む
-    agent: specflow.plan
-    prompt: Plan → Tasks を作成しレビュー
-  - label: Spec を修正
-    agent: specflow.spec_fix
-    prompt: Spec のレビュー指摘を再修正
-  - label: 中止
-    agent: specflow.reject
-    prompt: 変更を破棄
 ---
 
 ## User Input
@@ -82,15 +72,25 @@ Codex Spec Review (after fix)
 
 Report the review results.
 
-## CRITICAL STOP RULES
+## Handoff: 次のアクション選択
 
-**You MUST stop here. Do NOT continue beyond this point.**
+レビュー結果を表示した後、必ず `AskUserQuestion` ツールを使って次のアクションを選択させる。
 
-- Do NOT attempt further fixes based on the re-review results.
-- Do NOT start another fix cycle automatically.
-- Do NOT run any additional commands after presenting results.
-- Do NOT suggest next steps or describe what buttons will appear.
-- Your response MUST end after the review table and summary.
-- The handoff buttons (Plan に進む / Spec を修正 / 中止) will appear AUTOMATICALLY.
+```
+AskUserQuestion:
+  question: "次のアクションを選択してください"
+  options:
+    - label: "Plan に進む"
+      description: "Plan → Tasks を作成しレビュー"
+    - label: "Spec を修正"
+      description: "レビュー指摘に基づいて Spec を再修正し再レビュー"
+    - label: "中止"
+      description: "変更を破棄して終了"
+```
 
-**IMPORTANT:** Do NOT present next-action choices as text. Do NOT suggest commands to run. Simply end your response — the handoff buttons will appear automatically.
+ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
+- 「Plan に進む」 → `Skill(skill: "specflow.plan")`
+- 「Spec を修正」 → `Skill(skill: "specflow.spec_fix")`
+- 「中止」 → `Skill(skill: "specflow.reject")`
+
+**IMPORTANT:** Do NOT present next-action choices as text.必ず `AskUserQuestion` のボタン UI を使うこと。

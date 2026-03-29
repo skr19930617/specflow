@@ -1,15 +1,5 @@
 ---
 description: speckit で実装を実行し、Codex で実装レビュー
-handoffs:
-  - label: Approve & Commit
-    agent: specflow.approve
-    prompt: 実装を承認してコミット・PR 作成
-  - label: Fix All
-    agent: specflow.fix
-    prompt: 指摘をすべて修正
-  - label: Reject (全変更破棄)
-    agent: specflow.reject
-    prompt: 実装を破棄
 ---
 
 ## User Input
@@ -84,18 +74,28 @@ Codex Implementation Review
 
 Report the review results.
 
-## CRITICAL STOP RULES
+## Handoff: 次のアクション選択
 
-**You MUST stop here. Do NOT continue beyond this point.**
+レビュー結果を表示した後、必ず `AskUserQuestion` ツールを使って次のアクションを選択させる。
 
-- Do NOT attempt to fix any issues found in the review.
-- Do NOT suggest fixes or apply changes.
-- Do NOT run any additional commands after presenting results.
-- Do NOT offer to help with the next steps.
-- Your response MUST end after the review table and summary.
-- The handoff buttons (Approve & Commit / Fix All / Reject) will appear AUTOMATICALLY.
+```
+AskUserQuestion:
+  question: "次のアクションを選択してください"
+  options:
+    - label: "Approve & Commit"
+      description: "実装を承認してコミット・PR 作成"
+    - label: "Fix All"
+      description: "指摘をすべて修正して再レビュー"
+    - label: "Reject"
+      description: "全変更を破棄して終了"
+```
 
-**IMPORTANT:** Do NOT present next-action choices as text. Do NOT suggest commands to run. Simply end your response — the handoff buttons will appear automatically.
+ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
+- 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
+- 「Fix All」 → `Skill(skill: "specflow.fix")`
+- 「Reject」 → `Skill(skill: "specflow.reject")`
+
+**IMPORTANT:** Do NOT present next-action choices as text.必ず `AskUserQuestion` のボタン UI を使うこと。
 
 ## Important Rules
 
