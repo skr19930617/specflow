@@ -41,14 +41,30 @@ Report what was fixed.
 
 ## Re-run Codex Implementation Review
 
-Read `.specflow/review_impl_prompt.txt` and `FEATURE_SPEC`.
+### Ledger Detection and Prompt Switching
+
+Determine `FEATURE_DIR` from `FEATURE_SPEC` (its parent directory).
+
+Attempt to Read `FEATURE_DIR/review-ledger.json` to determine which review prompt to use:
+
+- **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_impl_prompt.txt`), unchanged behavior. Set `REREVIEW_MODE = false`.
+- **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_impl_rereview_prompt.txt`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
+- **Branch C: Empty findings** — file exists, JSON valid, but `findings` array is empty → use re-review prompt with empty `PREVIOUS_FINDINGS` array, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`.
+- **Branch D: Corrupt/malformed ledger** — file exists but JSON parse fails or required fields missing → use re-review prompt with empty `PREVIOUS_FINDINGS`, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`, `LEDGER_ERROR = true`. Display: `"⚠ review-ledger.json が破損しています。空の前回 findings で re-review を実行します。"`.
+- **Branch E: Missing max_finding_id** — file exists, JSON valid, findings present, but `max_finding_id` field absent → derive from findings. Log: `"⚠ max_finding_id が見つかりません。findings から導出しました。"`. Proceed as Branch B.
+
+Read `FEATURE_SPEC`.
 
 Get the current git diff:
 ```bash
 git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt'
 ```
 
-Call the `codex` MCP server tool to review the implementation. Pass the following as the prompt:
+### Call Codex
+
+**If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
+
+Read `.specflow/review_impl_prompt.txt`. Call the `codex` MCP server tool with:
 
 ```
 <review_impl_prompt.txt の内容>
@@ -60,7 +76,65 @@ SPEC CONTENT:
 <FEATURE_SPEC の内容>
 ```
 
+**If `REREVIEW_MODE = true`** (ledger exists, re-review prompt):
+
+Read `.specflow/review_impl_rereview_prompt.txt`. Call the `codex` MCP server tool with:
+
+```
+<review_impl_rereview_prompt.txt の内容>
+
+PREVIOUS_FINDINGS:
+<PREVIOUS_FINDINGS の JSON 配列>
+
+MAX_FINDING_ID:
+<MAX_FINDING_ID の値>
+
+CURRENT GIT DIFF:
+<git diff の内容>
+
+SPEC CONTENT:
+<FEATURE_SPEC の内容>
+```
+
+If `LEDGER_ERROR = true`, append to the prompt: `"NOTE: The previous review ledger was corrupted. Set ledger_error to true in your response. Treat all findings as new."`
+
+### Parse Response
+
 Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON), display an error: `"⚠ Codex review の JSON パースに失敗しました。ledger 更新をスキップします。"` and skip the ledger update step entirely. Present whatever raw response was received and proceed to the handoff.
+
+### Prior-ID Classification Validation (re-review mode only)
+
+If `REREVIEW_MODE = true` and JSON parse succeeded, validate the classified output before proceeding to ledger update:
+
+1. Collect `prior_ids` = all IDs from PREVIOUS_FINDINGS that were passed to Codex.
+2. Collect `response_resolved_ids` = IDs in `resolved_previous_findings`.
+3. Collect `response_still_open_ids` = IDs in `still_open_previous_findings`.
+4. **Check exhaustive**: for each ID in `prior_ids`, verify it appears in either resolved or still_open. If any prior ID is missing, auto-classify it as still_open with `note: "classification missing from Codex output"` and `severity` from the previous ledger. Display: `"⚠ Codex が前回 finding を分類しませんでした (自動的に still_open に分類): {missing_ids}"`.
+5. **Check exclusive**: if any ID appears in both resolved and still_open, keep the still_open classification and remove from resolved (conservative). Display: `"⚠ 重複分類を検出しました (still_open を優先): {duplicate_ids}"`.
+6. **Check unknown**: if any ID in the response is not in `prior_ids`, display as explicit anomaly: `"⚠ Unknown IDs in Codex response (excluded from ledger): {unknown_ids}"`. Exclude from ledger update.
+
+### Re-review Results Display (re-review mode only)
+
+If `REREVIEW_MODE = true`, display the classified results before the standard findings table:
+
+```
+### Re-review Classification
+
+**Resolved** ({count}):
+| ID | Note |
+|----|------|
+| R1-F01 | fixed null check |
+
+**Still Open** ({count}):
+| ID | Severity | Note |
+|----|----------|------|
+| R1-F02 | high | still unresolved |
+
+**New Findings** ({count}):
+| ID | Severity | File | Title |
+|----|----------|------|-------|
+| F3 | medium | src/foo.ts | missing test |
+```
 
 ## Step: Update Review Ledger
 
@@ -82,7 +156,31 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
 
 4. Increment `current_round` by 1. Initialize a sequence counter `seq = 0` for this round's new finding IDs.
 
-### Finding Matching (Unified Pool)
+### Finding Update
+
+**If `REREVIEW_MODE = true`** (classified re-review output):
+
+The Codex response already classifies findings into resolved/still_open/new. Use this classification directly instead of the matching algorithm.
+
+5. For each finding in `resolved_previous_findings`:
+   - Find the corresponding finding in the ledger by `id`.
+   - Set `status` = `"resolved"`, `latest_round` = current_round. Keep all other attributes unchanged.
+
+6. For each finding in `still_open_previous_findings`:
+   - Find the corresponding finding in the ledger by `id`.
+   - **Overwrite from re-review**: `severity` (re-evaluated value), update ledger `notes` field only if re-review `note` provides new information (do not overwrite user override `notes` for accepted_risk/ignored findings).
+   - **Preserve from previous ledger**: `id`, `category`, `file`, `title`, `detail`, `origin_round`, `relation`, `supersedes`.
+   - Update: `status` → `"open"` (unless finding has override status accepted_risk/ignored — preserve override), `latest_round` → current_round.
+   - For split/merge findings (note contains "split" or "merge"): in addition to marking still_open, these will be resolved in the NEXT round's ledger update when only the new IDs carry forward.
+
+7. For each finding in `new_findings`:
+   - Add as new ledger entry: copy `id`, `severity`, `category`, `file`, `title`, `detail` from Codex output. Set `origin_round` = current_round, `latest_round` = current_round, `status` = `"new"`, `relation` = `"new"`, `supersedes` = null, `notes` = `""`.
+
+8. **Persist max_finding_id**: compute `new_max = max(prev_ledger.max_finding_id || 0, max(new_findings.map(f => extractNumber(f.id))) || 0)` and write to ledger JSON as `"max_finding_id": new_max`. This MUST be written on every ledger update.
+
+9. **Handle ledger_error=true**: if the Codex response has `ledger_error: true`, set `max_finding_id` from new_findings only, and the findings array contains only new_findings (no carryover from corrupt ledger).
+
+**If `REREVIEW_MODE = false`** (initial review output, standard matching):
 
 5. Build the **candidate pool**: all existing findings where `status` ≠ `resolved`.
 
@@ -104,7 +202,7 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
 
 ### Zero-Findings Edge Case
 
-9. If Codex returned 0 findings: skip matching. Set all active (open/new) findings to `status` = `"resolved"`. Override findings are preserved.
+9. If Codex returned 0 findings (both modes): skip matching. Set all active (open/new) findings to `status` = `"resolved"`. Override findings are preserved.
 
 ### Round Summary (Snapshot)
 
