@@ -1,0 +1,68 @@
+{
+  "feature_id": "006-approval-summary",
+  "phase": "impl",
+  "current_round": 3,
+  "status": "in_progress",
+  "max_finding_id": 9,
+  "findings": [
+    {
+      "id": "R1-F01", "origin_round": 1, "latest_round": 1, "severity": "high", "category": "correctness", "file": "global/specflow.approve.md",
+      "title": "Untested new-file detection cannot work from cached file list",
+      "detail": "Section 2e says to find 'new .sh or .md files' from git diff --name-only, but --name-only does not indicate whether a path is newly added or merely modified.",
+      "status": "resolved", "relation": "new", "supersedes": null, "notes": ""
+    },
+    {
+      "id": "R1-F02", "origin_round": 1, "latest_round": 1, "severity": "medium", "category": "completeness", "file": "global/specflow.approve.md",
+      "title": "Spec Coverage skips this spec's acceptance-scenario format",
+      "detail": "Instructions only extract numbered Given/When/Then lines.",
+      "status": "resolved", "relation": "new", "supersedes": null, "notes": ""
+    },
+    {
+      "id": "R1-F03", "origin_round": 1, "latest_round": 3, "severity": "medium", "category": "error_handling", "file": "global/specflow.approve.md",
+      "title": "Missing ledger data has no degraded header state",
+      "detail": "Missing-status ledger set LEDGER_AVAILABLE=false in gate but valid JSON re-sets it to true in summary section. Degraded flag not preserved.",
+      "status": "open", "relation": "same", "supersedes": null, "notes": ""
+    },
+    {
+      "id": "R1-F04", "origin_round": 1, "latest_round": 1, "severity": "medium", "category": "testing", "file": "global/specflow.approve.md",
+      "title": "No validation for counting and degraded-input paths",
+      "detail": "Non-trivial logic has no tests or scripted verification.",
+      "status": "resolved", "relation": "new", "supersedes": null, "notes": ""
+    },
+    {
+      "id": "R2-F01", "origin_round": 2, "latest_round": 3, "severity": "high", "category": "correctness", "file": "global/specflow.approve.md",
+      "title": "Missing or malformed review-ledger.json still hard-stops the approve flow",
+      "detail": "Quality Gate still STOPs when review-ledger.json is missing or fails JSON parsing.",
+      "status": "resolved", "relation": "reframed", "supersedes": null, "notes": ""
+    },
+    {
+      "id": "R2-F02", "origin_round": 2, "latest_round": 2, "severity": "high", "category": "correctness", "file": "global/specflow.approve.md",
+      "title": "Open high findings are still blocked before approval-summary generation",
+      "detail": "Quality Gate STOPs when status is has_open_high.",
+      "status": "resolved", "relation": "new", "supersedes": null, "notes": ""
+    },
+    {
+      "id": "R2-F03", "origin_round": 2, "latest_round": 3, "severity": "low", "category": "scope", "file": "CLAUDE.md",
+      "title": "CLAUDE.md changed outside planned feature scope",
+      "detail": "The plan says this feature modifies global/specflow.approve.md only.",
+      "status": "open", "relation": "same", "supersedes": null, "notes": ""
+    },
+    {
+      "id": "R3-F01", "origin_round": 3, "latest_round": 3, "severity": "medium", "category": "correctness", "file": "global/specflow.approve.md",
+      "title": "Unknown ledger status relaxed beyond spec scope",
+      "detail": "Unknown top-level ledger status now passes as WARNING. The spec only relaxes missing/malformed ledger and has_open_high, not unsupported status values.",
+      "status": "new", "relation": "reframed", "supersedes": "R2-F01", "notes": ""
+    },
+    {
+      "id": "R3-F02", "origin_round": 3, "latest_round": 3, "severity": "medium", "category": "completeness", "file": "global/specflow.approve.md",
+      "title": "Untested new files risk skipped when ledger unavailable",
+      "detail": "Diff-based untested new files heuristic requires LEDGER_AVAILABLE but should still run when diff is available even if ledger is missing.",
+      "status": "new", "relation": "new", "supersedes": null, "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {"round": 1, "total": 4, "open": 0, "new": 4, "resolved": 0, "overridden": 0, "by_severity": {"high": {"open": 0, "resolved": 0, "new": 1, "overridden": 0}, "medium": {"open": 0, "resolved": 0, "new": 3, "overridden": 0}, "low": {"open": 0, "resolved": 0, "new": 0, "overridden": 0}}},
+    {"round": 2, "total": 7, "open": 1, "new": 3, "resolved": 3, "overridden": 0, "by_severity": {"high": {"open": 0, "resolved": 1, "new": 2, "overridden": 0}, "medium": {"open": 1, "resolved": 2, "new": 0, "overridden": 0}, "low": {"open": 0, "resolved": 0, "new": 1, "overridden": 0}}},
+    {"round": 3, "total": 9, "open": 2, "new": 2, "resolved": 5, "overridden": 0, "by_severity": {"high": {"open": 0, "resolved": 3, "new": 0, "overridden": 0}, "medium": {"open": 1, "resolved": 2, "new": 2, "overridden": 0}, "low": {"open": 1, "resolved": 0, "new": 0, "overridden": 0}}}
+  ]
+}
