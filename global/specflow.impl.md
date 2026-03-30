@@ -125,10 +125,14 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
 
 12. For each high-severity finding with status `accepted_risk` or `ignored` (with valid notes): display `"⚠ high severity finding が override されています: {id}"`.
 
+### Persist max_finding_id
+
+13. Compute `max_finding_id` from the current findings array: `max(findings.map(f => extractNumber(f.id)))` where `extractNumber("R1-F03") = 3`. If findings is empty, set to 0. Write this value as `"max_finding_id"` in the ledger JSON. This field MUST be present in every ledger file from initialization onward.
+
 ### Backup and Write
 
-13. If the ledger was a "clean read" (not recovered from backup): Write the pre-update ledger content to `review-ledger.json.bak` via Write tool.
-14. Write the updated ledger JSON to `review-ledger.json` via Write tool.
+14. If the ledger was a "clean read" (not recovered from backup): Write the pre-update ledger content to `review-ledger.json.bak` via Write tool.
+15. Write the updated ledger JSON (including `max_finding_id`) to `review-ledger.json` via Write tool.
 
 ### Ledger Summary Display
 
