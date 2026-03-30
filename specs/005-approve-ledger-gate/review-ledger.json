@@ -1,0 +1,38 @@
+{
+  "feature_id": "005-approve-ledger-gate",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 1,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 1,
+      "severity": "medium",
+      "category": "scope",
+      "file": "CLAUDE.md",
+      "title": "Unnecessary documentation change outside the feature scope",
+      "detail": "The 005 spec/plan/tasks constrain this feature to a single implementation file: global/specflow.approve.md. The added CLAUDE.md entries do not affect the approve quality-gate behavior or any acceptance criterion, so they expand the diff beyond the requested scope. Revert this hunk unless there is a separate, explicit requirement to update repo-level metadata.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 1,
+      "open": 0,
+      "new": 1,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
