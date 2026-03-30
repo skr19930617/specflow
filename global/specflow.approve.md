@@ -18,29 +18,32 @@ $ARGUMENTS
 
 2. review-ledger.json を読み込む:
    - `FEATURE_DIR/review-ledger.json` を Read ツールで読み込む。
-   - **ファイルが存在しない場合** → 以下を表示して **STOP**:
+   - **ファイルが存在しない場合** → 以下を表示し **WARNING として通過** (Approval Summary で degraded mode として処理):
      ```
-     ## Quality Gate: BLOCKED
-     review-ledger.json が見つかりません。先に impl/fix フェーズで review を実行してください。
+     ## Quality Gate: WARNING
+     ⚠️ review-ledger.json が見つかりません。Approval Summary は degraded mode で生成されます。
      ```
-   - **JSON パースに失敗した場合** → 以下を表示して **STOP**:
+     `LEDGER_AVAILABLE = false` を設定して続行する。
+   - **JSON パースに失敗した場合** → 以下を表示し **WARNING として通過**:
      ```
-     ## Quality Gate: BLOCKED
-     review-ledger.json のパースに失敗しました。ファイルを確認してください。
+     ## Quality Gate: WARNING
+     ⚠️ review-ledger.json のパースに失敗しました。Approval Summary は degraded mode で生成されます。
      ```
-   - **`status` フィールドが存在しない場合** → 以下を表示して **STOP**:
+     `LEDGER_AVAILABLE = false`、`LEDGER_PARSE_ERROR = true` を設定して続行する。
+   - **`status` フィールドが存在しない場合** → 以下を表示し **WARNING として通過**:
      ```
-     ## Quality Gate: BLOCKED
-     review-ledger.json に status フィールドがありません。ledger の形式を確認してください。
+     ## Quality Gate: WARNING
+     ⚠️ review-ledger.json に status フィールドがありません。Approval Summary は degraded mode で生成されます。
      ```
+     `LEDGER_AVAILABLE = false` を設定して続行する。
 
-3. `status` フィールドで gate 判定を行う:
-   - `status` が `has_open_high` の場合 → **停止**。以下を表示して **STOP**:
+3. `status` フィールドで gate 判定を行う（`LEDGER_AVAILABLE = true` の場合のみ）:
+   - `status` が `has_open_high` の場合 → **WARNING として通過**（Approval Summary で unresolved high が表示される）。以下を表示:
      ```
-     ## Quality Gate: BLOCKED
+     ## Quality Gate: WARNING
 
-     review-ledger.json に未解決の high finding があります。
-     `/specflow.fix` で修正してから再度 `/specflow.approve` を実行してください。
+     ⚠️ review-ledger.json に未解決の high finding があります。
+     Approval Summary に詳細が表示されます。
      ```
      続けて、`findings` 配列が存在し配列である場合、severity が `high` かつ status が `resolved` 以外の finding を抽出し、以下のテーブル形式で表示する:
      ```
@@ -58,12 +61,182 @@ $ARGUMENTS
      ```
      ## Quality Gate: PASSED
      ```
-   - `status` が上記以外の未知の値の場合 → **停止**。以下を表示して **STOP**:
+   - `status` が上記以外の未知の値の場合 → **WARNING として通過**。以下を表示:
      ```
-     ## Quality Gate: BLOCKED
-     不明な ledger status です。ファイルを確認してください。
+     ## Quality Gate: WARNING
+     ⚠️ 不明な ledger status です。Approval Summary で確認してください。
      ```
      `findings` 配列が存在し配列である場合、severity が `high` かつ status が `resolved` 以外の finding があればテーブル表示する。`findings` が存在しないまたは配列でない場合は、テーブル表示をスキップする。
+
+## Approval Summary Generation
+
+**This section runs after Quality Gate passes and before Commit.**
+
+### 1. Gather Inputs
+
+1. Get feature paths:
+   ```bash
+   .specify/scripts/bash/check-prerequisites.sh --json --paths-only
+   ```
+   Parse JSON to get `FEATURE_DIR`, `FEATURE_SPEC`.
+
+2. Read `FEATURE_SPEC` (= `specs/<feature>/spec.md`) via Read tool. If the file does not exist or is empty, set `SPEC_AVAILABLE = false`. Otherwise `SPEC_AVAILABLE = true`.
+
+3. Read `FEATURE_DIR/review-ledger.json` via Read tool. (Already loaded from Quality Gate — reuse `LEDGER_AVAILABLE` and `LEDGER_PARSE_ERROR` flags if set.)
+   - If file exists and is valid JSON: set `LEDGER_AVAILABLE = true`.
+   - If file is missing or empty: set `LEDGER_AVAILABLE = false`, `LEDGER_PARSE_ERROR = false`.
+   - If file exists but JSON parse fails: set `LEDGER_AVAILABLE = false`, `LEDGER_PARSE_ERROR = true`.
+
+4. Compute normalized diff source ONCE (all excluding `specs/<feature>/approval-summary.md`):
+   ```bash
+   git diff main...HEAD --name-only -- . ':(exclude)<FEATURE_DIR>/approval-summary.md'
+   ```
+   ```bash
+   git diff main...HEAD --stat -- . ':(exclude)<FEATURE_DIR>/approval-summary.md'
+   ```
+   ```bash
+   git diff main...HEAD -- . ':(exclude)<FEATURE_DIR>/approval-summary.md'
+   ```
+   ```bash
+   git diff main...HEAD --diff-filter=A --name-only -- . ':(exclude)<FEATURE_DIR>/approval-summary.md'
+   ```
+   - If any git diff command fails (e.g., main branch not found): set `DIFF_AVAILABLE = false`. Otherwise `DIFF_AVAILABLE = true`.
+   - Cache all four outputs for reuse by all sections below. The `--diff-filter=A` output provides the list of **newly added** files only (used by Remaining Risks section 2e).
+
+### 2. Generate Summary Sections
+
+Generate each section in the order below. Assemble them into the approval-summary.md content.
+
+#### Header
+
+```markdown
+# Approval Summary: <feature-id>
+
+**Generated**: <current timestamp>
+**Branch**: <current branch name>
+**Status**: ⚠️ <N> unresolved high | ✅ No unresolved high
+```
+
+The status line is determined after computing Review Loop Summary (step 2c):
+- If `LEDGER_AVAILABLE` is false and `LEDGER_PARSE_ERROR` is true: `⚠️ Review data unavailable (parse error)`
+- If `LEDGER_AVAILABLE` is false and not parse error: `⚠️ Review data unavailable`
+- If `unresolved_high > 0`: `⚠️ <N> unresolved high`
+- If `unresolved_high == 0`: `✅ No unresolved high`
+
+#### 2a. What Changed
+
+- If `DIFF_AVAILABLE`: Output the cached `git diff main...HEAD --stat` result.
+- If not: Display `⚠️ Diff unavailable — file-based sections cannot be computed`.
+
+#### 2b. Files Touched
+
+- If `DIFF_AVAILABLE`: Output the cached `git diff main...HEAD --name-only` result.
+- If not: Display `⚠️ Diff unavailable`.
+
+#### 2c. Review Loop Summary
+
+- If `LEDGER_AVAILABLE`: Compute from the `findings` array in review-ledger.json using these formulas:
+  ```
+  initial_high    = findings.filter(f => f.severity == "high" && f.origin_round == 1).length
+  resolved_high   = findings.filter(f => f.severity == "high" && f.status == "resolved").length
+  unresolved_high = findings.filter(f => f.severity == "high" && (f.status == "open" || f.status == "new")).length
+  new_later_high  = findings.filter(f => f.severity == "high" && f.origin_round > 1).length
+  ```
+  Also include `current_round` from the ledger.
+  Output as a Markdown table:
+  ```markdown
+  | Metric             | Count |
+  |--------------------|-------|
+  | Initial high       | <n>   |
+  | Resolved high      | <n>   |
+  | Unresolved high    | <n>   |
+  | New high (later)   | <n>   |
+  | Total rounds       | <n>   |
+  ```
+- If `LEDGER_PARSE_ERROR` is true: Display `⚠️ review-ledger.json parse error — review data unavailable`.
+- If ledger is missing (not parse error): Display `⚠️ No review data available`.
+
+#### 2d. Spec Coverage
+
+- If `SPEC_AVAILABLE` AND `DIFF_AVAILABLE`:
+  1. Extract acceptance criteria from `spec.md` using these formats in priority order:
+     - **Given/When/Then**: Each numbered `**Given**/**When**/**Then**` line under `Acceptance Scenarios` subsections.
+     - **Numbered scenarios**: Numbered lines (e.g., `1.`, `2.`) under `Acceptance Scenarios` that describe expected behavior.
+     - **Bullet-style scenarios**: Bullet points under User Story sections that describe acceptance conditions (e.g., `- US1: ...`, `- Given ... When ... Then ...`).
+     - **Fallback**: `Functional Requirements` (each `FR-NNN` bullet).
+     Use whichever format the spec actually uses. The LLM should recognize the acceptance criteria regardless of formatting style.
+  2. LLM reads these criteria and the cached full diff, then maps each criterion to the changed files that implement it.
+  3. Output as a Markdown table:
+     ```markdown
+     | # | Criterion (summary) | Covered? | Mapped Files |
+     |---|---------------------|----------|--------------|
+     | 1 | ...                 | Yes      | file1, file2 |
+     | 2 | ...                 | No       | —            |
+     ```
+  4. Compute and display: `**Coverage Rate**: <covered>/<total> (<percentage>%)`
+  5. Store the list of uncovered criteria for Remaining Risks.
+  6. Store covered/total counts for terminal summary.
+- If `SPEC_AVAILABLE` is false: Display `⚠️ Spec not found — coverage cannot be computed`.
+- If `DIFF_AVAILABLE` is false: Display `⚠️ Diff unavailable — coverage cannot be computed`.
+- If spec has no recognizable criteria: Display `⚠️ No criteria found`.
+
+#### 2e. Remaining Risks
+
+Three sources, in order:
+
+1. **Deterministic risks** (requires `LEDGER_AVAILABLE`):
+   Extract findings where `(status == "open" || status == "new") && (severity == "medium" || severity == "high")`.
+   List each as: `- <id>: <title> (severity: <sev>)`.
+   If `LEDGER_PARSE_ERROR` is true: Display `⚠️ review-ledger.json parse error — review data unavailable`.
+   If ledger is missing (not parse error): Display `⚠️ No review data available`.
+
+2. **Untested new files** (requires `DIFF_AVAILABLE` and `LEDGER_AVAILABLE`):
+   From the cached `--diff-filter=A` output (newly added files only), find `.sh` or `.md` files — excluding `specs/*/spec.md`, `specs/*/plan.md`, `specs/*/tasks.md`, `specs/*/approval-summary.md` — whose path does not appear in any finding's `file` field.
+   List as warnings: `- ⚠️ New file not mentioned in review: <path>`.
+
+3. **Uncovered criteria** (from Spec Coverage):
+   List criteria with `Covered? = No` from section 2d.
+   `- ⚠️ Uncovered criterion: <criterion summary>`.
+
+#### 2f. Human Checkpoints
+
+LLM reads spec, review-ledger findings, and diff to generate 3–5 actionable checkpoints requiring human judgment. Output as a checkbox list:
+```markdown
+- [ ] <checkpoint 1>
+- [ ] <checkpoint 2>
+- [ ] <checkpoint 3>
+```
+Each checkpoint must be specific to this feature, not generic boilerplate.
+- If some inputs are unavailable, generate from whatever is available.
+
+### 3. Write Summary File
+
+Write the assembled content (header + all 6 sections) to `FEATURE_DIR/approval-summary.md` via Write tool.
+
+### 4. Terminal Summary and User Confirmation
+
+Display a concise terminal summary:
+```
+## Approval Summary
+
+**Unresolved High**: <N>
+**Spec Coverage**: <covered>/<total> (<percentage>%) [omit if unavailable]
+**Remaining Risks**: <count>
+```
+
+If any sections are degraded, add: `⚠️ Degraded: <list of degraded section names>`
+
+Then use `AskUserQuestion` to prompt the user:
+- **Question**: "Approval Summary を確認しました。approve を続行しますか？"
+- **Options**:
+  - "続行" — proceed with commit
+  - "中止" — abort the approve flow
+
+If the user chooses "中止": display `"Approve を中止しました。"` and **STOP** (do not proceed to Commit).
+
+### 5. Staging Confirmation
+
+The existing Commit section uses `git add -A -- . ':(exclude).specflow'` which stages all files except `.specflow/`. This pattern does NOT exclude `specs/` — so `specs/<feature>/approval-summary.md` will be automatically staged. No additional git add is needed.
 
 ## Commit
 
