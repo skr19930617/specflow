@@ -37,7 +37,7 @@ cd specflow
 - `global/specflow*.md` → `~/.claude/commands/` にコピー（スラッシュコマンド）
 - `global/claude-settings.json` の権限 → `~/.claude/settings.json` に差分マージ
 
-リポジトリ更新後に `specflow-install` を再実行すると全体が最新に更新される（idempotent）。
+リポジトリ更新後に `specflow-install` を再実行すると全体が最新に更新される（idempotent）。スラッシュコマンドの更新（review-ledger 機能の追加等）を反映するには、`specflow-install` の再実行が必要。
 
 `~/bin` が PATH に入っていない場合はシェル設定に追加:
 
