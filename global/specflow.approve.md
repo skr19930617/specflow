@@ -8,13 +8,24 @@ description: 実装を承認し、コミット → Push → PR 作成
 $ARGUMENTS
 ```
 
-## Quality Gate
+## Step 0.5: Read Current Phase Context
 
-1. speckit の feature ディレクトリを取得する:
+1. Determine `FEATURE_DIR` by running:
    ```bash
    .specify/scripts/bash/check-prerequisites.sh --json --paths-only
    ```
-   JSON 出力から `FEATURE_DIR` を取得する。
+   Parse the JSON output to get `FEATURE_DIR`.
+2. Check if `FEATURE_DIR/current-phase.md` exists (via Read tool — if not found, proceed silently).
+3. If the file exists: read it and display as a summary block:
+   ```
+   Current Phase Context:
+   <contents of current-phase.md>
+   ```
+4. If the file does not exist: proceed without error. Optionally note: "No prior phase context found (first run)."
+
+## Quality Gate
+
+1. `FEATURE_DIR` は Step 0.5 で取得済み。
 
 2. review-ledger.json を読み込む:
    - `FEATURE_DIR/review-ledger.json` を Read ツールで読み込む。

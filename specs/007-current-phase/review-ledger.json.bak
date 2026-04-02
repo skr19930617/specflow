@@ -1,0 +1,66 @@
+{
+  "feature_id": "007-current-phase",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 1,
+      "severity": "medium",
+      "category": "correctness",
+      "file": "global/specflow.impl.md",
+      "title": "specflow.impl reads current-phase before resolving FEATURE_DIR",
+      "detail": "Step 0.5 derives FEATURE_DIR from check-prerequisites.sh but this command is not run until Step 2 setup. Add explicit check-prerequisites call in Step 0.5 or move setup earlier.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "origin_round": 1,
+      "latest_round": 1,
+      "severity": "medium",
+      "category": "scope",
+      "file": "global/specflow.fix.md",
+      "title": "Generated current-phase.md will leak into fix-review diffs",
+      "detail": "specflow.fix feeds git diff into review prompt. After this feature, current-phase.md will be reviewed as implementation. Exclude */current-phase.md from diff inputs.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "origin_round": 1,
+      "latest_round": 1,
+      "severity": "medium",
+      "category": "testing",
+      "file": "global/specflow.impl.md",
+      "title": "No validation for generation and recovery logic",
+      "detail": "Non-trivial behavior across three flows with no accompanying tests or scripted workflow checks. Add workflow-level coverage for generation, update, read, and malformed ledger cases.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 3, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
