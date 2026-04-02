@@ -14,6 +14,17 @@ $ARGUMENTS
 2. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash. If missing → **STOP**.
 3. Run `source .specflow/config.env` via Bash.
 
+## Step 0.5: Read Current Phase Context
+
+1. Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` and parse the JSON output to get `FEATURE_DIR` (and `FEATURE_SPEC`, `BRANCH` — these will be reused in later steps).
+2. Check if `FEATURE_DIR/current-phase.md` exists (via Read tool — if not found, proceed silently).
+3. If the file exists: read it and display as a summary block:
+   ```
+   Current Phase Context:
+   <contents of current-phase.md>
+   ```
+4. If the file does not exist: proceed without error. Optionally note: "No prior phase context found (first run)."
+
 ## Step 1: Implement
 
 Read the file `.claude/commands/speckit.implement.md` and follow its complete workflow.
@@ -42,7 +53,7 @@ Read `.specflow/review_impl_prompt.txt` and `FEATURE_SPEC`.
 
 Get the current git diff:
 ```bash
-git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt'
+git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md'
 ```
 
 Call the `codex` MCP server tool to review the implementation. Pass the following as the prompt:
@@ -148,6 +159,43 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
     | 2     | 7     | 2    | 2   | 3        | 2          |
     ```
     Then show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`
+
+## Step 2.6: Generate current-phase.md
+
+**This step runs after the review-ledger has been fully updated, backed up, and persisted to disk.**
+
+1. Read the just-written `FEATURE_DIR/review-ledger.json`.
+2. Extract: `feature_id` (or derive from directory name), `current_round`, `status`, `findings[]`.
+3. Compute each field:
+   - **Phase**: If `current_round == 1` → `impl-review`; else → `fix-review`. Fallback: `impl-review`.
+   - **Round**: `current_round`. Fallback: `1`.
+   - **Status**: Direct read from `status`. Fallback: `in_progress`.
+   - **Open High Findings**: Filter `findings[]` where `severity == "high"` AND `status in ["new", "open"]`. Format: `<count> 件 — "<title1>", "<title2>"`. If none: `0 件`. Fallback: `0 件`.
+   - **Accepted Risks**: Filter `findings[]` where `status in ["accepted_risk", "ignored"]`. Format each as `<title> (<status>, notes: "<notes>")`. If none: `none`. Fallback: `none`.
+   - **Latest Changes**: Run `git log --oneline -5 $(git merge-base HEAD ${BASE_BRANCH:-main})..HEAD` via Bash. Format each line as `  - <hash> <subject>`. If the command fails or returns empty output, use: `(no commits yet)`.
+   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.fix`; else → `/specflow.approve`. Fallback: `/specflow.fix`.
+4. **Malformed/missing ledger recovery** (if the ledger read in step 1 fails):
+   - First: attempt partial recovery — extract any readable top-level fields from the file.
+   - Second: supplement missing fields with in-memory data from the just-completed Codex review (findings, decision).
+   - Third: use spec-defined fallback values listed above.
+   - If `findings[]` is missing from both sources: set `0 件 (ledger findings unavailable)` and `none (ledger findings unavailable)`.
+   - Append parenthetical note to any fallback value (e.g., `in_progress (ledger parse error)`).
+5. Write `FEATURE_DIR/current-phase.md` using the Write tool (complete overwrite):
+
+```markdown
+# Current Phase: <feature_id>
+
+- Phase: <phase>
+- Round: <round>
+- Status: <status>
+- Open High Findings: <open_high_findings>
+- Accepted Risks: <accepted_risks>
+- Latest Changes:
+<latest_changes lines, each prefixed with "  - ">
+- Next Recommended Action: <next_action>
+```
+
+Report: `current-phase.md generated`
 
 ## Step 3: Present Review Results
 
