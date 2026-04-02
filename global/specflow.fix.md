@@ -155,6 +155,13 @@ If `REREVIEW_MODE = true`, display the classified results before the standard fi
 
 1. Determine `FEATURE_DIR` from `FEATURE_SPEC` (its parent directory).
 2. Attempt to Read `FEATURE_DIR/review-ledger.json`.
+
+   **Auto-fix mode fail-fast** (`$ARGUMENTS` に `autofix` が含まれる場合):
+   - **If file does not exist**: `"⚠ autofix mode: review-ledger.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.impl auto-fix loop に戻り、Case C でエラーハンドオフされる）。
+   - **If file exists but JSON parse fails**: `"⚠ autofix mode: review-ledger.json が破損しています。ループを停止します。"` と表示し、**即座に処理を終了**する（バックアップ復旧や AskUserQuestion は行わない）。
+   - **If file exists and valid JSON**: 通常通り使用する。
+
+   **通常モード** (`$ARGUMENTS` に `autofix` が含まれない場合):
    - **If file does not exist**: Create a new ledger: `{ "feature_id": "<BRANCH from check-prerequisites>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` (Note: `BRANCH` is available from the `check-prerequisites.sh --json --paths-only` output parsed in Setup)
    - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<BRANCH from check-prerequisites>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
    - **If file exists and valid JSON**: Use it. This is a "clean read" — backup will be created from this content before writing.
@@ -311,6 +318,10 @@ Codex Implementation Review (after fix)
 Report the review results.
 
 ## Handoff: 次のアクション選択
+
+**Auto-fix mode check**: `$ARGUMENTS` に `autofix` が含まれる場合、このコマンドは auto-fix loop から呼び出されている。ハンドオフ（AskUserQuestion）は **スキップ** し、ここで処理を終了する。制御は呼び出し元の auto-fix loop に戻り、ループ側が停止条件を判定する。
+
+**通常モード**（`$ARGUMENTS` に `autofix` が含まれない場合）:
 
 レビュー結果を表示した後、必ず `AskUserQuestion` ツールを使って次のアクションを選択させる。
 

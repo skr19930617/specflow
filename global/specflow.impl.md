@@ -13,6 +13,7 @@ $ARGUMENTS
 1. Run `ls .specflow/config.env` via Bash. If missing → **STOP**.
 2. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash. If missing → **STOP**.
 3. Run `source .specflow/config.env` via Bash.
+4. Read `SPECFLOW_MAX_AUTOFIX_ROUNDS` from the sourced config. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
 
 ## Step 0.5: Read Current Phase Context
 
@@ -214,10 +215,161 @@ Codex Implementation Review
 
 Report the review results.
 
-## Handoff: 次のアクション選択
+## Handoff: Auto-fix Loop または手動アクション選択
 
-レビュー結果を表示した後、必ず `AskUserQuestion` ツールを使って次のアクションを選択させる。
+レビュー結果を表示した後、review-ledger.json の `status` フィールドを確認する。
 
+### Case A: 修正可能な unresolved high が存在する → Auto-fix Loop 開始
+
+`findings[]` 内に `severity == "high"` かつ `status ∈ {"new", "open"}` の finding が 1 件以上ある場合、auto-fix loop を開始する。
+
+**`accepted_risk`/`ignored` の扱い**:
+- `accepted_risk` や `ignored` ステータスの high finding は、ユーザーが明示的に受容/無視した判断であり、auto-fix loop の**修正対象外**とする。
+- **ループ開始判定**: `new`/`open` の high が 0 件の場合（全て `accepted_risk`/`ignored`）は Case B（通常ハンドオフ）に進む。
+- **ループ成功判定**: `new`/`open` の high が 0 件になればループ成功とする。`accepted_risk`/`ignored` は成功判定をブロックしない。
+- **Quality gate スコア計算**: `accepted_risk`/`ignored` の finding は unresolved として**カウントに含める**（`status ∉ {"resolved"}` に該当するため）。これにより、ユーザーが override した finding の severity も品質指標に反映される。
+- **理由**: auto-fix loop はマシンが自動修正可能な finding（`new`/`open`）を対象とする。ユーザーが意図的に受容した finding を自動修正しようとするのは不適切。ledger の `status` フィールド（`has_open_high`）はレポート目的であり、ループ制御には `new`/`open` の high 件数を直接使用する。
+
+#### Round 0 Baseline Snapshot
+
+ループ開始前に、現在の review-ledger.json を読み、以下の baseline 値を記録する:
+
+1. **baseline_score**: 全 unresolved findings（`status ∉ {"resolved"}`）の severity 重み付けスコア合計（high=3, medium=2, low=1）
+2. **baseline_new_high_count**: 0（impl review 直後はまだ auto-fix ラウンドが未実行のため、new high の比較基準は 0 とする。ラウンド 1 終了時に実際の new high count が記録され、ラウンド 2 以降で比較に使用される）
+3. **baseline_resolved_high_titles**: `findings[]` 内の `status == "resolved"` かつ `severity == "high"` の `title` 一覧（これは impl review で解消された high。通常は空だが、前回の fix サイクルの結果が含まれる場合あり）
+4. **baseline_all_high_titles**: `findings[]` 内の `severity == "high"` の全 `title` 一覧（resolved 含む。次ラウンドで「新たに resolved になった」ものを特定するための基準）
+
+これらが round 0 比較基準となる。
+
+#### ループ変数の初期化
+
+```
+autofix_round = 0
+previous_score = baseline_score
+previous_new_high_count = baseline_new_high_count
+previous_resolved_high_titles = baseline_resolved_high_titles
+previous_all_resolved_high_titles = baseline_resolved_high_titles
+previous_all_high_titles = baseline_all_high_titles
+divergence_detected = false
+divergence_reason = ""
+loop_success = false
+```
+
+#### ループ本体
+
+以下を `MAX_AUTOFIX_ROUNDS` 回まで繰り返す:
+
+```
+WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT divergence_detected AND NOT loop_success:
+```
+
+1. `autofix_round` をインクリメント
+
+2. ラウンドヘッダーを表示:
+   ```
+   Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}: Starting fix...
+   ```
+
+3. `Skill(skill: "specflow.fix", args: "autofix")` を呼び出す。`autofix` 引数により specflow.fix はハンドオフをスキップし、fix → re-review → ledger 更新のみ実行して制御を返す。
+   - もし Skill 呼び出しが失敗した場合: エラーを報告し、ループを停止してユーザーにハンドオフ（Case C へ）
+
+4. 更新された `FEATURE_DIR/review-ledger.json` を Read する。
+   - もし読み込み失敗: エラーを報告し、ループを停止してユーザーにハンドオフ（Case C へ）
+
+5. **停止条件チェック**（優先順位順に実行、最初にトリガーされた条件で停止）:
+
+   **5a. Success check（最優先）**:
+   - `findings[]` 内の `severity == "high"` かつ `status ∈ {"new", "open"}` の件数をカウント
+   - 0 件の場合: `loop_success = true` → ループ終了
+
+   **5b. 同種 high 再発チェック**:
+   - **「前ラウンドで新たに resolved になった high」を算出**: 現ラウンドの ledger で `status == "resolved"` かつ `severity == "high"` の `title` 一覧を取得し、`previous_all_resolved_high_titles`（前ラウンド終了時点での resolved high titles）に**なかった**ものだけを抽出 → これが「直前ラウンドで新たに resolved になった high titles」
+   - 現ラウンドの `findings[]` 内の `severity == "high"` かつ `status ∈ {"new", "open"}` の `title` を取得
+   - 「直前ラウンドで新たに resolved になった high titles」と現ラウンドの unresolved high titles について case-insensitive 部分文字列比較: `lowercase(a).includes(lowercase(b))` OR `lowercase(b).includes(lowercase(a))`
+   - 1 件でも一致 → `divergence_detected = true`, `divergence_reason = "同種 finding の再発"`
+
+   **5c. Quality gate 悪化チェック**:
+   - `current_score = Σ weight(f.severity) for f in findings where f.status ∉ {"resolved"}`（high=3, medium=2, low=1）
+   - `current_score > previous_score` → `divergence_detected = true`, `divergence_reason = "quality gate 悪化"`
+
+   **5d. New high 増加チェック**（autofix_round >= 2 のみ。FR-009 準拠: title 完全一致で同一性判定）:
+   - 現ラウンドの `findings[]` 内の `severity == "high"` かつ `status ∈ {"new", "open"}` の `title` を取得
+   - `previous_all_high_titles`（前ラウンド終了時の全 high findings の title 一覧）と title 完全一致比較
+   - `previous_all_high_titles` に存在しなかった title の件数 = `current_new_high_count`
+   - `current_new_high_count > previous_new_high_count` → `divergence_detected = true`, `divergence_reason = "new high が増加傾向"`
+
+   **5e. Max rounds チェック**:
+   - `autofix_round >= MAX_AUTOFIX_ROUNDS` かつ unresolved high > 0 → ループ終了（divergence ではなく max rounds 到達として処理）
+
+6. **追跡変数を更新**:
+   - `previous_score = current_score`
+   - `previous_new_high_count = current_new_high_count`
+   - `previous_all_resolved_high_titles = findings[]` 内の `status == "resolved"` かつ `severity == "high"` の全 `title` 一覧（次ラウンドで「新たに resolved になった」ものを特定するための基準）
+   - `previous_all_high_titles = findings[]` 内の `severity == "high"` の全 `title` 一覧（resolved 含む。次ラウンドの new high 検出用）
+
+7. ラウンド結果を表示:
+   ```
+   Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}:
+     - Unresolved high: {count} ({delta} from previous)
+     - Severity score: {current_score} ({delta} from previous)
+     - New high: {current_new_high_count}
+     - Status: {continuing | stopped: <reason>}
+   ```
+
+#### ループ完了サマリー
+
+ループ終了後（理由問わず）、以下を表示:
+
+```
+Auto-fix Loop Complete:
+  - Total rounds: {autofix_round}
+  - Result: {success | stopped}
+  - Reason: {unresolved high = 0 | max rounds reached | divergence: <divergence_reason>}
+  - Remaining unresolved high: {count}
+```
+
+#### ループ後のハンドオフ
+
+**成功時**（`loop_success == true`、unresolved high = 0）:
+
+`AskUserQuestion` で以下を表示:
+```
+AskUserQuestion:
+  question: "Auto-fix loop 完了（成功）。次のアクションを選択してください"
+  options:
+    - label: "Approve & Commit"
+      description: "実装を承認してコミット・PR 作成"
+    - label: "Reject"
+      description: "全変更を破棄して終了"
+```
+
+- 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
+- 「Reject」 → `Skill(skill: "specflow.reject")`
+
+**停止時**（unresolved high > 0 — divergence or max rounds）:
+
+`AskUserQuestion` で以下を表示:
+```
+AskUserQuestion:
+  question: "Auto-fix loop 停止（{reason}）。次のアクションを選択してください"
+  options:
+    - label: "Fix All (manual)"
+      description: "残りの指摘を手動で修正して再レビュー"
+    - label: "Approve & Commit"
+      description: "現状で承認してコミット・PR 作成"
+    - label: "Reject"
+      description: "全変更を破棄して終了"
+```
+
+- 「Fix All (manual)」 → `Skill(skill: "specflow.fix")`
+- 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
+- 「Reject」 → `Skill(skill: "specflow.reject")`
+
+### Case B: `status` が `"has_open_high"` でない → 通常の手動ハンドオフ
+
+`status` が `"all_resolved"` または `"in_progress"`（high なし）の場合、従来通りの手動ハンドオフを表示する。
+
+`AskUserQuestion` で以下を表示:
 ```
 AskUserQuestion:
   question: "次のアクションを選択してください"
@@ -230,12 +382,32 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
-ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
 - 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
 - 「Fix All」 → `Skill(skill: "specflow.fix")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
-**IMPORTANT:** Do NOT present next-action choices as text.必ず `AskUserQuestion` のボタン UI を使うこと。
+### Case C: エラー時のハンドオフ
+
+auto-fix loop 中にエラーが発生した場合（ledger 読み込み失敗、fix Skill 呼び出し失敗等）:
+
+エラーメッセージを表示し、`AskUserQuestion` で以下を表示:
+```
+AskUserQuestion:
+  question: "Auto-fix loop 中にエラーが発生しました: {error}。次のアクションを選択してください"
+  options:
+    - label: "Fix All (manual)"
+      description: "手動で修正して再レビュー"
+    - label: "Approve & Commit"
+      description: "現状で承認してコミット・PR 作成"
+    - label: "Reject"
+      description: "全変更を破棄して終了"
+```
+
+- 「Fix All (manual)」 → `Skill(skill: "specflow.fix")`
+- 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
+- 「Reject」 → `Skill(skill: "specflow.reject")`
+
+**IMPORTANT:** Do NOT present next-action choices as text. 必ず `AskUserQuestion` のボタン UI を使うこと。
 
 ## Important Rules
 
