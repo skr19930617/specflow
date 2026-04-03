@@ -49,6 +49,23 @@ if [[ "$UPDATE_MODE" == true ]]; then
     cp "$cmd_file" "$HOME/.claude/commands/$base"
     echo "Updated ~/.claude/commands/$base"
   done
+  # .specflow/ に不足しているプロンプトファイルを補完
+  TEMPLATE_SPECFLOW="$CONFIG_DIR/template/.specflow"
+  if [[ -d ".specflow" ]] && [[ -d "$TEMPLATE_SPECFLOW" ]]; then
+    SYNCED=0
+    for tmpl_file in "$TEMPLATE_SPECFLOW"/*.txt; do
+      [[ -f "$tmpl_file" ]] || continue
+      base="$(basename "$tmpl_file")"
+      if [[ ! -f ".specflow/$base" ]]; then
+        cp "$tmpl_file" ".specflow/$base"
+        echo "Synced missing .specflow/$base"
+        SYNCED=$((SYNCED + 1))
+      fi
+    done
+    if [[ "$SYNCED" -gt 0 ]]; then
+      echo "Synced $SYNCED missing prompt file(s) to .specflow/"
+    fi
+  fi
   echo "Done. Slash commands updated."
   exit 0
 fi
@@ -135,7 +152,9 @@ echo
 echo "Initialized .specflow/ in $ROOT"
 echo "  .specflow/config.env"
 echo "  .specflow/review_spec_prompt.txt"
+echo "  .specflow/review_plan_prompt.txt"
 echo "  .specflow/review_impl_prompt.txt"
+echo "  .specflow/review_impl_rereview_prompt.txt"
 echo
 
 # speckit チェック

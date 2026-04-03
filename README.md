@@ -79,7 +79,7 @@ specflow-init
 specflow-init --update
 ```
 
-> **Note:** 既存プロジェクトで `review_plan_prompt.txt` が `.specflow/` に存在しない場合は、`~/.config/specflow/template/.specflow/review_plan_prompt.txt` を手動でコピーしてください。
+> **Note:** 既存プロジェクトで `review_plan_prompt.txt` や `review_impl_rereview_prompt.txt` が `.specflow/` に存在しない場合は、`~/.config/specflow/template/.specflow/` から手動でコピーしてください。
 
 ### 2. CLAUDE.md のセットアップ
 
@@ -213,6 +213,7 @@ specflow/                      # このリポジトリ（ツール）
       review_spec_prompt.txt   #   spec レビュープロンプト
       review_plan_prompt.txt   #   plan/tasks レビュープロンプト
       review_impl_prompt.txt   #   実装レビュープロンプト
+      review_impl_rereview_prompt.txt  #  実装 re-review プロンプト
     .mcp.json                  #   Codex MCP サーバー設定
     CLAUDE.md                  #   Claude Code 用プロジェクト設定テンプレート
   README.md
