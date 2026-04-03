@@ -14,10 +14,13 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 | コマンド | 役割 |
 |----------|------|
 | `/specflow <issue-url>` | issue → spec → clarify → Codex spec review |
+| `/specflow.spec_review` | Codex spec review を単独実行 |
 | `/specflow.spec_fix` | spec 修正 → Codex spec re-review |
 | `/specflow.plan` | plan → tasks → Codex plan/tasks review |
+| `/specflow.plan_review` | Codex plan/tasks review を単独実行 |
 | `/specflow.plan_fix` | plan/tasks 修正 → Codex plan/tasks re-review |
 | `/specflow.impl` | implement → Codex impl review |
+| `/specflow.impl_review` | Codex impl review を単独実行（ledger 更新・auto-fix loop 含む） |
 | `/specflow.fix` | impl 修正 → Codex impl re-review |
 | `/specflow.approve` | commit → push → PR 作成 |
 | `/specflow.reject` | 全変更破棄 |
@@ -25,6 +28,7 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 
 フロー: `/specflow` → `/specflow.plan` → `/specflow.impl` → `/specflow.approve`
 修正ループ: spec → `/specflow.spec_fix` / plan → `/specflow.plan_fix` / impl → `/specflow.fix`
+単独レビュー: `/specflow.spec_review` / `/specflow.plan_review` / `/specflow.impl_review`
 
 ### Spec Kit Slash Commands (standalone)
 

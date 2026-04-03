@@ -75,61 +75,13 @@ Report: `Step 4 complete — Clarify done`
 
 ## Step 5: Codex Spec Review
 
-Read `.specflow/review_spec_prompt.txt` for the review prompt.
-Read the current `FEATURE_SPEC` file.
-Read the issue body from `/tmp/specflow-issue.json`.
+Read the file `global/specflow.spec_review.md` and follow its complete workflow.
 
-Call the `codex` MCP server tool to review the spec. Pass the following as the prompt:
-
-```
-<review_spec_prompt.txt の内容>
-
-ISSUE BODY:
-<issue body の内容>
-
-SPEC CONTENT:
-<FEATURE_SPEC の内容>
-```
-
-Parse the response as JSON (the review prompt instructs the model to return strict JSON with `decision`, `questions`, and `summary` fields).
-
-Present the review:
-```
-Step 5: Codex Spec Review
-
-**Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
-**Summary:** <summary>
-
-| # | Severity | Title | Detail | Suggested Resolution |
-|---|----------|-------|--------|---------------------|
-| Q1 | high | ... | ... | ... |
-| Q2 | medium | ... | ... | ... |
-```
-
-Report the review results.
-
-## Handoff: 次のアクション選択
-
-レビュー結果を表示した後、必ず `AskUserQuestion` ツールを使って次のアクションを選択させる。
-
-```
-AskUserQuestion:
-  question: "次のアクションを選択してください"
-  options:
-    - label: "Plan に進む"
-      description: "Plan → Tasks を作成しレビュー"
-    - label: "Spec を修正"
-      description: "レビュー指摘に基づいて Spec を修正し再レビュー"
-    - label: "中止"
-      description: "変更を破棄して終了"
-```
-
-ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
-- 「Plan に進む」 → `Skill(skill: "specflow.plan")`
-- 「Spec を修正」 → `Skill(skill: "specflow.spec_fix")`
-- 「中止」 → `Skill(skill: "specflow.reject")`
-
-**IMPORTANT:** Do NOT present next-action choices as text.必ず `AskUserQuestion` のボタン UI を使うこと。
+This will:
+- Read the review prompt and spec file
+- Call Codex MCP to review the spec
+- Present the review results
+- Show handoff options (Plan に進む / Spec を修正 / 中止)
 
 ## Important Rules
 
