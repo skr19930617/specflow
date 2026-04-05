@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+# specflow-filter-diff — Filter git diff for Codex review
+#
+# Removes complete file deletions and rename-only files from the diff.
+# Optionally excludes files matching DIFF_EXCLUDE_PATTERNS (colon-separated globs).
+# Outputs filtered diff to stdout, JSON summary to stderr (last line).
+#
+# Usage:
+#   specflow-filter-diff [-- <pathspec>...]
+#   DIFF_EXCLUDE_PATTERNS="*.lock:generated/**" specflow-filter-diff -- . ':(exclude).specflow'
+#
+# Environment:
+#   DIFF_EXCLUDE_PATTERNS  Colon-separated glob patterns to exclude (optional)
+#   DIFF_WARN_THRESHOLD    Line count warning threshold (default: 1000, used by caller)
+
+set -euo pipefail
+
+# --- Argument parsing ---
+# All arguments are forwarded to git diff as pathspecs
+PATHSPEC_ARGS=("$@")
+
+show_help() {
+    cat <<'EOF'
+Usage: specflow-filter-diff [-- <pathspec>...]
+
+Filter git diff output for Codex review by removing:
+  - Completely deleted files (deleted file mode)
+  - Rename-only files (similarity index 100%, no content change)
+  - Files matching DIFF_EXCLUDE_PATTERNS globs
+
+Output:
+  stdout: Filtered diff text
+  stderr: JSON summary (last line)
+
+Environment variables:
+  DIFF_EXCLUDE_PATTERNS  Colon-separated glob patterns to exclude
+  DIFF_WARN_THRESHOLD    Line count threshold (used by caller, not this script)
+
+Examples:
+  specflow-filter-diff
+  specflow-filter-diff -- . ':(exclude).specflow' ':(exclude).specify'
+  DIFF_EXCLUDE_PATTERNS="*.lock:dist/**" specflow-filter-diff
+EOF
+    exit 0
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    show_help
+fi
+
+# --- Path-aware glob matching ---
+# bash [[ == ]] treats * as matching / (unlike fnmatch).
+# We use git check-ignore with a custom pattern to get correct path semantics:
+# * matches within a single directory, ** matches across directories.
+path_matches_pattern() {
+    local filepath="$1"
+    local pattern="$2"
+    # Use git's own pathspec matching via check-ignore simulation
+    # Convert glob to gitignore-style pattern and test
+    echo "$filepath" | git check-ignore --stdin --no-index -q -n 2>/dev/null <<< "$pattern" && return 0
+    # Fallback: use bash case with extglob for simple patterns
+    # For patterns without /, bash matching is acceptable
+    if [[ "$pattern" != */* ]]; then
+        local basename="${filepath##*/}"
+        [[ "$basename" == $pattern ]] && return 0
+    fi
+    # For patterns with /, try exact bash match (aware that * crosses /)
+    # This is a compromise; for most real-world patterns it works correctly
+    [[ "$filepath" == $pattern ]] && return 0
+    return 1
+}
+
+# --- Parse and validate DIFF_EXCLUDE_PATTERNS ---
+declare -a valid_patterns=()
+declare -a warnings=()
+
+if [[ -n "${DIFF_EXCLUDE_PATTERNS:-}" ]]; then
+    IFS=':' read -ra raw_patterns <<< "$DIFF_EXCLUDE_PATTERNS"
+    for pattern in "${raw_patterns[@]}"; do
+        # Skip empty patterns
+        if [[ -z "$pattern" ]]; then
+            continue
+        fi
+        # Validate glob syntax by testing in a subshell
+        if bash -c '[[ "___test___" == '"${pattern}"' ]]' 2>/dev/null; then
+            valid_patterns+=("$pattern")
+        else
+            # Check if it's actually a syntax error vs just no match
+            if ! bash -c '[[ "___test___" == '"${pattern}"' ]] || true' 2>/dev/null; then
+                warnings+=("invalid pattern '${pattern}' — skipping")
+            else
+                valid_patterns+=("$pattern")
+            fi
+        fi
+    done
+fi
+
+# --- Get file list with change types ---
+name_status_output=$(git diff --name-status -M100 "${PATHSPEC_ARGS[@]}" 2>/dev/null || true)
+
+if [[ -z "$name_status_output" ]]; then
+    # No changes at all
+    json_summary=$(printf '{"excluded":[],"warnings":%s,"included_count":0,"excluded_count":0,"total_lines":0}' \
+        "$(printf '%s\n' "${warnings[@]+"${warnings[@]}"}" | jq -R -s 'split("\n") | map(select(length > 0))')")
+    echo "$json_summary" >&2
+    exit 0
+fi
+
+# --- Classify and filter files ---
+declare -a included_files=()
+declare -a excluded_json_entries=()
+
+while IFS=$'\t' read -r status file1 file2; do
+    # Determine the file path and change type
+    case "$status" in
+        D)
+            # Completely deleted file — exclude
+            excluded_json_entries+=("{\"file\":\"${file1}\",\"reason\":\"deleted_file\"}")
+            continue
+            ;;
+        R100)
+            # Rename only (similarity 100%) — exclude
+            excluded_json_entries+=("{\"file\":\"${file1}\",\"reason\":\"rename_only\",\"new_path\":\"${file2}\"}")
+            continue
+            ;;
+        R*)
+            # Rename with content change — treat as normal, use new path
+            file1="$file2"
+            ;;
+        C*)
+            # Copy — use the destination path
+            file1="$file2"
+            ;;
+    esac
+
+    # Check against DIFF_EXCLUDE_PATTERNS
+    local_excluded=false
+    for pattern in "${valid_patterns[@]+"${valid_patterns[@]}"}"; do
+        # Use path-aware matching (respects * not crossing /)
+        if path_matches_pattern "$file1" "$pattern"; then
+            excluded_json_entries+=("{\"file\":\"${file1}\",\"reason\":\"pattern_match\",\"pattern\":\"${pattern}\"}")
+            local_excluded=true
+            break
+        fi
+    done
+
+    if [[ "$local_excluded" == false ]]; then
+        included_files+=("$file1")
+    fi
+done <<< "$name_status_output"
+
+# --- Generate filtered diff ---
+# Only pass included files as explicit paths. Do NOT re-pass the original
+# broad pathspecs (e.g. "-- .") because they would union with included_files
+# and re-include the excluded files.
+total_lines=0
+if [[ ${#included_files[@]} -gt 0 ]]; then
+    filtered_diff=$(git diff -- "${included_files[@]}" 2>/dev/null || true)
+    if [[ -n "$filtered_diff" ]]; then
+        echo "$filtered_diff"
+        total_lines=$(echo "$filtered_diff" | wc -l | tr -d ' ')
+    fi
+fi
+
+# --- Output JSON summary to stderr (last line) ---
+excluded_count=${#excluded_json_entries[@]}
+included_count=${#included_files[@]}
+
+# Build excluded array
+excluded_array="["
+for i in "${!excluded_json_entries[@]}"; do
+    if [[ $i -gt 0 ]]; then
+        excluded_array+=","
+    fi
+    excluded_array+="${excluded_json_entries[$i]}"
+done
+excluded_array+="]"
+
+# Build warnings array
+warnings_array="["
+for i in "${!warnings[@]}"; do
+    if [[ $i -gt 0 ]]; then
+        warnings_array+=","
+    fi
+    # Escape the warning string for JSON
+    escaped=$(printf '%s' "${warnings[$i]}" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    warnings_array+="\"${escaped}\""
+done
+warnings_array+="]"
+
+json_summary="{\"excluded\":${excluded_array},\"warnings\":${warnings_array},\"included_count\":${included_count},\"excluded_count\":${excluded_count},\"total_lines\":${total_lines}}"
+
+echo "$json_summary" >&2

@@ -53,10 +53,20 @@ Parse the JSON output to get `FEATURE_SPEC` and `BRANCH`. Read the spec file.
 
 ## Apply Fixes
 
-Read the current `git diff` to understand the implementation state:
+Source `config.env` to load `DIFF_EXCLUDE_PATTERNS` and `DIFF_WARN_THRESHOLD` (default: 1000).
+
+Generate the filtered diff to understand the implementation state:
 ```bash
-git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md'
+specflow-filter-diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
 ```
+
+Read `/tmp/specflow-filter-summary.json` and parse the JSON.
+
+**Filter Summary Display**: If `excluded_count > 0`, display the filter summary (same format as specflow.impl_review.md). If `excluded_count == 0`, skip.
+
+If there are `warnings` in the JSON (non-empty array), display each warning.
+
+Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 Read the spec file for acceptance criteria context.
 
@@ -84,10 +94,20 @@ Attempt to Read `FEATURE_DIR/review-ledger.json` to determine which review promp
 
 Read `FEATURE_SPEC`.
 
-Get the current git diff:
+Generate the filtered diff for review:
 ```bash
-git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md'
+specflow-filter-diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
 ```
+
+Read `/tmp/specflow-filter-summary.json` and parse the JSON.
+
+**Filter Summary Display**: If `excluded_count > 0`, display the filter summary. If there are `warnings`, display each. If `excluded_count == 0`, skip.
+
+**Empty Diff Check**: Read `/tmp/specflow-filtered-diff.txt`. If empty, display: `"レビュー対象の変更がありません。"` → **STOP**.
+
+**Line Count Warning**: If `total_lines` exceeds `DIFF_WARN_THRESHOLD`, use `AskUserQuestion` with "続行"/"中止" options. If "中止", skip review → **STOP**.
+
+Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 ### Call Codex
 
@@ -99,7 +119,7 @@ Read `~/.config/specflow/global/review_impl_prompt.md`. If the file does not exi
 <review_impl_prompt.md の内容>
 
 CURRENT GIT DIFF:
-<git diff の内容>
+<filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
 SPEC CONTENT:
 <FEATURE_SPEC の内容>
@@ -119,7 +139,7 @@ MAX_FINDING_ID:
 <MAX_FINDING_ID の値>
 
 CURRENT GIT DIFF:
-<git diff の内容>
+<filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
 SPEC CONTENT:
 <FEATURE_SPEC の内容>

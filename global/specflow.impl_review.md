@@ -43,17 +43,50 @@ Determine `FEATURE_SPEC` by running:
 ```
 Parse the JSON output to get `FEATURE_SPEC`, `FEATURE_DIR`, and `BRANCH`.
 
-Verify that implementation changes exist by running:
+### Diff Filtering
+
+Source `config.env` to load `DIFF_EXCLUDE_PATTERNS` and `DIFF_WARN_THRESHOLD` (default: 1000).
+
+Generate the filtered diff by running via Bash:
 ```bash
-git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md'
+specflow-filter-diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
 ```
-If the diff is empty, display an error: `"実装変更が見つかりません。先に /specflow.impl を実行してください。"` → **STOP**.
+
+Read `/tmp/specflow-filter-summary.json` and parse the JSON (last line).
+
+**Filter Summary Display**: If `excluded_count > 0` in the JSON summary, display a filter summary before the review:
+```
+Diff Filter Summary:
+| File | Reason |
+|------|--------|
+| <file1> | <reason: deleted_file / rename_only / pattern_match> |
+| <file2> | ... |
+
+Excluded: <excluded_count> files | Included: <included_count> files | Total lines: <total_lines>
+```
+If `excluded_count == 0`, skip the summary display.
+
+If there are `warnings` in the JSON (non-empty array), display each warning: `"⚠ <warning message>"`.
+
+**Empty Diff Check**: Read `/tmp/specflow-filtered-diff.txt`. If the file is empty (0 bytes or only whitespace), display: `"レビュー対象の変更がありません。フィルタリングにより全ての変更が除外されたか、実装変更がありません。"` → **STOP**.
+
+**Line Count Warning**: If `total_lines` from the JSON exceeds `DIFF_WARN_THRESHOLD` (default: 1000), display a warning and ask for confirmation via `AskUserQuestion`:
+```
+AskUserQuestion:
+  question: "フィルタリング後の diff が {total_lines} 行あります（閾値: {DIFF_WARN_THRESHOLD} 行）。Codex がスタックする可能性があります。続行しますか？"
+  options:
+    - label: "続行"
+      description: "このまま Codex レビューを実行"
+    - label: "中止"
+      description: "レビューをスキップ"
+```
+If user chooses "中止", display `"レビューをスキップしました。"` → **STOP**.
 
 ### Review
 
 Read `~/.config/specflow/global/review_impl_prompt.md` and `FEATURE_SPEC`. If the prompt file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
-Get the current git diff (same command as above).
+Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 Call the `codex` MCP server tool to review the implementation. Pass the following as the prompt:
 
@@ -61,7 +94,7 @@ Call the `codex` MCP server tool to review the implementation. Pass the followin
 <review_impl_prompt.md の内容>
 
 CURRENT GIT DIFF:
-<git diff の内容>
+<filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
 SPEC CONTENT:
 <FEATURE_SPEC の内容>
