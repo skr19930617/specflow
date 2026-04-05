@@ -12,10 +12,26 @@ $ARGUMENTS
 
 Before starting, verify the project is initialized:
 
-1. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing: "`.specflow/config.env` が見つかりません。先に `specflow-init` を実行してください。" → **STOP**.
-2. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
-   - If missing: "speckit が見つかりません。speckit をインストールしてから再度実行してください。" → **STOP**.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+   - If missing:
+     ```
+     ❌ speckit が見つかりません。
+
+     次のステップでインストールしてください:
+     1. `npx specy init` を実行
+     2. `/specflow` を再度実行
+     ```
+     → **STOP**.
+2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
+   - If missing:
+     ```
+     ❌ `.specflow/config.env` が見つかりません。
+
+     次のステップで初期化してください:
+     1. `specflow-init` を実行
+     2. `/specflow` を再度実行
+     ```
+     → **STOP**.
 3. Run `source .specflow/config.env` via Bash to load project config.
 
 ## Step 1: Setup — 入力取得と分類
