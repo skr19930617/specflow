@@ -53,10 +53,20 @@ Parse the JSON output to get `FEATURE_SPEC` and `BRANCH`. Read the spec file.
 
 ## Apply Fixes
 
-Read the current `git diff` to understand the implementation state:
+Source `config.env` to load `DIFF_EXCLUDE_PATTERNS` and `DIFF_WARN_THRESHOLD` (default: 1000).
+
+Generate the filtered diff to understand the implementation state:
 ```bash
-git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md'
+specflow-filter-diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
 ```
+
+Read `/tmp/specflow-filter-summary.json` and parse the JSON.
+
+**Filter Summary Display**: If `excluded_count > 0`, display the filter summary (same format as specflow.impl_review.md). If `excluded_count == 0`, skip.
+
+If there are `warnings` in the JSON (non-empty array), display each warning.
+
+Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 Read the spec file for acceptance criteria context.
 
@@ -76,30 +86,40 @@ Determine `FEATURE_DIR` from `FEATURE_SPEC` (its parent directory).
 
 Attempt to Read `FEATURE_DIR/review-ledger.json` to determine which review prompt to use:
 
-- **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_impl_prompt.txt`), unchanged behavior. Set `REREVIEW_MODE = false`.
-- **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_impl_rereview_prompt.txt`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
+- **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_impl_prompt.md`), unchanged behavior. Set `REREVIEW_MODE = false`.
+- **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_impl_rereview_prompt.md`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
 - **Branch C: Empty findings** — file exists, JSON valid, but `findings` array is empty → use re-review prompt with empty `PREVIOUS_FINDINGS` array, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`.
 - **Branch D: Corrupt/malformed ledger** — file exists but JSON parse fails or required fields missing → use re-review prompt with empty `PREVIOUS_FINDINGS`, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`, `LEDGER_ERROR = true`. Display: `"⚠ review-ledger.json が破損しています。空の前回 findings で re-review を実行します。"`.
 - **Branch E: Missing max_finding_id** — file exists, JSON valid, findings present, but `max_finding_id` field absent → derive from findings. Log: `"⚠ max_finding_id が見つかりません。findings から導出しました。"`. Proceed as Branch B.
 
 Read `FEATURE_SPEC`.
 
-Get the current git diff:
+Generate the filtered diff for review:
 ```bash
-git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md'
+specflow-filter-diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
 ```
+
+Read `/tmp/specflow-filter-summary.json` and parse the JSON.
+
+**Filter Summary Display**: If `excluded_count > 0`, display the filter summary. If there are `warnings`, display each. If `excluded_count == 0`, skip.
+
+**Empty Diff Check**: Read `/tmp/specflow-filtered-diff.txt`. If empty, display: `"レビュー対象の変更がありません。"` → **STOP**.
+
+**Line Count Warning**: If `total_lines` exceeds `DIFF_WARN_THRESHOLD`, use `AskUserQuestion` with "続行"/"中止" options. If "中止", skip review → **STOP**.
+
+Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 ### Call Codex
 
 **If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
 
-Read `.specflow/review_impl_prompt.txt`. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/review_impl_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
-<review_impl_prompt.txt の内容>
+<review_impl_prompt.md の内容>
 
 CURRENT GIT DIFF:
-<git diff の内容>
+<filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
 SPEC CONTENT:
 <FEATURE_SPEC の内容>
@@ -107,10 +127,10 @@ SPEC CONTENT:
 
 **If `REREVIEW_MODE = true`** (ledger exists, re-review prompt):
 
-Read `.specflow/review_impl_rereview_prompt.txt`. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/review_impl_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
-<review_impl_rereview_prompt.txt の内容>
+<review_impl_rereview_prompt.md の内容>
 
 PREVIOUS_FINDINGS:
 <PREVIOUS_FINDINGS の JSON 配列>
@@ -119,7 +139,7 @@ MAX_FINDING_ID:
 <MAX_FINDING_ID の値>
 
 CURRENT GIT DIFF:
-<git diff の内容>
+<filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
 SPEC CONTENT:
 <FEATURE_SPEC の内容>

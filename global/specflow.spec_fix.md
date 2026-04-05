@@ -58,14 +58,14 @@ Report what was fixed.
 
 ## Step 2: Re-run Codex Spec Review
 
-Read `.specflow/review_spec_prompt.txt` and the updated `FEATURE_SPEC`.
+Read `~/.config/specflow/global/review_spec_prompt.md` and the updated `FEATURE_SPEC`. If the prompt file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_spec_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Read the original issue body from `/tmp/specflow-issue.json` if available.
 
 Call the `codex` MCP server tool to review the spec. Pass the following as the prompt:
 
 ```
-<review_spec_prompt.txt の内容>
+<review_spec_prompt.md の内容>
 
 ISSUE BODY:
 <issue body の内容（available な場合）>
