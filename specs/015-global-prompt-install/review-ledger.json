@@ -1,0 +1,65 @@
+{
+  "feature_id": "015-global-prompt-install",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "packaging",
+      "file": "global/review_*_prompt.md",
+      "title": "New global review prompt assets are not part of the tracked change",
+      "detail": "The 4 new global/review_*_prompt.md files are untracked and will not be included in the PR.",
+      "status": "resolved",
+      "relation": "new",
+      "origin_round": 1,
+      "latest_round": 2,
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "spec-compliance",
+      "file": "global/specflow.*.md",
+      "title": "Legacy .txt prompt references remain inside the command templates",
+      "detail": "Prompt assembly blocks still say <review_*_prompt.txt の内容> instead of .md",
+      "status": "resolved",
+      "relation": "new",
+      "origin_round": 1,
+      "latest_round": 2,
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 0,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 1, "resolved": 0, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 },
+        "low": { "open": 1, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 0,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 },
+        "low": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

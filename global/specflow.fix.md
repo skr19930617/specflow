@@ -76,8 +76,8 @@ Determine `FEATURE_DIR` from `FEATURE_SPEC` (its parent directory).
 
 Attempt to Read `FEATURE_DIR/review-ledger.json` to determine which review prompt to use:
 
-- **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_impl_prompt.txt`), unchanged behavior. Set `REREVIEW_MODE = false`.
-- **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_impl_rereview_prompt.txt`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
+- **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_impl_prompt.md`), unchanged behavior. Set `REREVIEW_MODE = false`.
+- **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_impl_rereview_prompt.md`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
 - **Branch C: Empty findings** — file exists, JSON valid, but `findings` array is empty → use re-review prompt with empty `PREVIOUS_FINDINGS` array, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`.
 - **Branch D: Corrupt/malformed ledger** — file exists but JSON parse fails or required fields missing → use re-review prompt with empty `PREVIOUS_FINDINGS`, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`, `LEDGER_ERROR = true`. Display: `"⚠ review-ledger.json が破損しています。空の前回 findings で re-review を実行します。"`.
 - **Branch E: Missing max_finding_id** — file exists, JSON valid, findings present, but `max_finding_id` field absent → derive from findings. Log: `"⚠ max_finding_id が見つかりません。findings から導出しました。"`. Proceed as Branch B.
@@ -93,10 +93,10 @@ git diff -- . ':(exclude).specflow' ':(exclude).specify' ':(exclude)*/review-led
 
 **If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
 
-Read `.specflow/review_impl_prompt.txt`. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/review_impl_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
-<review_impl_prompt.txt の内容>
+<review_impl_prompt.md の内容>
 
 CURRENT GIT DIFF:
 <git diff の内容>
@@ -107,10 +107,10 @@ SPEC CONTENT:
 
 **If `REREVIEW_MODE = true`** (ledger exists, re-review prompt):
 
-Read `.specflow/review_impl_rereview_prompt.txt`. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/review_impl_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
-<review_impl_rereview_prompt.txt の内容>
+<review_impl_rereview_prompt.md の内容>
 
 PREVIOUS_FINDINGS:
 <PREVIOUS_FINDINGS の JSON 配列>

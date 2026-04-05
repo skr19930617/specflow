@@ -151,10 +151,6 @@ fi
 echo
 echo "Initialized .specflow/ in $ROOT"
 echo "  .specflow/config.env"
-echo "  .specflow/review_spec_prompt.txt"
-echo "  .specflow/review_plan_prompt.txt"
-echo "  .specflow/review_impl_prompt.txt"
-echo "  .specflow/review_impl_rereview_prompt.txt"
 echo
 
 # speckit チェック

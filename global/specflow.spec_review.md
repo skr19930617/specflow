@@ -44,7 +44,7 @@ Verify that `FEATURE_SPEC` exists (via Read tool). If the file does not exist, d
 
 ## Step 1: Codex Spec Review
 
-Read `.specflow/review_spec_prompt.txt` for the review prompt.
+Read `~/.config/specflow/global/review_spec_prompt.md` for the review prompt. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_spec_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 Read the current `FEATURE_SPEC` file.
 
 Read the issue body from `/tmp/specflow-issue.json` if available (skip silently if not found).
@@ -52,7 +52,7 @@ Read the issue body from `/tmp/specflow-issue.json` if available (skip silently 
 Call the `codex` MCP server tool to review the spec. Pass the following as the prompt:
 
 ```
-<review_spec_prompt.txt の内容>
+<review_spec_prompt.md の内容>
 
 ISSUE BODY:
 <issue body の内容（available な場合。なければ "(not available)" と記載）>

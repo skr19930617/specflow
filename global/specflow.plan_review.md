@@ -53,12 +53,12 @@ Read all three files: `FEATURE_SPEC`, `PLAN_FILE`, `TASKS_FILE`.
 
 ## Step 1: Codex Plan/Tasks Review
 
-Read `.specflow/review_plan_prompt.txt` for the review prompt.
+Read `~/.config/specflow/global/review_plan_prompt.md` for the review prompt. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_plan_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Call the `codex` MCP server tool to review the plan and tasks. Pass the following as the prompt:
 
 ```
-<review_plan_prompt.txt の内容>
+<review_plan_prompt.md の内容>
 
 SPEC CONTENT:
 <FEATURE_SPEC の内容>
