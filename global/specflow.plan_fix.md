@@ -10,8 +10,26 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specflow/config.env` via Bash. If missing → **STOP**.
-2. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash. If missing → **STOP**.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+   - If missing:
+     ```
+     ❌ speckit が見つかりません。
+
+     次のステップでインストールしてください:
+     1. `npx specy init` を実行
+     2. `/specflow.plan_fix` を再度実行
+     ```
+     → **STOP**.
+2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
+   - If missing:
+     ```
+     ❌ `.specflow/config.env` が見つかりません。
+
+     次のステップで初期化してください:
+     1. `specflow-init` を実行
+     2. `/specflow.plan_fix` を再度実行
+     ```
+     → **STOP**.
 3. Run `source .specflow/config.env` via Bash.
 
 ## Setup

@@ -12,7 +12,7 @@ GitHub issue URL を入力にして、Claude + Codex による spec → clarify 
 | `claude` | spec の clarify / plan / implement | Claude Code CLI |
 | `git` | リポジトリ操作 | macOS 標準 or `brew install git` |
 | `jq` | 設定マージ（install 時） | `brew install jq` |
-| speckit | spec/plan/tasks/implement 管理 | `.specify/` を各プロジェクトにセットアップ |
+| speckit | spec/plan/tasks/implement 管理 | `npx specy init` で各プロジェクトにセットアップ |
 | `codex` | Codex CLI (レビュー用 MCP サーバー) | `npm install -g @openai/codex` |
 
 ### 2. GitHub CLI 認証
@@ -57,6 +57,25 @@ set -gx fish_user_paths ~/bin $fish_user_paths
 ```bash
 export SPECFLOW_TEMPLATE_REPO="your-user/specflow-template"
 ```
+
+## 前提条件チェックとトラブルシューティング
+
+specflow コマンド実行時に以下のエラーが表示された場合、対応するコマンドを実行してください:
+
+| # | エラー状態 | 検出条件 | 対処コマンド | 結果 |
+|---|-----------|----------|-------------|------|
+| 1 | speckit 未インストール | `.specify/` ディレクトリが存在しない | `npx specy init` | `.specify/` ディレクトリが生成される |
+| 2 | specflow 未初期化 | `.specflow/config.env` が存在しない | `specflow-init` | `.specflow/config.env` が生成される |
+
+**新規セットアップの流れ:**
+
+1. specflow をインストール: `./bin/specflow-install`
+2. 対象プロジェクトで speckit を初期化: `npx specy init`
+3. 対象プロジェクトで specflow を初期化: `specflow-init`
+4. CLAUDE.md を設定: Claude Code 内で `/specflow.setup` を実行
+5. `/specflow` を実行して開始
+
+> **Note:** speckit と specflow の初期化は別々のステップです。`npx specy init` は `.specify/` ディレクトリを、`specflow-init` は `.specflow/config.env` と `CLAUDE.md` を生成します。`/specflow.setup` は既存の `CLAUDE.md` をインタラクティブに設定するコマンドです。
 
 ## 使い方
 

@@ -1,0 +1,66 @@
+{
+  "feature_id": "013-speckit-prereq-guidance",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "global/specflow.md",
+      "title": "Failure State 2 points to a command that does not create config.env",
+      "detail": "The updated prerequisite guidance tells users to run `/specflow.setup` when `.specflow/config.env` is missing, but the current implementation of `global/specflow.setup.md` only edits `CLAUDE.md` and stops if `CLAUDE.md` is absent. The file that actually initializes `.specflow/config.env` is still `bin/specflow-init`. Fix by changing recovery command to `specflow-init` or implementing config.env bootstrap in `/specflow.setup`.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "README.md",
+      "title": "New-user setup flow omits the project initialization step",
+      "detail": "README flow says ./bin/specflow-install -> npx specy init -> /specflow.setup, but never tells user to run specflow-init which copies .specflow/config.env and CLAUDE.md. SC-003 not met.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "testing",
+      "file": "global/specflow.md",
+      "title": "Cross-command prerequisite changes have no regression coverage",
+      "detail": "Nine command files plus README changed with no automated regression test or recorded verification covering the two failure states.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
