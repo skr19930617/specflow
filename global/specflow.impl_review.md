@@ -201,9 +201,9 @@ Report the review results.
 
 **注意**: handoff の分岐は `actionable_high_count`（new/open の high 件数）で判定する。review-ledger.json の `status` フィールド（`has_open_high`）は accepted_risk/ignored を含むためレポート目的のみ。
 
-### Case A: actionable_high_count > 0 → Auto-fix Loop 開始
+### Case A: actionable_high_count > 0 → ユーザー確認後 Auto-fix Loop 開始
 
-`findings[]` 内に `severity == "high"` かつ `status ∈ {"new", "open"}` の finding が 1 件以上ある場合、auto-fix loop を開始する。
+`findings[]` 内に `severity == "high"` かつ `status ∈ {"new", "open"}` の finding が 1 件以上ある場合、ユーザーに確認プロンプトを表示し、承認後に auto-fix loop を開始する。
 
 **`accepted_risk`/`ignored` の扱い**:
 - `accepted_risk` や `ignored` ステータスの high finding は、ユーザーが明示的に受容/無視した判断であり、auto-fix loop の**修正対象外**とする。
@@ -211,6 +211,28 @@ Report the review results.
 - **ループ成功判定**: `new`/`open` の high が 0 件になればループ成功とする。`accepted_risk`/`ignored` は成功判定をブロックしない。
 - **Quality gate スコア計算**: `accepted_risk`/`ignored` の finding は unresolved として**カウントに含める**（`status ∉ {"resolved"}` に該当するため）。これにより、ユーザーが override した finding の severity も品質指標に反映される。
 - **理由**: auto-fix loop はマシンが自動修正可能な finding（`new`/`open`）を対象とする。ユーザーが意図的に受容した finding を自動修正しようとするのは不適切。ledger の `status` フィールド（`has_open_high`）はレポート目的であり、ループ制御には `new`/`open` の high 件数を直接使用する。
+
+#### ユーザー確認プロンプト
+
+auto-fix loop を開始する前に、ユーザーに確認する。
+
+1. actionable high findings（`severity == "high"` かつ `status ∈ {"new", "open"}`）の件数とタイトル一覧を収集する。
+
+2. `AskUserQuestion` で以下を表示:
+
+```
+AskUserQuestion:
+  question: "{actionable_high_count} 件の high findings があります:\n- {finding1_title}\n- {finding2_title}\n- ...\n\nauto-fix loop を開始しますか？"
+  options:
+    - label: "開始する"
+      description: "auto-fix loop を実行して自動修正"
+    - label: "スキップする"
+      description: "auto-fix をスキップして手動アクション選択へ"
+```
+
+3. ユーザーの選択に応じて分岐:
+   - 「開始する」 → 以下の Round 0 Baseline Snapshot に進む（既存フロー）
+   - 「スキップする」 → Case B の通常の手動ハンドオフに進む（auto-fix loop は一切実行しない）
 
 #### Round 0 Baseline Snapshot
 
