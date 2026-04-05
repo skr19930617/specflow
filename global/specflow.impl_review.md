@@ -213,44 +213,91 @@ Codex Implementation Review
 
 Report the review results.
 
-## Handoff: Auto-fix Loop または手動アクション選択
+## Auto-fix 確認: AskUserQuestion 直接表示
 
-レビュー結果を表示した後、`findings[]` 内の `severity == "high"` かつ `status ∈ {"new", "open"}` の件数（`actionable_high_count`）を確認する。
+レビュー結果を表示した後、以下のロジックで auto-fix 確認を行う。
 
-**注意**: handoff の分岐は `actionable_high_count`（new/open の high 件数）で判定する。review-ledger.json の `status` フィールド（`has_open_high`）は accepted_risk/ignored を含むためレポート目的のみ。
+### Severity 集計
 
-### Case A: actionable_high_count > 0 → ユーザー確認後 Auto-fix Loop 開始
+1. `findings[]` 内の actionable findings（`status ∈ {"new", "open"}`）を収集する。
+2. severity 別にグループ化し件数をカウントする。
+3. 表示用の `severity_summary` を生成する:
+   - 表示順: CRITICAL → HIGH → MEDIUM → LOW
+   - 0 件の severity は除外する
+   - フォーマット: `"CRITICAL: N, HIGH: M, ..."` （件数が 1 以上の severity のみ）
+4. `actionable_count` = actionable findings の総件数を記録する。
 
-`findings[]` 内に `severity == "high"` かつ `status ∈ {"new", "open"}` の finding が 1 件以上ある場合、ユーザーに確認プロンプトを表示し、承認後に auto-fix loop を開始する。
+**注意**: review-ledger.json の `status` フィールド（`has_open_high`）は accepted_risk/ignored を含むためレポート目的のみ。auto-fix 確認の分岐は `actionable_count` で判定する。
 
-**`accepted_risk`/`ignored` の扱い**:
-- `accepted_risk` や `ignored` ステータスの high finding は、ユーザーが明示的に受容/無視した判断であり、auto-fix loop の**修正対象外**とする。
-- **ループ開始判定**: `new`/`open` の high が 0 件の場合（全て `accepted_risk`/`ignored`）は Case B（通常ハンドオフ）に進む。
-- **ループ成功判定**: `new`/`open` の high が 0 件になればループ成功とする。`accepted_risk`/`ignored` は成功判定をブロックしない。
-- **Quality gate スコア計算**: `accepted_risk`/`ignored` の finding は unresolved として**カウントに含める**（`status ∉ {"resolved"}` に該当するため）。これにより、ユーザーが override した finding の severity も品質指標に反映される。
-- **理由**: auto-fix loop はマシンが自動修正可能な finding（`new`/`open`）を対象とする。ユーザーが意図的に受容した finding を自動修正しようとするのは不適切。ledger の `status` フィールド（`has_open_high`）はレポート目的であり、ループ制御には `new`/`open` の high 件数を直接使用する。
+### 分岐: actionable_count による判定
 
-#### ユーザー確認プロンプト
+- **actionable_count == 0** → 「Step: 承認フローへ直接遷移」に進む
+- **actionable_count > 0** → 「Step: Auto-fix 確認プロンプト表示」に進む
+- **review-ledger.json が存在しない / 読み込み失敗** → 「Step: エラー時の処理」に進む
 
-auto-fix loop を開始する前に、ユーザーに確認する。
+### Step: 承認フローへ直接遷移
 
-1. actionable high findings（`severity == "high"` かつ `status ∈ {"new", "open"}`）の件数とタイトル一覧を収集する。
-
-2. `AskUserQuestion` で以下を表示:
+actionable findings が 0 件の場合（全て resolved、または全て accepted_risk/ignored のみ）、auto-fix 確認を表示せずに承認フローへ遷移する。
 
 ```
 AskUserQuestion:
-  question: "{actionable_high_count} 件の high findings があります:\n- {finding1_title}\n- {finding2_title}\n- ...\n\nauto-fix loop を開始しますか？"
+  question: "指摘事項はすべて解決済みです。次のアクションを選択してください"
   options:
-    - label: "開始する"
-      description: "auto-fix loop を実行して自動修正"
-    - label: "スキップする"
-      description: "auto-fix をスキップして手動アクション選択へ"
+    - label: "Approve & Commit"
+      description: "実装を承認してコミット・PR 作成"
+    - label: "Reject"
+      description: "全変更を破棄して終了"
 ```
 
-3. ユーザーの選択に応じて分岐:
-   - 「開始する」 → 以下の Round 0 Baseline Snapshot に進む（既存フロー）
-   - 「スキップする」 → Case B の通常の手動ハンドオフに進む（auto-fix loop は一切実行しない）
+- 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
+- 「Reject」 → `Skill(skill: "specflow.reject")`
+
+### Step: Auto-fix 確認プロンプト表示
+
+actionable findings が 1 件以上ある場合、AskUserQuestion で auto-fix 確認を直接表示する。
+
+```
+AskUserQuestion:
+  question: "レビュー指摘: {severity_summary}\nauto-fix を実行しますか？"
+  options:
+    - label: "Auto-fix 実行"
+      description: "自動修正を実行し、再レビューする"
+    - label: "手動修正 (/specflow.fix)"
+      description: "手動で修正した後に再レビューする"
+```
+
+ユーザーの選択に応じて分岐:
+- 「Auto-fix 実行」 → 以下の Round 0 Baseline Snapshot に進む（auto-fix loop 開始）
+- 「手動修正 (/specflow.fix)」 → 手動修正誘導メッセージを表示し、`Skill(skill: "specflow.fix")` を実行する
+- **スキップ/dismiss/タイムアウト時**: 「手動修正 (/specflow.fix)」を選択したものとして扱い、手動修正誘導メッセージを表示する
+
+**手動修正誘導メッセージ**:
+```
+手動修正モードに進みます。/specflow.fix で指摘を修正し、再レビューしてください。
+```
+
+### Step: エラー時の処理
+
+review-ledger.json が存在しない、読み込みに失敗した、または JSON パースに失敗した場合、エラーメッセージを表示しワークフローを **停止** する:
+
+```
+❌ review-ledger.json の読み込みに失敗しました。ワークフローを停止します。
+原因: {ファイルが存在しない | 読み込みエラー | JSON パースエラー}
+
+review-ledger.json を確認し、再度 /specflow.impl_review を実行してください。
+```
+
+→ **STOP**（ワークフロー終了。AskUserQuestion は表示しない）。
+
+**注意**: この処理は Step 1.5 の Ledger Read / Create とは独立したタイミングで実行される。Step 1.5 で ledger が正常に読み込めた場合のみ Severity 集計に進む。Step 1.5 自体がエラーを報告した場合は、このステップに到達しない。
+
+### `accepted_risk`/`ignored` の扱い
+
+- `accepted_risk` や `ignored` ステータスの high finding は、ユーザーが明示的に受容/無視した判断であり、auto-fix loop の**修正対象外**とする。
+- **ループ開始判定**: actionable findings（`new`/`open`、全 severity）が 0 件の場合は承認フローへ直接遷移する。
+- **ループ成功判定**: `new`/`open` の high が 0 件になればループ成功とする。`accepted_risk`/`ignored` は成功判定をブロックしない。
+- **Quality gate スコア計算**: `accepted_risk`/`ignored` の finding は unresolved として**カウントに含める**（`status ∉ {"resolved"}` に該当するため）。これにより、ユーザーが override した finding の severity も品質指標に反映される。
+- **理由**: auto-fix loop はマシンが自動修正可能な finding（`new`/`open`）を対象とする。ユーザーが意図的に受容した finding を自動修正しようとするのは不適切。
 
 #### Round 0 Baseline Snapshot
 
@@ -291,10 +338,10 @@ WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT divergence_detected AND NOT loo
    ```
 
 3. `Skill(skill: "specflow.fix", args: "autofix")` を呼び出す。`autofix` 引数により specflow.fix はハンドオフをスキップし、fix → re-review → ledger 更新のみ実行して制御を返す。
-   - もし Skill 呼び出しが失敗した場合: エラーを報告し、ループを停止してユーザーにハンドオフ（Case C へ）
+   - もし Skill 呼び出しが失敗した場合: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
 
 4. 更新された `FEATURE_DIR/review-ledger.json` を Read する。
-   - もし読み込み失敗: エラーを報告し、ループを停止してユーザーにハンドオフ（Case C へ）
+   - もし読み込み失敗: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
 
 5. **停止条件チェック**（優先順位順に実行、最初にトリガーされた条件で停止）:
 
@@ -343,7 +390,7 @@ Auto-fix Loop Complete:
   - Remaining unresolved high: {count}
 ```
 
-#### ループ後のハンドオフ
+#### ループ後の Auto-fix 確認
 
 **成功時**（`loop_success == true`）:
 
@@ -360,13 +407,15 @@ AskUserQuestion:
 - 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
-**停止時**（unresolved high > 0）:
+**停止時**（unresolved findings > 0）:
+
+残存する actionable findings の severity_summary を再集計し（表示順: CRITICAL → HIGH → MEDIUM → LOW、0 件除外）、AskUserQuestion で表示する。
 
 ```
 AskUserQuestion:
-  question: "Auto-fix loop 停止（{reason}）。次のアクションを選択してください"
+  question: "Auto-fix loop 停止（{reason}）。残存指摘: {severity_summary}\n次のアクションを選択してください"
   options:
-    - label: "Fix All (manual)"
+    - label: "手動修正 (/specflow.fix)"
       description: "残りの指摘を手動で修正して再レビュー"
     - label: "Approve & Commit"
       description: "現状で承認してコミット・PR 作成"
@@ -374,45 +423,7 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
-- 「Fix All (manual)」 → `Skill(skill: "specflow.fix")`
-- 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
-- 「Reject」 → `Skill(skill: "specflow.reject")`
-
-### Case B: actionable_high_count == 0 → 通常の手動ハンドオフ
-
-`findings[]` 内に `severity == "high"` かつ `status ∈ {"new", "open"}` の finding が 0 件の場合（全て resolved、または全て accepted_risk/ignored のみ）、通常の手動ハンドオフを表示する。
-
-```
-AskUserQuestion:
-  question: "次のアクションを選択してください"
-  options:
-    - label: "Approve & Commit"
-      description: "実装を承認してコミット・PR 作成"
-    - label: "Fix All"
-      description: "指摘をすべて修正して再レビュー"
-    - label: "Reject"
-      description: "全変更を破棄して終了"
-```
-
-- 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
-- 「Fix All」 → `Skill(skill: "specflow.fix")`
-- 「Reject」 → `Skill(skill: "specflow.reject")`
-
-### Case C: エラー時のハンドオフ
-
-```
-AskUserQuestion:
-  question: "Auto-fix loop 中にエラーが発生しました: {error}。次のアクションを選択してください"
-  options:
-    - label: "Fix All (manual)"
-      description: "手動で修正して再レビュー"
-    - label: "Approve & Commit"
-      description: "現状で承認してコミット・PR 作成"
-    - label: "Reject"
-      description: "全変更を破棄して終了"
-```
-
-- 「Fix All (manual)」 → `Skill(skill: "specflow.fix")`
+- 「手動修正 (/specflow.fix)」 → `Skill(skill: "specflow.fix")`
 - 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
