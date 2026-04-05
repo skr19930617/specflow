@@ -1,0 +1,52 @@
+{
+  "feature_id": "011-specflow-input-ux",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "global/specflow.md",
+      "title": "Inline-spec runs can inherit stale issue context",
+      "detail": "MODE = inline_spec skips Step 2, but nothing clears or suppresses /tmp/specflow-issue.json. global/specflow.spec_review.md always reads that file when it exists, so an inline-spec run after a previous issue-based run can send an unrelated issue body into spec review. That violates FR-008/SC-003. Clear the temp file when switching to inline mode, or pass an explicit no-issue-context signal so spec review ignores any stale JSON.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "global/specflow.md",
+      "title": "New branching and retry paths have no coverage",
+      "detail": "This change adds non-trivial control flow for no-arg prompting, URL-vs-inline classification, empty-input retry, and fetch-failure recovery, but the diff includes no automated checks and no recorded manual validation for the spec's acceptance scenarios and edge cases.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
