@@ -27,28 +27,37 @@ $ARGUMENTS
 
 1. `FEATURE_DIR` は Step 0.5 で取得済み。
 
-2. review-ledger.json を読み込む:
-   - `FEATURE_DIR/review-ledger.json` を Read ツールで読み込む。
-   - **ファイルが存在しない場合** → 以下を表示し **WARNING として通過** (Approval Summary で degraded mode として処理):
-     ```
-     ## Quality Gate: WARNING
-     ⚠️ review-ledger.json が見つかりません。Approval Summary は degraded mode で生成されます。
-     ```
-     `LEDGER_AVAILABLE = false` を設定して続行する。
-   - **JSON パースに失敗した場合** → 以下を表示し **WARNING として通過**:
-     ```
-     ## Quality Gate: WARNING
-     ⚠️ review-ledger.json のパースに失敗しました。Approval Summary は degraded mode で生成されます。
-     ```
-     `LEDGER_AVAILABLE = false`、`LEDGER_PARSE_ERROR = true` を設定して続行する。
-   - **`status` フィールドが存在しない場合** → 以下を表示し **WARNING として通過**:
-     ```
-     ## Quality Gate: WARNING
-     ⚠️ review-ledger.json に status フィールドがありません。Approval Summary は degraded mode で生成されます。
-     ```
-     `LEDGER_AVAILABLE = false` を設定して続行する。
+2. 全phaseのreview-ledgerを読み込む:
 
-3. `status` フィールドで gate 判定を行う（`LEDGER_AVAILABLE = true` の場合のみ）:
+   **impl ledger** (`FEATURE_DIR/review-ledger.json`):
+   - Read ツールで読み込む。
+   - ファイルが存在しない場合 → `IMPL_LEDGER_AVAILABLE = false`
+   - JSON パースに失敗した場合 → `IMPL_LEDGER_AVAILABLE = false`、`IMPL_LEDGER_PARSE_ERROR = true`
+   - 正常に読み込めた場合 → `IMPL_LEDGER_AVAILABLE = true`
+
+   **spec ledger** (`FEATURE_DIR/review-ledger-spec.json`):
+   - Read ツールで読み込む。
+   - ファイルが存在しない場合 → `SPEC_LEDGER_AVAILABLE = false`（specレビュー未実施は正常）
+   - JSON パースに失敗した場合 → `SPEC_LEDGER_AVAILABLE = false`、`SPEC_LEDGER_PARSE_ERROR = true`
+   - 正常に読み込めた場合 → `SPEC_LEDGER_AVAILABLE = true`
+
+   **plan ledger** (`FEATURE_DIR/review-ledger-plan.json`):
+   - Read ツールで読み込む。
+   - ファイルが存在しない場合 → `PLAN_LEDGER_AVAILABLE = false`（planレビュー未実施は正常）
+   - JSON パースに失敗した場合 → `PLAN_LEDGER_AVAILABLE = false`、`PLAN_LEDGER_PARSE_ERROR = true`
+   - 正常に読み込めた場合 → `PLAN_LEDGER_AVAILABLE = true`
+
+   **後方互換性**: `LEDGER_AVAILABLE` は `IMPL_LEDGER_AVAILABLE` のエイリアスとして維持する。
+
+   いずれかのledgerが存在しない場合でも WARNING ではなく正常とする（全phaseがレビュー済みである必要はない）。
+   全てのledgerが存在しない場合のみ以下を表示:
+   ```
+   ## Quality Gate: WARNING
+   ⚠️ review-ledger が1つも見つかりません。Approval Summary は degraded mode で生成されます。
+   ```
+
+3. 全phaseの `status` フィールドで gate 判定を行う:
+   - 利用可能な全ledgerの `status` を確認する。いずれかのledgerに `has_open_high` がある場合 → WARNING。
    - `status` が `has_open_high` の場合 → **WARNING として通過**（Approval Summary で unresolved high が表示される）。以下を表示:
      ```
      ## Quality Gate: WARNING
@@ -146,7 +155,7 @@ The status line is determined after computing Review Loop Summary (step 2c):
 
 #### 2c. Review Loop Summary
 
-- If `LEDGER_AVAILABLE`: Compute from the `findings` array in review-ledger.json using these formulas:
+- For each available ledger (spec, plan, impl), compute from the `findings` array using these formulas:
   ```
   initial_high    = findings.filter(f => f.severity == "high" && f.origin_round == 1).length
   resolved_high   = findings.filter(f => f.severity == "high" && f.status == "resolved").length
@@ -154,8 +163,10 @@ The status line is determined after computing Review Loop Summary (step 2c):
   new_later_high  = findings.filter(f => f.severity == "high" && f.origin_round > 1).length
   ```
   Also include `current_round` from the ledger.
-  Output as a Markdown table:
+
+  Output as a **phase-separated** Markdown table:
   ```markdown
+  ### Spec Review
   | Metric             | Count |
   |--------------------|-------|
   | Initial high       | <n>   |
@@ -163,9 +174,21 @@ The status line is determined after computing Review Loop Summary (step 2c):
   | Unresolved high    | <n>   |
   | New high (later)   | <n>   |
   | Total rounds       | <n>   |
+
+  ### Plan Review
+  | Metric             | Count |
+  |--------------------|-------|
+  | ... (same format)  |       |
+
+  ### Impl Review
+  | Metric             | Count |
+  |--------------------|-------|
+  | ... (same format)  |       |
   ```
-- If `LEDGER_PARSE_ERROR` is true: Display `⚠️ review-ledger.json parse error — review data unavailable`.
-- If ledger is missing (not parse error): Display `⚠️ No review data available`.
+
+  - Skip any phase whose ledger is not available (don't show the subsection).
+  - If all ledgers have parse errors: Display `⚠️ review-ledger parse error — review data unavailable`.
+  - If no ledgers exist: Display `⚠️ No review data available`.
 
 #### 2d. Spec Coverage
 
