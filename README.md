@@ -207,6 +207,37 @@ Codex CLI がインストール済みであれば追加設定は不要（Codex t
 | プロジェクト設定 | プロジェクトルートの `CLAUDE.md` | `/specflow.setup` でインタラクティブに設定 |
 | 外部テンプレート | 環境変数 `SPECFLOW_TEMPLATE_REPO` | 任意 — デフォルトはローカルテンプレート |
 
+## リポジトリアーキテクチャ
+
+このリポジトリには 2 種類のコンテンツが含まれる:
+
+1. **配布物 (Distributable Assets)** — ユーザープロジェクトにインストールされるツール
+2. **リポジトリ計画状態 (Repository Planning State)** — specflow 自体の開発計画・設計資産
+
+```
+specflow/
+├── bin/                           # 配布物: インストール・初期化スクリプト
+├── global/                        # 配布物: Claude Code スラッシュコマンド
+├── template/                      # 配布物: プロジェクトブートストラップテンプレート
+│   └── openspec/                  #   OpenSpec ディレクトリ構造テンプレート
+└── openspec/                      # 計画状態: OpenSpec 準拠のリポジトリ内部資産
+    ├── specs/                     #   Capability specs (現在の真実) — 現在は空
+    ├── changes/                   #   Change records (提案・変更履歴)
+    │   ├── 001-current-truth/     #     歴史的な変更レコード
+    │   ├── 002-review-ledger/
+    │   └── ...
+    └── README.md                  #   OpenSpec ディレクトリ規約
+```
+
+### 配布物 vs 計画状態の区別
+
+| ディレクトリ | 種類 | 用途 |
+|-------------|------|------|
+| `bin/` | 配布物 | インストール・初期化・ユーティリティスクリプト |
+| `global/` | 配布物 | Claude Code スラッシュコマンド定義 |
+| `template/` | 配布物 | プロジェクトブートストラップ資産 |
+| `openspec/` | 計画状態 | specflow 自体の spec / plan / tasks |
+
 ## ファイル構成
 
 ```
@@ -215,6 +246,7 @@ specflow/                      # このリポジトリ（ツール）
     specflow-install           #   グローバルインストール（PATH, コマンド, 権限, テンプレート）
     specflow-fetch-issue       #   gh で issue 取得
     specflow-init              #   プロジェクト初期化 / コマンド更新
+    specflow-migrate-openspec.sh  # specs/ → openspec/ 移行スクリプト
   global/                      # グローバル設定・スラッシュコマンド
     specflow.md                #   /specflow メインコマンド（spec フェーズ）
     specflow.spec_fix.md       #   /specflow.spec_fix（spec 修正 → re-review）
@@ -227,14 +259,16 @@ specflow/                      # このリポジトリ（ツール）
     specflow.setup.md          #   /specflow.setup（CLAUDE.md インタラクティブ設定）
     claude-settings.json       #   ~/.claude/settings.json 用権限テンプレート
   template/                    # プロジェクトテンプレート（init でコピーされる）
-    .specflow/
-      config.env               #   環境変数
-      review_spec_prompt.txt   #   spec レビュープロンプト
-      review_plan_prompt.txt   #   plan/tasks レビュープロンプト
-      review_impl_prompt.txt   #   実装レビュープロンプト
-      review_impl_rereview_prompt.txt  #  実装 re-review プロンプト
+    openspec/                  #   OpenSpec ディレクトリ構造テンプレート
+      specs/.gitkeep
+      changes/.gitkeep
+      README.md
     .mcp.json                  #   Codex MCP サーバー設定
     CLAUDE.md                  #   Claude Code 用プロジェクト設定テンプレート
+  openspec/                    # このリポジトリの計画状態 (OpenSpec)
+    specs/                     #   Capability specs (現在は空)
+    changes/                   #   歴史的変更レコード (001〜020)
+    README.md
   README.md
 
 ~/.config/specflow/            # specflow-install でコピーされる

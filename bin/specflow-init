@@ -134,6 +134,19 @@ else
   echo "CLAUDE.md already exists, skipped"
 fi
 
+# openspec/ directory structure
+if [[ ! -d "openspec" ]]; then
+  mkdir -p openspec/specs openspec/changes
+  if [[ -f "$TEMPLATE_DIR/openspec/README.md" ]]; then
+    cp "$TEMPLATE_DIR/openspec/README.md" openspec/README.md
+  fi
+  echo "Created openspec/ (specs/, changes/, README.md)"
+else
+  # Ensure subdirectories exist even if openspec/ already exists
+  mkdir -p openspec/specs openspec/changes
+  echo "openspec/ already exists, ensured subdirectories"
+fi
+
 # --- スラッシュコマンドのインストール ---
 GLOBAL_DIR="$CONFIG_DIR/global"
 if [[ -d "$GLOBAL_DIR" ]]; then

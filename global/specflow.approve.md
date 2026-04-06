@@ -100,14 +100,14 @@ $ARGUMENTS
    ```
    Parse JSON to get `FEATURE_DIR`, `FEATURE_SPEC`.
 
-2. Read `FEATURE_SPEC` (= `specs/<feature>/spec.md`) via Read tool. If the file does not exist or is empty, set `SPEC_AVAILABLE = false`. Otherwise `SPEC_AVAILABLE = true`.
+2. Read `FEATURE_SPEC` (= `openspec/changes/<feature>/spec.md`) via Read tool. If the file does not exist or is empty, set `SPEC_AVAILABLE = false`. Otherwise `SPEC_AVAILABLE = true`.
 
 3. Read `FEATURE_DIR/review-ledger.json` via Read tool. (Already loaded from Quality Gate — reuse `LEDGER_AVAILABLE` and `LEDGER_PARSE_ERROR` flags if set.)
    - If file exists and is valid JSON: set `LEDGER_AVAILABLE = true`.
    - If file is missing or empty: set `LEDGER_AVAILABLE = false`, `LEDGER_PARSE_ERROR = false`.
    - If file exists but JSON parse fails: set `LEDGER_AVAILABLE = false`, `LEDGER_PARSE_ERROR = true`.
 
-4. Compute normalized diff source ONCE (all excluding `specs/<feature>/approval-summary.md`):
+4. Compute normalized diff source ONCE (all excluding `openspec/changes/<feature>/approval-summary.md`):
    ```bash
    git diff main...HEAD --name-only -- . ':(exclude)<FEATURE_DIR>/approval-summary.md'
    ```
@@ -225,7 +225,7 @@ Three sources, in order:
    If ledger is missing (not parse error): Display `⚠️ No review data available`.
 
 2. **Untested new files** (requires `DIFF_AVAILABLE` and `LEDGER_AVAILABLE`):
-   From the cached `--diff-filter=A` output (newly added files only), find `.sh` or `.md` files — excluding `specs/*/spec.md`, `specs/*/plan.md`, `specs/*/tasks.md`, `specs/*/approval-summary.md` — whose path does not appear in any finding's `file` field.
+   From the cached `--diff-filter=A` output (newly added files only), find `.sh` or `.md` files — excluding `openspec/changes/*/spec.md`, `openspec/changes/*/plan.md`, `openspec/changes/*/tasks.md`, `openspec/changes/*/approval-summary.md` — whose path does not appear in any finding's `file` field.
    List as warnings: `- ⚠️ New file not mentioned in review: <path>`.
 
 3. **Uncovered criteria** (from Spec Coverage):
@@ -270,7 +270,7 @@ If the user chooses "中止": display `"Approve を中止しました。"` and *
 
 ### 5. Staging Confirmation
 
-The existing Commit section uses `git add -A -- . ':(exclude).specflow'` which stages all files except `.specflow/`. This pattern does NOT exclude `specs/` — so `specs/<feature>/approval-summary.md` will be automatically staged. No additional git add is needed.
+The existing Commit section uses `git add -A -- . ':(exclude).specflow'` which stages all files except `.specflow/`. This pattern does NOT exclude `openspec/` — so `openspec/changes/<feature>/approval-summary.md` will be automatically staged. No additional git add is needed.
 
 ## Commit
 
