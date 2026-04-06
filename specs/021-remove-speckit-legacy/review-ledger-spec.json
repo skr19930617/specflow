@@ -1,0 +1,140 @@
+{
+  "feature_id": "021-remove-speckit-legacy",
+  "phase": "spec",
+  "current_round": 3,
+  "status": "all_resolved",
+  "max_finding_id": 6,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "scope",
+      "file": "spec.md",
+      "title": "`.specify/` 除外が issue の「全て排除」と整合しているか",
+      "detail": "issue body は speckit の残骸を「全て」排除すると読めますが、spec は `.specify/` と `.specify/scripts/` を対象外にし、成功条件の grep からも `.specify/` を除外しています。",
+      "suggested_resolution": "`.specify/` を正式な例外とするなら、その理由と除外範囲を acceptance criteria に明記する。",
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "medium",
+      "category": "completeness",
+      "file": "spec.md",
+      "title": "`speckit.*` コマンドの具体的な移行先名が未定義",
+      "detail": "spec は `speckit.*` スラッシュコマンドを「新名称」にリネームするとしていますが、各既存コマンドの正確な移行先が定義されていません。",
+      "suggested_resolution": "既存 `speckit.*` コマンドごとに `rename to X` または `delete` の対応表を spec に追加する。",
+      "notes": ""
+    },
+    {
+      "id": "R2-F03",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "scope",
+      "file": "spec.md",
+      "title": "`speckit` 全件排除の grep 基準に履歴アーティファクトの扱いがない",
+      "detail": "SC-001 は speckit の grep 結果を0件にする前提だが、過去の履歴文書に speckit が残っている。検証対象か除外かが未定義。",
+      "suggested_resolution": "grep 成功条件の対象パスを明示し、現行 feature spec や過去の change records を除外するのか更新対象にするのかを明文化してください。",
+      "notes": ""
+    },
+    {
+      "id": "R2-F04",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "medium",
+      "category": "completeness",
+      "file": "spec.md",
+      "title": "migration 排除がファイル削除中心で文書上の残骸除去を保証していない",
+      "detail": "openspec/README.md 等の維持対象ドキュメントにも migration 参照が残っているが、除去要件がない。",
+      "suggested_resolution": "維持対象ドキュメントから legacy migration 参照を除去する要件を追加。",
+      "notes": ""
+    },
+    {
+      "id": "R3-F05",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "consistency",
+      "file": "spec.md",
+      "title": "`specs/` 全件 grep 0 の成功条件と要件対象が一致していない",
+      "detail": "SC-001 は specs/ 配下の全ファイルを speckit grep 0 の検証対象にしているが、要件で明示されている更新対象は FR-010 の「過去feature履歴ファイル」のみ。現行 feature 自身の spec/review artifacts まで更新対象に含むのか除外するのかが未定義。",
+      "suggested_resolution": "SC-001 から current round artifacts を明示的に除外するか、FR に現行 feature の spec/review artifacts も更新対象として追加してください。",
+      "notes": ""
+    },
+    {
+      "id": "R3-F06",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "completeness",
+      "file": "spec.md",
+      "title": "9個の speckit.* コマンドの移行先が実際には定義されていない",
+      "detail": "FR-008 は9コマンドのマッピング表を要求しているが、レビュー対象の spec 本文に表が見つからない。（注: Codex に渡された要約版で欠落した可能性あり — 実際の spec には完全な表が存在する）",
+      "suggested_resolution": "9つの speckit.* コマンドすべてについて、移行先または廃止方針を表形式で追加。",
+      "notes": "False positive: 完全な spec には FR-008 に9コマンドの対応表が記載済み。Codex に渡した要約で欠落。"
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 0,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 3,
+      "total": 6,
+      "open": 0,
+      "new": 0,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 4, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 2, "new": 0, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

@@ -33,7 +33,7 @@
 - [x] T002 [US1] Rewrite Step 1 in `global/specflow.md`: create shared entry-point that (a) checks `$ARGUMENTS` — if non-empty, use as `INPUT_TEXT` without prompting; if empty, display text prompt and wait for user's next message as `INPUT_TEXT`
 - [x] T003 [US1] Add unified input classification logic to Step 1 in `global/specflow.md`: classify `INPUT_TEXT` — empty/whitespace → re-display prompt and wait again (loop); matches `https?://[^/]+/[^/]+/[^/]+/issues/\d+` → MODE=issue_url; otherwise → MODE=inline_spec. Both argument and prompt paths use this same classifier.
 - [x] T004 [US1] Update Step 2 (Fetch Issue) in `global/specflow.md`: wrap in conditional — execute only when MODE=issue_url. Add error recovery: if issue fetch fails (not found, access denied, network error), display error message with cause, then re-display text prompt and loop back to input classification (Step 1 input wait)
-- [x] T005 [US1] Update Step 3 (Create Spec) in `global/specflow.md`: add branch for inline spec case — if MODE=inline_spec, pass INPUT_TEXT directly as feature description to speckit.specify instead of issue title + body
+- [x] T005 [US1] Update Step 3 (Create Spec) in `global/specflow.md`: add branch for inline spec case — if MODE=inline_spec, pass INPUT_TEXT directly as feature description to specflow.specify instead of issue title + body
 
 **Checkpoint**: `/specflow` (no args) shows text prompt, accepts issue URL, and proceeds through full flow
 

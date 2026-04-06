@@ -10,10 +10,10 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
    - If missing:
      ```
-     ❌ speckit が見つかりません。
+     ❌ specflow prerequisites が見つかりません。
 
      次のステップでインストールしてください:
      1. `npx specy init` を実行

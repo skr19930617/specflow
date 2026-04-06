@@ -10,10 +10,10 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
    - If missing:
      ```
-     ❌ speckit が見つかりません。
+     ❌ specflow prerequisites が見つかりません。
 
      次のステップでインストールしてください:
      1. `npx specy init` を実行
@@ -248,7 +248,7 @@ AskUserQuestion:
   question: "指摘事項はすべて解決済みです。次のアクションを選択してください"
   options:
     - label: "実装に進む"
-      description: "speckit で実装を実行"
+      description: "specflow で実装を実行"
     - label: "Reject"
       description: "全変更を破棄して終了"
 ```
@@ -403,7 +403,7 @@ AskUserQuestion:
   question: "Auto-fix loop 完了（成功）。次のアクションを選択してください"
   options:
     - label: "実装に進む"
-      description: "speckit で実装を実行"
+      description: "specflow で実装を実行"
     - label: "Reject"
       description: "全変更を破棄して終了"
 ```

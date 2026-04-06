@@ -98,10 +98,10 @@
 ### Session 2026-04-03
 
 - Q: AskUserQuestion のボタン必須制約への対応方法は？ → A: テキスト案内方式 — AskUserQuestion を使わず、テキストで「GitHub issue URL を入力するか、仕様をテキストで記述してください」と案内し、ユーザーの次のメッセージを待つ
-- Q: インライン仕様記述時の feature ディレクトリ番号の決定方法は？ → A: speckit の自動連番ロジックをそのまま使用（issue 番号との紐付きなし）
+- Q: インライン仕様記述時の feature ディレクトリ番号の決定方法は？ → A: specflow の自動連番ロジックをそのまま使用（issue 番号との紐付きなし）
 
 ## Assumptions
 
 - AskUserQuestion は使用せず、テキスト案内でユーザーの次メッセージを待つ方式を採用する
-- インライン仕様記述の場合、issue 番号は使用できないため、speckit の自動連番ロジックで feature ディレクトリ名を決定する
+- インライン仕様記述の場合、issue 番号は使用できないため、specflow の自動連番ロジックで feature ディレクトリ名を決定する
 - 既存の `/specflow` コマンドファイル（`global/specflow.md`）の修正が主な変更対象となる

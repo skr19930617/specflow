@@ -2,7 +2,7 @@
 
 ## 前提条件
 
-- speckit (`.specify/`) がインストール済み
+- specflow (`.specify/`) がインストール済み
 - specflow (`.specflow/`) が初期化済み
 - Codex CLI (`codex`) がインストール済み
 

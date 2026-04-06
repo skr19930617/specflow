@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Migrate specflow to OpenSpec
+# Specification Quality Checklist: speckit時代のレガシー排除
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-04-06
@@ -32,3 +32,4 @@
 ## Notes
 
 - All items pass validation. Spec is ready for clarification or planning phase.
+- Note: Specific file paths mentioned in FR (e.g., `bin/specflow-init`, `global/*.md`) are references to the scope boundary, not implementation details — they describe WHAT to change, not HOW.

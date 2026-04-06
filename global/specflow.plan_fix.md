@@ -10,10 +10,10 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
    - If missing:
      ```
-     ❌ speckit が見つかりません。
+     ❌ specflow prerequisites が見つかりません。
 
      次のステップでインストールしてください:
      1. `npx specy init` を実行
@@ -73,7 +73,7 @@ Based on the review findings from the previous step (the user has just seen them
 - Scope violations (unnecessary work)
 - Consistency issues (tasks not matching plan design decisions)
 
-Update `PLAN_FILE` and/or `TASKS_FILE` as needed. If a finding requires fundamental restructuring, re-run the relevant speckit command (speckit.plan or speckit.tasks).
+Update `PLAN_FILE` and/or `TASKS_FILE` as needed. If a finding requires fundamental restructuring, re-run the relevant specflow command (specflow.plan or specflow.tasks).
 
 Report what was fixed.
 
@@ -353,7 +353,7 @@ AskUserQuestion:
   question: "次のアクションを選択してください"
   options:
     - label: "実装に進む"
-      description: "speckit で実装を実行"
+      description: "specflow で実装を実行"
     - label: "Plan を修正"
       description: "レビュー指摘に基づいて Plan/Tasks を再修正し再レビュー"
     - label: "中止"

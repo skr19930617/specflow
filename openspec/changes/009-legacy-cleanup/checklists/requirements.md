@@ -32,4 +32,4 @@
 ## Notes
 
 - All checklist items passed on first validation
-- Spec is ready for `/speckit.clarify` or `/speckit.plan`
+- Spec is ready for `/specflow.clarify` or `/specflow.plan`

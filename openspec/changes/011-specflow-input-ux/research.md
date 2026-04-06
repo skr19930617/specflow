@@ -32,9 +32,9 @@
 
 ## R4: インライン仕様記述時の後続フロー
 
-**Decision**: インライン仕様記述の場合、Step 2（issue 取得）をスキップし、テキストを feature description として Step 3（speckit.specify）に直接渡す
+**Decision**: インライン仕様記述の場合、Step 2（issue 取得）をスキップし、テキストを feature description として Step 3（specflow.specify）に直接渡す
 
-**Rationale**: speckit.specify は feature description テキストを入力として受け取る設計。issue 本文もテキストとして渡されるため、インライン仕様もそのまま渡せる。issue メタデータ（番号、ラベル等）は spec 作成に必須ではない。
+**Rationale**: specflow.specify は feature description テキストを入力として受け取る設計。issue 本文もテキストとして渡されるため、インライン仕様もそのまま渡せる。issue メタデータ（番号、ラベル等）は spec 作成に必須ではない。
 
 **Alternatives considered**:
-- issue なしの場合は specflow を使わず speckit.specify を直接呼ぶ: ユーザーに別コマンドを覚えさせる。UX 改善の趣旨に反する。却下。
+- issue なしの場合は specflow を使わず specflow.specify を直接呼ぶ: ユーザーに別コマンドを覚えさせる。UX 改善の趣旨に反する。却下。

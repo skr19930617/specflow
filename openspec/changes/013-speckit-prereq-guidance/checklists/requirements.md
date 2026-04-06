@@ -1,4 +1,4 @@
-# Specification Quality Checklist: speckit 前提条件チェック時のガイダンス改善
+# Specification Quality Checklist: specflow 前提条件チェック時のガイダンス改善
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-04-05

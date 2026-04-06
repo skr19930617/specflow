@@ -16,7 +16,7 @@ Codex の impl re-review 時に、前回 findings との差分を `resolved_prev
 ## Technical Context
 
 **Language/Version**: Bash scripts, Markdown (Claude Code slash commands)
-**Primary Dependencies**: Claude Code CLI, Codex CLI (MCP server), GitHub CLI (gh), speckit
+**Primary Dependencies**: Claude Code CLI, Codex CLI (MCP server), GitHub CLI (gh), specflow
 **Storage**: JSON ファイル (`specs/<issue>-<slug>/review-ledger.json`)
 **Testing**: 手動テスト（Codex MCP 呼び出し + JSON 出力検証）
 **Target Platform**: macOS / Linux (CLI)

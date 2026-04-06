@@ -1,5 +1,5 @@
 ---
-description: speckit で実装を実行し、Codex で実装レビュー
+description: specflow で実装を実行し、Codex で実装レビュー
 ---
 
 ## User Input
@@ -10,10 +10,10 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
    - If missing:
      ```
-     ❌ speckit が見つかりません。
+     ❌ specflow prerequisites が見つかりません。
 
      次のステップでインストールしてください:
      1. `npx specy init` を実行
@@ -46,7 +46,7 @@ $ARGUMENTS
 
 ## Step 1: Implement
 
-Read the file `.claude/commands/speckit.implement.md` and follow its complete workflow.
+Read the file `.claude/commands/specflow.implement.md` and follow its complete workflow.
 
 This will:
 - Load tasks.md and plan.md
@@ -73,6 +73,6 @@ This will:
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - Never modify files inside `.specflow/` — read-only.
-- Spec, plan, tasks are managed by speckit in `.specify/` and `openspec/changes/`.
+- Spec, plan, tasks are managed by specflow in `.specify/` and `openspec/changes/`.
 - If any tool call fails, report the error and ask the user how to proceed.
-- When reading speckit command files, follow their instructions faithfully.
+- When reading specflow command files, follow their instructions faithfully.

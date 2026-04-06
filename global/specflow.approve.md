@@ -276,7 +276,7 @@ The existing Commit section uses `git add -A -- . ':(exclude).specflow'` which s
 
 1. `git status` で変更ファイルを確認し一覧をユーザーに表示する。
 2. `git diff --stat` で変更量を表示する。
-3. speckit の spec ファイルを読み取る:
+3. specflow の spec ファイルを読み取る:
    ```bash
    .specify/scripts/bash/check-prerequisites.sh --json --paths-only
    ```

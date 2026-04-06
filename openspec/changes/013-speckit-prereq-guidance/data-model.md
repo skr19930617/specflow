@@ -1,4 +1,4 @@
-# Data Model: speckit 前提条件チェック時のガイダンス改善
+# Data Model: specflow 前提条件チェック時のガイダンス改善
 
 本 feature はデータモデルの変更を伴わない。
 

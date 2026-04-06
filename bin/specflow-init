@@ -166,17 +166,17 @@ echo "Initialized .specflow/ in $ROOT"
 echo "  .specflow/config.env"
 echo
 
-# speckit チェック
+# specflow prerequisites チェック
 if [[ ! -d ".specify" ]]; then
-  echo "Warning: speckit (.specify/) not found."
-  echo "  /specflow requires speckit. Install it first."
+  echo "Warning: specflow prerequisites (.specify/) not found."
+  echo "  /specflow requires .specify/ directory. Install it first."
   echo "  See: https://github.com/bdobbs-amd/specify"
   echo
 fi
 
 echo "Next steps:"
 if [[ ! -d ".specify" ]]; then
-  echo "  0. Install speckit (.specify/)"
+  echo "  0. Install specflow prerequisites (.specify/)"
 fi
 echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
 echo "  2. Edit .specflow/config.env — add project-specific env vars if needed"

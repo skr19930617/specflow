@@ -40,7 +40,7 @@
 
 **Alternatives considered**:
 - New script in `scripts/` directory: Overkill for a file that's 7 key-value lines. Would add a dependency on jq being installed.
-- New script in `.specify/scripts/`: Not appropriate — speckit scripts are for speckit functionality.
+- New script in `.specify/scripts/`: Not appropriate — specflow scripts are for specflow functionality.
 
 ## R5: BASE_BRANCH detection for Latest Changes
 

@@ -10,8 +10,8 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
-   - If missing: `"❌ speckit が見つかりません。"` → **STOP**.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
+   - If missing: `"❌ specflow prerequisites が見つかりません。"` → **STOP**.
 2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
    - If missing: `"❌ .specflow/config.env が見つかりません。"` → **STOP**.
 

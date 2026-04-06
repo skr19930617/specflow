@@ -16,7 +16,7 @@ Add a `/specflow.decompose` slash command that analyzes a spec for complexity, p
 ## Technical Context
 
 **Language/Version**: Bash (POSIX + bashisms), Markdown (Claude Code slash commands)  
-**Primary Dependencies**: Claude Code CLI, GitHub CLI (`gh`), speckit (`.specify/`)  
+**Primary Dependencies**: Claude Code CLI, GitHub CLI (`gh`), specflow (`.specify/`)  
 **Storage**: File-based — slash command in `global/`, helper script in `bin/`, no persistent state  
 **Testing**: Manual testing via `/specflow.decompose` on sample specs  
 **Target Platform**: macOS/Linux terminal  
@@ -43,7 +43,7 @@ specs/017-spec-decompose-command/
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output
 ├── quickstart.md        # Phase 1 output
-└── tasks.md             # Phase 2 output (from /speckit.tasks)
+└── tasks.md             # Phase 2 output (from /specflow.tasks)
 ```
 
 ### Source Code (repository root)
@@ -63,7 +63,7 @@ bin/
 ### Component 1: Slash Command (`global/specflow.decompose.md`)
 
 A Claude Code slash command (Markdown prompt) that:
-1. Reads prerequisites (speckit installed, specflow config, feature branch)
+1. Reads prerequisites (specflow installed, specflow config, feature branch)
 2. Reads the current spec and checks for `/tmp/specflow-issue.json`
 3. Instructs Claude to analyze the spec for independent functional areas
 4. Presents decomposition proposal (or warning for inline specs, or "no action needed")

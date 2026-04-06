@@ -9,7 +9,7 @@ Each command file is a Claude Code slash command in `global/` directory:
 | Field | Type | Description |
 |-------|------|-------------|
 | description (frontmatter) | string | Command description displayed in `/` menu |
-| Prerequisites | section | Config check, speckit check, config sourcing |
+| Prerequisites | section | Config check, specflow check, config sourcing |
 | Review Logic | section | Read prompt, read artifacts, call Codex, parse JSON |
 | Ledger Update | section | Write to review-ledger.json (impl only has full logic) |
 | Handoff | section | AskUserQuestion with phase-specific options |

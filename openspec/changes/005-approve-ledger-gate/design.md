@@ -16,7 +16,7 @@ approve フェーズ（`global/specflow.approve.md`）の先頭に review-ledger
 ## Technical Context
 
 **Language/Version**: Markdown (Claude Code slash command) + Bash shell scripts
-**Primary Dependencies**: Claude Code CLI, speckit (.specify/), GitHub CLI (gh)
+**Primary Dependencies**: Claude Code CLI, specflow (.specify/), GitHub CLI (gh)
 **Storage**: JSON ファイル (`specs/<feature>/review-ledger.json`)
 **Testing**: 手動テスト（slash command の動作確認）
 **Target Platform**: macOS / Linux ターミナル
@@ -40,7 +40,7 @@ specs/005-approve-ledger-gate/
 ├── data-model.md        # Phase 1 output
 ├── spec.md              # Feature spec
 ├── checklists/          # Quality checklists
-└── tasks.md             # Phase 2 output (by /speckit.tasks)
+└── tasks.md             # Phase 2 output (by /specflow.tasks)
 ```
 
 ### Source Code (repository root)

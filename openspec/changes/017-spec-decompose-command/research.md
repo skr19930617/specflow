@@ -57,4 +57,4 @@
 
 **Alternatives considered**:
 - Pure slash command (no helper script) → issue creation loop in bash is complex enough to warrant a helper
-- speckit command → user chose specflow command in clarifications
+- specflow command → user chose specflow command in clarifications
