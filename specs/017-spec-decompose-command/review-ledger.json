@@ -1,0 +1,24 @@
+{
+  "feature_id": "017-spec-decompose-command",
+  "phase": "impl",
+  "current_round": 4,
+  "status": "in_progress",
+  "max_finding_id": 10,
+  "findings": [
+    {"id": "R1-F01", "severity": "high", "category": "quality", "file": "bin/specflow-create-sub-issues", "title": "Unescaped Python interpolation", "detail": "Shell vars into Python source", "origin_round": 1, "latest_round": 2, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R1-F02", "severity": "high", "category": "correctness", "file": "global/specflow.decompose.md", "title": "GitHub queried before confirm/cancel gate", "detail": "FR-007 violation", "origin_round": 1, "latest_round": 2, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R1-F03", "severity": "medium", "category": "error_handling", "file": "global/specflow.decompose.md", "title": "Summary comment failure not surfaced", "detail": "FR-008 silent failure", "origin_round": 1, "latest_round": 3, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R1-F04", "severity": "medium", "category": "correctness", "file": "global/specflow.decompose.md", "title": "Stale /tmp state corrupts mode detection", "detail": "Old specflow-issue.json", "origin_round": 1, "latest_round": 3, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R2-F01", "severity": "high", "category": "error_handling", "file": "bin/specflow-create-sub-issues", "title": "Partial failures exit before JSON result", "detail": "set -e aborts before output", "origin_round": 2, "latest_round": 3, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R2-F02", "severity": "high", "category": "correctness", "file": "global/specflow.decompose.md", "title": "Raw JSON in single-quoted shell", "detail": "Apostrophes break echo", "origin_round": 2, "latest_round": 3, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R2-F03", "severity": "medium", "category": "correctness", "file": "global/specflow.decompose.md", "title": "Retry produces per-batch comments", "detail": "No consolidated summary", "origin_round": 2, "latest_round": 4, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R3-F01", "severity": "high", "category": "correctness", "file": "global/specflow.decompose.md", "title": "Full-URL stale check rejects valid specs", "detail": "Specs use Issue #N format", "origin_round": 3, "latest_round": 4, "status": "resolved", "relation": "new", "supersedes": null, "notes": ""},
+    {"id": "R4-F01", "severity": "medium", "category": "correctness", "file": "global/specflow.decompose.md", "title": "Retry accumulation only covers one retry", "detail": "Multiple retries may miss intermediate created issues in final comment", "origin_round": 4, "latest_round": 4, "status": "new", "relation": "new", "supersedes": null, "notes": ""}
+  ],
+  "round_summaries": [
+    {"round": 1, "total": 4, "open": 0, "new": 4, "resolved": 0, "overridden": 0, "by_severity": {"high": {"open": 0, "resolved": 0, "new": 2, "overridden": 0}, "medium": {"open": 0, "resolved": 0, "new": 2, "overridden": 0}, "low": {"open": 0, "resolved": 0, "new": 0, "overridden": 0}}},
+    {"round": 2, "total": 7, "open": 2, "new": 3, "resolved": 2, "overridden": 0, "by_severity": {"high": {"open": 0, "resolved": 2, "new": 2, "overridden": 0}, "medium": {"open": 2, "resolved": 0, "new": 1, "overridden": 0}, "low": {"open": 0, "resolved": 0, "new": 0, "overridden": 0}}},
+    {"round": 3, "total": 8, "open": 1, "new": 1, "resolved": 6, "overridden": 0, "by_severity": {"high": {"open": 0, "resolved": 4, "new": 1, "overridden": 0}, "medium": {"open": 1, "resolved": 2, "new": 0, "overridden": 0}, "low": {"open": 0, "resolved": 0, "new": 0, "overridden": 0}}},
+    {"round": 4, "total": 9, "open": 0, "new": 1, "resolved": 8, "overridden": 0, "by_severity": {"high": {"open": 0, "resolved": 5, "new": 0, "overridden": 0}, "medium": {"open": 0, "resolved": 3, "new": 1, "overridden": 0}, "low": {"open": 0, "resolved": 0, "new": 0, "overridden": 0}}}
+  ]
+}
