@@ -105,7 +105,22 @@ Read `/tmp/specflow-filter-summary.json` and parse the JSON.
 
 **Empty Diff Check**: Read `/tmp/specflow-filtered-diff.txt`. If empty, display: `"レビュー対象の変更がありません。"` → **STOP**.
 
-**Line Count Warning**: If `total_lines` exceeds `DIFF_WARN_THRESHOLD`, use `AskUserQuestion` with "続行"/"中止" options. If "中止", skip review → **STOP**.
+**Line Count Warning**: If `total_lines` exceeds `DIFF_WARN_THRESHOLD`, Dual-Display Fallback Pattern に従う:
+
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+⚠ Diff size warning — {total_lines} lines (threshold: {DIFF_WARN_THRESHOLD})
+
+続行しますか？（テキスト入力またはボタンで回答）:
+- **続行** → continue
+- **中止** → abort
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**: "続行"/"中止" options.
+
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+If "中止", skip review → **STOP**.
 
 Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
@@ -361,8 +376,19 @@ Report the review results.
 
 **通常モード**（`$ARGUMENTS` に `autofix` が含まれない場合）:
 
-レビュー結果を表示した後、必ず `AskUserQuestion` ツールを使って次のアクションを選択させる。
+レビュー結果を表示した後、Dual-Display Fallback Pattern に従い、テキストプロンプトを先に表示してから AskUserQuestion を呼び出す。
 
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+✅ Fix & re-review complete
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **Approve & Commit** → `/specflow.approve`
+- **Fix All** → `/specflow.fix`
+- **Reject** → `/specflow.reject`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
 ```
 AskUserQuestion:
   question: "次のアクションを選択してください"
@@ -375,9 +401,11 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
+**入力受理**: 最初に受理された有効入力（ボタンまたはテキスト）のみを採用する。テキスト入力が label または command に一致しない場合、テキストプロンプトを再表示して再度入力を待つ。
+
 ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
 - 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
 - 「Fix All」 → `Skill(skill: "specflow.fix")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
-**IMPORTANT:** Do NOT present next-action choices as text.必ず `AskUserQuestion` のボタン UI を使うこと。
+**IMPORTANT:** テキストプロンプトと AskUserQuestion の両方を必ず表示すること（Dual-Display）。
