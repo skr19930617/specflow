@@ -16,7 +16,7 @@
 ## Technical Context
 
 **Language/Version**: Bash (POSIX + bashisms), Markdown (Claude Code slash commands)  
-**Primary Dependencies**: Claude Code CLI, Codex CLI (MCP server), GitHub CLI (gh), speckit (.specify/)  
+**Primary Dependencies**: Claude Code CLI, Codex CLI (MCP server), GitHub CLI (gh), specflow (.specify/)  
 **Storage**: File-based — `specs/<feature>/review-ledger-{spec,plan}.json`, `specs/review-dashboard.md`  
 **Testing**: 手動テスト（slash commandのため自動テスト不可）  
 **Target Platform**: macOS / Linux (CLIツール)  

@@ -16,7 +16,7 @@ Add an approval summary generation step to the `/specflow.approve` command. Befo
 ## Technical Context
 
 **Language/Version**: Bash (shell scripts), Markdown (Claude Code slash commands)
-**Primary Dependencies**: Claude Code CLI, GitHub CLI (gh), speckit (.specify/), jq (for JSON parsing in scripts)
+**Primary Dependencies**: Claude Code CLI, GitHub CLI (gh), specflow (.specify/), jq (for JSON parsing in scripts)
 **Storage**: File-based — `specs/<feature>/approval-summary.md`, `specs/<feature>/review-ledger.json`
 **Testing**: Manual end-to-end testing via specflow workflow
 **Target Platform**: macOS/Linux terminal (Claude Code CLI environment)
@@ -39,7 +39,7 @@ specs/006-approval-summary/
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output
 ├── data-model.md        # Phase 1 output
-└── tasks.md             # Phase 2 output (by /speckit.tasks)
+└── tasks.md             # Phase 2 output (by /specflow.tasks)
 ```
 
 ### Source Code (repository root)

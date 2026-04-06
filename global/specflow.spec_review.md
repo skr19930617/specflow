@@ -10,10 +10,10 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
    - If missing:
      ```
-     ❌ speckit が見つかりません。
+     ❌ specflow prerequisites が見つかりません。
 
      次のステップでインストールしてください:
      1. `npx specy init` を実行
@@ -40,7 +40,7 @@ Determine `FEATURE_SPEC` by running:
 ```
 Parse the JSON output to get `FEATURE_SPEC`, `FEATURE_DIR`, and `BRANCH`.
 
-Verify that `FEATURE_SPEC` exists (via Read tool). If the file does not exist, display an error: `"spec.md が見つかりません。先に /specflow または /speckit.specify を実行してください。"` → **STOP**.
+Verify that `FEATURE_SPEC` exists (via Read tool). If the file does not exist, display an error: `"spec.md が見つかりません。先に /specflow または /specflow.specify を実行してください。"` → **STOP**.
 
 ## Step 1: Codex Spec Review
 

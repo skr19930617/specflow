@@ -1,0 +1,97 @@
+{
+  "feature_id": "021-remove-speckit-legacy",
+  "phase": "spec",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "scope",
+      "file": "spec.md",
+      "title": "`.specify/` 除外が issue の「全て排除」と整合しているか",
+      "detail": "issue body は speckit の残骸を「全て」排除すると読めますが、spec は `.specify/` と `.specify/scripts/` を対象外にし、成功条件の grep からも `.specify/` を除外しています。",
+      "suggested_resolution": "`.specify/` を正式な例外とするなら、その理由と除外範囲を acceptance criteria に明記する。",
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "medium",
+      "category": "completeness",
+      "file": "spec.md",
+      "title": "`speckit.*` コマンドの具体的な移行先名が未定義",
+      "detail": "spec は `speckit.*` スラッシュコマンドを「新名称」にリネームするとしていますが、各既存コマンドの正確な移行先が定義されていません。",
+      "suggested_resolution": "既存 `speckit.*` コマンドごとに `rename to X` または `delete` の対応表を spec に追加する。",
+      "notes": ""
+    },
+    {
+      "id": "R2-F03",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "scope",
+      "file": "spec.md",
+      "title": "`speckit` 全件排除の grep 基準に履歴アーティファクトの扱いがない",
+      "detail": "User Story 1、User Story 3、SC-001 は `speckit` の grep 結果を実質 0 件にする前提ですが、現行リポジトリにはこの機能仕様自体や過去の `openspec/changes/*`、review ledger、approval summary などの履歴文書に `speckit` が残っています。",
+      "suggested_resolution": "grep 成功条件の対象パスを明示し、現行 feature spec や過去の change records / review ledger / approval summary を除外するのか、あるいは更新対象に含めるのかを明文化してください。",
+      "notes": ""
+    },
+    {
+      "id": "R2-F04",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "medium",
+      "category": "completeness",
+      "file": "spec.md",
+      "title": "migration 排除がファイル削除中心で文書上の残骸除去を保証していない",
+      "detail": "FR-003、FR-007、SC-002 は migration script と migration 用ディレクトリの削除に寄っています。現行リポジトリには `openspec/README.md` などの維持対象ドキュメントにも migration 参照が残っています。",
+      "suggested_resolution": "削除対象の migration ファイル群とは別に、維持対象ドキュメント・テンプレートから legacy migration 参照を除去する要件と受け入れ条件を追加してください。",
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 0,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

@@ -12,10 +12,10 @@ $ARGUMENTS
 
 Before starting, verify the project is initialized:
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
    - If missing:
      ```
-     ❌ speckit が見つかりません。
+     ❌ specflow prerequisites が見つかりません。
 
      次のステップでインストールしてください:
      1. `npx specy init` を実行
@@ -84,9 +84,9 @@ Author: <author> | State: <state> | Labels: <labels>
 
 Show a brief summary of the issue body.
 
-## Step 3: Create Spec via speckit
+## Step 3: Create Spec via specflow
 
-Read the file `.claude/commands/speckit.specify.md` and follow its complete workflow.
+Read the file `.claude/commands/specflow.specify.md` and follow its complete workflow.
 
 **Feature description input depends on MODE:**
 - **`MODE = issue_url`**: Use the issue title and body (fetched in Step 2) as the feature description input.
@@ -94,10 +94,10 @@ Read the file `.claude/commands/speckit.specify.md` and follow its complete work
 
 This will:
 - Create a feature branch
-- Generate a spec file in the speckit directory structure (e.g., `openspec/changes/<number>-<short-name>/spec.md`)
+- Generate a spec file in the specflow directory structure (e.g., `openspec/changes/<number>-<short-name>/spec.md`)
 - Run quality validation
 
-Remember the `FEATURE_SPEC` path output by speckit — this is the spec file for all subsequent steps.
+Remember the `FEATURE_SPEC` path output by specflow — this is the spec file for all subsequent steps.
 
 Report: `Step 3 complete — Spec created`
 
@@ -105,7 +105,7 @@ Report: `Step 3 complete — Spec created`
 
 ### Clarify Override: AskUserQuestion でボタン表示
 
-Read the file `.claude/commands/speckit.clarify.md` and follow its complete workflow, **but apply these overrides** for ALL user-facing questions:
+Read the file `.claude/commands/specflow.clarify.md` and follow its complete workflow, **but apply these overrides** for ALL user-facing questions:
 
 - **選択式の質問:** マークダウンテーブルで選択肢を並べて「A/B/C で回答してください」と書く代わりに、`AskUserQuestion` ツールを使う。各選択肢をボタンオプションとして渡す。推奨オプションとその理由を質問テキストに含める。自由回答が適切な場合は「その他（短い回答）」をオプションに追加する。
 - **自由回答の質問:** `AskUserQuestion` ツールで質問を提示する（ボタンなし、フリーテキスト入力）。提案する回答を質問テキストに含める。
@@ -133,6 +133,6 @@ This will:
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - Never modify files inside `.specflow/` — read-only (config and review prompts).
-- Spec, plan, tasks are managed by speckit in `.specify/` and `openspec/changes/`.
+- Spec, plan, tasks are managed by specflow in `.specify/` and `openspec/changes/`.
 - If any tool call fails, report the error and ask the user how to proceed.
-- When reading speckit command files, follow their instructions faithfully.
+- When reading specflow command files, follow their instructions faithfully.

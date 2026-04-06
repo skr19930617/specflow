@@ -23,7 +23,7 @@
 
 **Purpose**: No new project setup needed — this feature adds files to the existing specflow project.
 
-- [x] T001 Create feature branch `017-spec-decompose-command` (already done via `/speckit.specify`)
+- [x] T001 Create feature branch `017-spec-decompose-command` (already done via `/specflow.specify`)
 
 **Checkpoint**: Feature branch ready.
 
@@ -54,7 +54,7 @@
 
 ### Implementation for User Story 1
 
-- [x] T010 [US1] Create `global/specflow.decompose.md` with frontmatter (description), prerequisites check (speckit installed, specflow config, feature branch), and basic structure following existing specflow command patterns
+- [x] T010 [US1] Create `global/specflow.decompose.md` with frontmatter (description), prerequisites check (specflow installed, specflow config, feature branch), and basic structure following existing specflow command patterns
 - [x] T011 [US1] Implement Step 1 in `global/specflow.decompose.md` — read current spec via `check-prerequisites.sh --json --paths-only`, read `/tmp/specflow-issue.json` to determine if issue-linked. If issue-linked, validate parent issue accessibility via `gh issue view <number> --json state` — if unreachable/deleted, report error and stop; if closed, proceed normally (valid target per spec).
 - [x] T012 [US1] Implement Step 2 in `global/specflow.decompose.md` — AI analysis instructions: instruct Claude to read the spec, identify independent functional areas, and determine one of three outcomes: (a) "decompose" — multiple independent areas found, output structured proposal matching plan.md input schema; (b) "no-action" — spec is well-scoped (single area or tightly coupled), skip to confirmation message "Spec is appropriately scoped"; (c) "no-clear-split" — areas are interconnected, recommend implementing as-is. Only outcome (a) proceeds to the proposal/confirmation step; (b) and (c) short-circuit to a report message without invoking the helper script.
 - [x] T013 [US1] Implement Step 3 in `global/specflow.decompose.md` — present decomposition proposal as a formatted table via AskUserQuestion with Confirm/Cancel options

@@ -1,4 +1,4 @@
-# Current Phase: 013-speckit-prereq-guidance
+# Current Phase: 013-specflow-prereq-guidance
 
 - Phase: fix-review
 - Round: 2

@@ -31,4 +31,4 @@
 
 ## Notes
 
-- All items pass validation. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
+- All items pass validation. Spec is ready for `/specflow.clarify` or `/specflow.plan`.

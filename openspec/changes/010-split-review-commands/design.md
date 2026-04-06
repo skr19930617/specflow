@@ -16,7 +16,7 @@ Split the ambiguous `/specflow.review` into three phase-specific review commands
 ## Technical Context
 
 **Language/Version**: Bash (POSIX + bashisms), Markdown (Claude Code slash commands)
-**Primary Dependencies**: Claude Code CLI, Codex CLI (MCP server), GitHub CLI (gh), speckit (.specify/)
+**Primary Dependencies**: Claude Code CLI, Codex CLI (MCP server), GitHub CLI (gh), specflow (.specify/)
 **Storage**: File-based — `global/*.md` (command files), `.specflow/review_*_prompt.txt` (review prompts), `specs/<feature>/review-ledger.json`
 **Testing**: Manual execution of each command; verify handoff options and review-ledger entries
 **Target Platform**: macOS / Linux (developer workstation)

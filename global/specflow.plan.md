@@ -1,5 +1,5 @@
 ---
-description: speckit で Plan → Tasks を作成し、Codex でレビュー
+description: specflow で Plan → Tasks を作成し、Codex でレビュー
 ---
 
 ## User Input
@@ -10,10 +10,10 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm speckit is installed.
+1. Run `ls .specify/scripts/bash/check-prerequisites.sh` via Bash to confirm specflow prerequisites are installed.
    - If missing:
      ```
-     ❌ speckit が見つかりません。
+     ❌ specflow prerequisites が見つかりません。
 
      次のステップでインストールしてください:
      1. `npx specy init` を実行
@@ -34,7 +34,7 @@ $ARGUMENTS
 
 ## Step 1: Plan
 
-Read the file `.claude/commands/speckit.plan.md` and follow its complete workflow.
+Read the file `.claude/commands/specflow.plan.md` and follow its complete workflow.
 
 This will:
 - Research unknowns and create research.md
@@ -45,7 +45,7 @@ Report: `Step 1 complete — Plan created`
 
 ## Step 2: Tasks
 
-Immediately after plan completes, read the file `.claude/commands/speckit.tasks.md` and follow its complete workflow.
+Immediately after plan completes, read the file `.claude/commands/specflow.tasks.md` and follow its complete workflow.
 
 This will:
 - Generate dependency-ordered tasks from the plan and spec
@@ -67,6 +67,6 @@ This will:
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - Never modify files inside `.specflow/` — read-only.
-- Spec, plan, tasks are managed by speckit in `.specify/` and `openspec/changes/`.
+- Spec, plan, tasks are managed by specflow in `.specify/` and `openspec/changes/`.
 - If any tool call fails, report the error and ask the user how to proceed.
-- When reading speckit command files, follow their instructions faithfully.
+- When reading specflow command files, follow their instructions faithfully.

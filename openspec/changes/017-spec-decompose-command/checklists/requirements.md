@@ -31,5 +31,5 @@
 
 ## Notes
 
-- All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
+- All items pass. Spec is ready for `/specflow.clarify` or `/specflow.plan`.
 - Assumptions section documents reasonable defaults for threshold configuration and milestone naming.

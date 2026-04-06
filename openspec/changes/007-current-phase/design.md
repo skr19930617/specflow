@@ -16,7 +16,7 @@ Add automatic generation and consumption of `specs/<feature>/current-phase.md` �
 ## Technical Context
 
 **Language/Version**: Markdown (Claude Code slash commands) + Bash (inline git commands)
-**Primary Dependencies**: Claude Code CLI, speckit (.specify/), GitHub CLI (gh), jq (not needed — inline logic)
+**Primary Dependencies**: Claude Code CLI, specflow (.specify/), GitHub CLI (gh), jq (not needed — inline logic)
 **Storage**: File-based — `specs/<feature>/current-phase.md`, `specs/<feature>/review-ledger.json` (read-only)
 **Testing**: Manual integration testing via specflow cycle
 **Target Platform**: macOS/Linux (Claude Code CLI environment)

@@ -124,5 +124,5 @@
 ## Assumptions
 
 - 現在の `bin/`, `global/`, `template/` のディレクトリ構造が正であり、この構造自体の変更は行わない
-- speckit（`.specify/`）の構造は変更対象外
+- specflow（`.specify/`）の構造は変更対象外
 - ユーザーがカスタマイズした CLAUDE.md は install/init で上書きしない（既存の動作を維持）

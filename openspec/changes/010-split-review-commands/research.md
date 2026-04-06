@@ -47,9 +47,9 @@
 
 ## Decision: Flow Command Delegation
 
-**Decision**: Flow commands (`specflow.md`, `specflow.plan.md`, `specflow.impl.md`) will reference the new review command files by saying "Read the file `global/specflow.<phase>_review.md` and follow its complete workflow" — same pattern used for speckit commands.
+**Decision**: Flow commands (`specflow.md`, `specflow.plan.md`, `specflow.impl.md`) will reference the new review command files by saying "Read the file `global/specflow.<phase>_review.md` and follow its complete workflow" — same pattern used for specflow commands.
 
-**Rationale**: This is the established pattern in the codebase (e.g., `specflow.md` says "Read the file `.claude/commands/speckit.specify.md` and follow its complete workflow").
+**Rationale**: This is the established pattern in the codebase (e.g., `specflow.md` says "Read the file `.claude/commands/specflow.specify.md` and follow its complete workflow").
 
 **Alternative considered**: Having flow commands call `Skill(skill: "specflow.spec_review")` — rejected because Skill calls reset context, while Read-and-follow preserves it.
 
