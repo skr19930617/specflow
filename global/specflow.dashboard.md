@@ -22,11 +22,11 @@ $ARGUMENTS
    git rev-parse --show-toplevel
    ```
 
-2. List all feature directories under `specs/`:
+2. List all feature directories under `openspec/changes/`:
    ```bash
-   ls -d specs/*/spec.md 2>/dev/null | sed 's|/spec.md||'
+   ls -d openspec/changes/*/proposal.md 2>/dev/null | sed 's|/proposal.md||'
    ```
-   Each result is a feature directory. Only directories containing `spec.md` are included.
+   Each result is a feature directory. Only directories containing `proposal.md` are included.
 
 3. If no features found, display: `"レビュー対象のfeatureがありません。"` → **STOP**.
 
@@ -34,7 +34,7 @@ $ARGUMENTS
 
 For each feature directory found in Step 1:
 
-1. Extract the feature name from the directory path (e.g., `specs/007-current-phase` → `007-current-phase`).
+1. Extract the feature name from the directory path (e.g., `openspec/changes/007-current-phase` → `007-current-phase`).
 
 2. Attempt to read each of the 3 ledger files via Read tool:
    - `<feature_dir>/review-ledger-spec.json` (spec phase)
@@ -81,7 +81,7 @@ Where "reviewed" means the ledger file exists (regardless of error state).
 
 1. **Display in terminal**: Output the dashboard as a formatted CLI table. Use Markdown table syntax (which renders well in Claude Code's terminal output). Include the header, data rows, and summary line.
 
-2. **Save to file**: Write the dashboard to `specs/review-dashboard.md` with the following format:
+2. **Save to file**: Write the dashboard to `openspec/review-dashboard.md` with the following format:
 
 ```markdown
 # Review Dashboard
@@ -94,7 +94,7 @@ Where "reviewed" means the ledger file exists (regardless of error state).
 <summary line from Step 3>
 ```
 
-Report: `Dashboard saved to specs/review-dashboard.md`
+Report: `Dashboard saved to openspec/review-dashboard.md`
 
 ## Important Rules
 

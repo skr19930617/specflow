@@ -1,0 +1,69 @@
+{
+  "feature_id": "020-openspec-migration",
+  "phase": "plan",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "ordering",
+      "file": "tasks.md",
+      "title": "Cutover is scheduled before dependent command and template updates",
+      "detail": "Phase 3 executes the migration before command/template updates complete.",
+      "suggested_resolution": "Move cutover to after updates.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "tasks.md",
+      "title": "Atomic migration has no explicit rollback or failure-path validation",
+      "detail": "No failure-injection test.",
+      "suggested_resolution": "Add failure-injection task.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "tasks.md",
+      "title": "openspec/specs/ end state is ambiguous",
+      "detail": "specs/ removal vs openspec/specs/ empty distinction.",
+      "suggested_resolution": "Add end-state assertion.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

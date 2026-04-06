@@ -73,6 +73,6 @@ This will:
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - Never modify files inside `.specflow/` — read-only.
-- Spec, plan, tasks are managed by speckit in `.specify/` and `specs/`.
+- Spec, plan, tasks are managed by speckit in `.specify/` and `openspec/changes/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - When reading speckit command files, follow their instructions faithfully.

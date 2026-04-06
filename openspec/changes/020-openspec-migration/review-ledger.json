@@ -1,0 +1,54 @@
+{
+  "feature_id": "020-openspec-migration",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/changes/020-openspec-migration/command-audit.md",
+      "title": "Command audit artifact was missing after migration",
+      "detail": "The migration script's conflict resolution removed the pre-created command-audit.md when re-migrating the 020 directory.",
+      "suggested_resolution": "Recreate the command-audit.md after migration.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": "Fixed: recreated command-audit.md with full audit results."
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "global/specflow.dashboard.md",
+      "title": "Some commands reference spec.md/plan.md instead of proposal.md/design.md",
+      "detail": "Post-migration, speckit still creates spec.md and plan.md as working files. Only migrated historical records use proposal.md/design.md. This is by design per FR-004.",
+      "suggested_resolution": "No action needed — speckit's working file naming is independent of OpenSpec naming for migrated records.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 1,
+      "notes": "By design: speckit creates spec.md/plan.md as working files. FR-004 renames to proposal.md/design.md only for historical migration."
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
