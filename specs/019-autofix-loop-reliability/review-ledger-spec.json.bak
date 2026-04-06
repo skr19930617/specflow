@@ -1,0 +1,97 @@
+{
+  "feature_id": "019-autofix-loop-reliability",
+  "phase": "spec",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "contradiction",
+      "file": "spec.md",
+      "title": "Dismiss/timeout flow is defined two different ways",
+      "detail": "...",
+      "suggested_resolution": "...",
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "assumption",
+      "file": "spec.md",
+      "title": "The core \"button never appears\" failure mode has no defined trigger for fallback",
+      "detail": "...",
+      "suggested_resolution": "...",
+      "notes": ""
+    },
+    {
+      "id": "R2-F01",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "high",
+      "category": "assumption",
+      "file": "spec.md",
+      "title": "Fallback flow assumes text replies can safely replace AskUserQuestion",
+      "detail": "...",
+      "suggested_resolution": "...",
+      "notes": ""
+    },
+    {
+      "id": "R2-F02",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "severity": "medium",
+      "category": "contradiction",
+      "file": "spec.md",
+      "title": "Available actions are inconsistent across handoff states",
+      "detail": "...",
+      "suggested_resolution": "...",
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 0,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 2, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
