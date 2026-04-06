@@ -95,6 +95,21 @@ if [[ -n "${DIFF_EXCLUDE_PATTERNS:-}" ]]; then
     done
 fi
 
+# --- Built-in always-excluded patterns for specflow ledger files ---
+BUILTIN_EXCLUDE_PATTERNS=(
+    "*/review-ledger.json"
+    "*/review-ledger.json.bak"
+    "*/review-ledger.json.corrupt"
+    "*/review-ledger-spec.json"
+    "*/review-ledger-spec.json.bak"
+    "*/review-ledger-plan.json"
+    "*/review-ledger-plan.json.bak"
+    "*/current-phase.md"
+)
+for pattern in "${BUILTIN_EXCLUDE_PATTERNS[@]}"; do
+    valid_patterns+=("$pattern")
+done
+
 # --- Get file list with change types ---
 name_status_output=$(git diff --name-status -M100 "${PATHSPEC_ARGS[@]}" 2>/dev/null || true)
 
