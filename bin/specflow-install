@@ -165,4 +165,4 @@ fi
 echo
 echo "Done!"
 echo
-echo "Next: run 'specflow-init' in your project directory to initialize .specflow/"
+echo "Next: run 'specflow-init' in your project directory to initialize openspec/"

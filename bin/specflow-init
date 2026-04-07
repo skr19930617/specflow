@@ -11,7 +11,7 @@ for arg in "$@"; do
     -h|--help)
       echo "Usage: specflow-init [--update]"
       echo
-      echo "  (default)   Initialize .specflow/, .mcp.json, CLAUDE.md and install slash commands"
+      echo "  (default)   Initialize openspec/, .mcp.json, CLAUDE.md and install slash commands"
       echo "  --update    Force-update ~/.claude/commands/specflow*.md only"
       exit 0
       ;;
@@ -49,30 +49,17 @@ if [[ "$UPDATE_MODE" == true ]]; then
     cp "$cmd_file" "$HOME/.claude/commands/$base"
     echo "Updated ~/.claude/commands/$base"
   done
-  # .specflow/ に不足しているプロンプトファイルを補完
-  TEMPLATE_SPECFLOW="$CONFIG_DIR/template/.specflow"
-  if [[ -d ".specflow" ]] && [[ -d "$TEMPLATE_SPECFLOW" ]]; then
-    SYNCED=0
-    for tmpl_file in "$TEMPLATE_SPECFLOW"/*.txt; do
-      [[ -f "$tmpl_file" ]] || continue
-      base="$(basename "$tmpl_file")"
-      if [[ ! -f ".specflow/$base" ]]; then
-        cp "$tmpl_file" ".specflow/$base"
-        echo "Synced missing .specflow/$base"
-        SYNCED=$((SYNCED + 1))
-      fi
-    done
-    if [[ "$SYNCED" -gt 0 ]]; then
-      echo "Synced $SYNCED missing prompt file(s) to .specflow/"
-    fi
+  # openspec/ に不足しているサブディレクトリを補完
+  if [[ -d "openspec" ]]; then
+    mkdir -p openspec/specs openspec/changes
   fi
   echo "Done. Slash commands updated."
   exit 0
 fi
 
 # --- 初回セットアップ ---
-if [[ -d ".specflow" ]]; then
-  echo ".specflow/ already exists in $ROOT"
+if [[ -f "openspec/config.yaml" ]]; then
+  echo "openspec/ already initialized in $ROOT"
   echo "Use --update to refresh slash commands only."
   exit 1
 fi
@@ -103,16 +90,12 @@ else
 fi
 
 # テンプレート検証
-if [[ ! -d "$TEMPLATE_DIR/.specflow" ]]; then
-  echo "Error: .specflow/ not found in template ($TEMPLATE_DIR)"
+if [[ ! -f "$TEMPLATE_DIR/openspec/config.yaml" ]] && [[ ! -d "$TEMPLATE_DIR/openspec" ]]; then
+  echo "Error: openspec/ not found in template ($TEMPLATE_DIR)"
   exit 1
 fi
 
 # --- ファイルコピー ---
-
-# .specflow/
-cp -R "$TEMPLATE_DIR/.specflow" .specflow
-echo "Created .specflow/"
 
 # .mcp.json
 if [[ ! -f ".mcp.json" ]]; then
@@ -162,22 +145,10 @@ if [[ -d "$GLOBAL_DIR" ]]; then
 fi
 
 echo
-echo "Initialized .specflow/ in $ROOT"
-echo "  .specflow/config.env"
+echo "Initialized openspec/ in $ROOT"
 echo
 
-# specflow prerequisites チェック
-if [[ ! -d ".specify" ]]; then
-  echo "Warning: specflow prerequisites (.specify/) not found."
-  echo "  /specflow requires .specify/ directory. Install it first."
-  echo "  See: https://github.com/bdobbs-amd/specify"
-  echo
-fi
-
 echo "Next steps:"
-if [[ ! -d ".specify" ]]; then
-  echo "  0. Install specflow prerequisites (.specify/)"
-fi
 echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
-echo "  2. Edit .specflow/config.env — add project-specific env vars if needed"
+echo "  2. Edit openspec/config.yaml if needed"
 echo "  3. Ensure Codex CLI is installed (npm install -g @openai/codex)"
