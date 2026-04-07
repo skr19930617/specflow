@@ -1,0 +1,89 @@
+{
+  "feature_id": "improve-init-command",
+  "phase": "spec",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "ambiguity",
+      "file": "proposal.md",
+      "title": "Project name and target directory semantics are not defined",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "ambiguity",
+      "file": "proposal.md",
+      "title": "Agent support and OpenSpec mapping are underspecified",
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "ambiguity",
+      "file": "proposal.md",
+      "title": "Git and .gitignore behavior relies on unconfirmed assumptions",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "edge_case",
+      "file": "proposal.md",
+      "title": "--dir inside an existing repository does not define which .gitignore file to update",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 1,
+      "new": 1,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 1, "resolved": 1, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "feature_id": "improve-init-command",
+  "phase": "plan",
+  "current_round": 3,
+  "status": "all_resolved",
+  "max_finding_id": 8,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "plan.md",
+      "title": "Required preflight validation is missing and partially misordered",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "ordering",
+      "file": "tasks.md",
+      "title": "Project-name resolution is not wired into the execution flow",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "tasks.md",
+      "title": "Subdirectory validation is scoped more broadly than the spec allows",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "high",
+      "category": "completeness",
+      "file": "plan.md",
+      "title": "No-arg flow does not explicitly resolve to git root",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 3
+    },
+    {
+      "id": "R2-F05",
+      "severity": "high",
+      "category": "ordering",
+      "file": "tasks.md",
+      "title": "Specflow setup can run before OpenSpec init",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 3
+    },
+    {
+      "id": "R2-F06",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "tasks.md",
+      "title": "Agent selection is underspecified for two roles and defaults",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 3
+    },
+    {
+      "id": "R2-F07",
+      "severity": "medium",
+      "category": "ordering",
+      "file": "tasks.md",
+      "title": "Phase dependencies are inconsistent across CLI patterns",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 3
+    },
+    {
+      "id": "R2-F08",
+      "severity": "low",
+      "category": "scope",
+      "file": "tasks.md",
+      "title": "Exact .gitignore constraint is not called out in the tasks",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 3
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 8,
+      "open": 0,
+      "new": 5,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 2, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 2, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 }
+      }
+    },
+    {
+      "round": 3,
+      "total": 8,
+      "open": 0,
+      "new": 0,
+      "resolved": 8,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 3, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 4, "new": 0, "overridden": 0 },
+        "low": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
