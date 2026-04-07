@@ -12,7 +12,7 @@ for arg in "$@"; do
       echo "Usage: specflow-init [--update]"
       echo
       echo "  (default)   Initialize openspec/, .mcp.json, CLAUDE.md and install slash commands"
-      echo "  --update    Force-update ~/.claude/commands/specflow*.md only"
+      echo "  --update    Force-update ~/.claude/commands/ slash commands only"
       exit 0
       ;;
     *)
@@ -42,13 +42,17 @@ if [[ "$UPDATE_MODE" == true ]]; then
     echo "Run 'specflow-install' to update."
     exit 1
   fi
-  mkdir -p "$HOME/.claude/commands"
-  for cmd_file in "$GLOBAL_DIR"/specflow*.md; do
-    [[ -f "$cmd_file" ]] || continue
-    base="$(basename "$cmd_file")"
-    cp "$cmd_file" "$HOME/.claude/commands/$base"
-    echo "Updated ~/.claude/commands/$base"
-  done
+  if [[ ! -d "$GLOBAL_DIR/commands" ]]; then
+    echo "Warning: $GLOBAL_DIR/commands/ not found, skipping slash commands"
+  else
+    mkdir -p "$HOME/.claude/commands"
+    for cmd_file in "$GLOBAL_DIR/commands"/*.md; do
+      [[ -f "$cmd_file" ]] || continue
+      base="$(basename "$cmd_file")"
+      cp "$cmd_file" "$HOME/.claude/commands/$base"
+      echo "Updated ~/.claude/commands/$base"
+    done
+  fi
   # openspec/ に不足しているサブディレクトリを補完
   if [[ -d "openspec" ]]; then
     mkdir -p openspec/specs openspec/changes
@@ -132,9 +136,9 @@ fi
 
 # --- スラッシュコマンドのインストール ---
 GLOBAL_DIR="$CONFIG_DIR/global"
-if [[ -d "$GLOBAL_DIR" ]]; then
+if [[ -d "$GLOBAL_DIR/commands" ]]; then
   mkdir -p "$HOME/.claude/commands"
-  for cmd_file in "$GLOBAL_DIR"/specflow*.md; do
+  for cmd_file in "$GLOBAL_DIR/commands"/*.md; do
     [[ -f "$cmd_file" ]] || continue
     base="$(basename "$cmd_file")"
     if [[ ! -f "$HOME/.claude/commands/$base" ]]; then
@@ -142,6 +146,8 @@ if [[ -d "$GLOBAL_DIR" ]]; then
       echo "Installed ~/.claude/commands/$base"
     fi
   done
+else
+  echo "Warning: $GLOBAL_DIR/commands/ not found, skipping slash commands"
 fi
 
 echo
