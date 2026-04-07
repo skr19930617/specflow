@@ -20,17 +20,16 @@ $ARGUMENTS
      2. `/specflow.decompose` を再度実行
      ```
      → **STOP**.
-2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
+2. Run `ls openspec/config.yaml` via Bash to confirm OpenSpec is initialized.
    - If missing:
      ```
-     ❌ `.specflow/config.env` が見つかりません。
+     ❌ `openspec/config.yaml` が見つかりません。
 
      次のステップで初期化してください:
      1. `specflow-init` を実行
      2. `/specflow.decompose` を再度実行
      ```
      → **STOP**.
-3. Run `source .specflow/config.env` via Bash.
 
 ## Step 1: Read Spec and Determine Mode
 

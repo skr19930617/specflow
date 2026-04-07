@@ -1,7 +1,7 @@
 # Proposal: Migrate specflow to OpenSpec
 
 **Change ID**: migrate-specflow-to-openspec
-**Status**: Draft
+**Status**: Complete
 **Created**: 2026-04-07
 
 ## Purpose
