@@ -20,17 +20,7 @@ $ARGUMENTS
      2. `/specflow.plan_fix` を再度実行
      ```
      → **STOP**.
-2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing:
-     ```
-     ❌ `.specflow/config.env` が見つかりません。
-
-     次のステップで初期化してください:
-     1. `specflow-init` を実行
-     2. `/specflow.plan_fix` を再度実行
-     ```
-     → **STOP**.
-3. Run `source .specflow/config.env` via Bash.
+2. Read `openspec/config.yaml`. Extract any relevant settings. If parse fails, display error and **STOP**.
 
 ## Setup
 

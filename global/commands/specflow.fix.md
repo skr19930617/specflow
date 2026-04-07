@@ -20,32 +20,19 @@ $ARGUMENTS
      2. `/specflow.fix` を再度実行
      ```
      → **STOP**.
-2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing:
-     ```
-     ❌ `.specflow/config.env` が見つかりません。
-
-     次のステップで初期化してください:
-     1. `specflow-init` を実行
-     2. `/specflow.fix` を再度実行
-     ```
-     → **STOP**.
-3. Run `source .specflow/config.env` via Bash.
 
 ## Setup
 
-Resolve `FEATURE_DIR` from the current change id:
-- If `$ARGUMENTS` contains a change id (excluding `autofix`), set `FEATURE_DIR=openspec/changes/<id>`.
-- Otherwise, detect the active change from the current branch name or prompt the user.
+Determine `CHANGE_ID`:
+- If `$ARGUMENTS` contains a change id (excluding `autofix`), use it.
+- Otherwise, derive from the current branch name or prompt the user.
 
-Verify `FEATURE_DIR` exists via Bash (`ls <FEATURE_DIR>/proposal.md`). If missing → **STOP** with error.
-
-Set `FEATURE_SPEC` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback. Read the spec file.
+Verify `openspec/changes/<CHANGE_ID>/proposal.md` exists via Bash. If missing → **STOP** with error. Read the proposal file.
 
 ## Step 0.5: Read Current Phase Context
 
-1. Use `FEATURE_DIR` resolved in Setup.
-2. Check if `FEATURE_DIR/current-phase.md` exists (via Read tool — if not found, proceed silently).
+1. Use `CHANGE_ID` resolved in Setup.
+2. Check if `openspec/changes/<CHANGE_ID>/current-phase.md` exists (via Read tool — if not found, proceed silently).
 3. If the file exists: read it and display as a summary block:
    ```
    Current Phase Context:
@@ -55,11 +42,11 @@ Set `FEATURE_SPEC` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match)
 
 ## Apply Fixes
 
-Source `config.env` to load `DIFF_EXCLUDE_PATTERNS` and `DIFF_WARN_THRESHOLD` (default: 1000).
+Read `diff_exclude_patterns` and `diff_warn_threshold` (default: 1000) from `openspec/config.yaml`.
 
 Generate the filtered diff to understand the implementation state:
 ```bash
-specflow-filter-diff -- . ':(exclude).specflow' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
+specflow-filter-diff -- . ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
 ```
 
 Read `/tmp/specflow-filter-summary.json` and parse the JSON.
@@ -84,9 +71,7 @@ Report what was fixed.
 
 ### Ledger Detection and Prompt Switching
 
-Use `FEATURE_DIR` resolved in Setup.
-
-Attempt to Read `FEATURE_DIR/review-ledger.json` to determine which review prompt to use:
+Attempt to Read `openspec/changes/<CHANGE_ID>/review-ledger.json` to determine which review prompt to use:
 
 - **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_impl_prompt.md`), unchanged behavior. Set `REREVIEW_MODE = false`.
 - **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_impl_rereview_prompt.md`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
@@ -94,11 +79,11 @@ Attempt to Read `FEATURE_DIR/review-ledger.json` to determine which review promp
 - **Branch D: Corrupt/malformed ledger** — file exists but JSON parse fails or required fields missing → use re-review prompt with empty `PREVIOUS_FINDINGS`, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`, `LEDGER_ERROR = true`. Display: `"⚠ review-ledger.json が破損しています。空の前回 findings で re-review を実行します。"`.
 - **Branch E: Missing max_finding_id** — file exists, JSON valid, findings present, but `max_finding_id` field absent → derive from findings. Log: `"⚠ max_finding_id が見つかりません。findings から導出しました。"`. Proceed as Branch B.
 
-Read `FEATURE_SPEC`.
+Read `openspec/changes/<CHANGE_ID>/proposal.md`.
 
 Generate the filtered diff for review:
 ```bash
-specflow-filter-diff -- . ':(exclude).specflow' ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
+specflow-filter-diff -- . ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' > /tmp/specflow-filtered-diff.txt 2>/tmp/specflow-filter-summary.json
 ```
 
 Read `/tmp/specflow-filter-summary.json` and parse the JSON.
@@ -139,7 +124,7 @@ CURRENT GIT DIFF:
 <filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
 SPEC CONTENT:
-<FEATURE_SPEC の内容>
+<openspec/changes/<CHANGE_ID>/proposal.md の内容>
 ```
 
 **If `REREVIEW_MODE = true`** (ledger exists, re-review prompt):
@@ -159,7 +144,7 @@ CURRENT GIT DIFF:
 <filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
 SPEC CONTENT:
-<FEATURE_SPEC の内容>
+<openspec/changes/<CHANGE_ID>/proposal.md の内容>
 ```
 
 If `LEDGER_ERROR = true`, append to the prompt: `"NOTE: The previous review ledger was corrupted. Set ledger_error to true in your response. Treat all findings as new."`
@@ -208,8 +193,8 @@ If `REREVIEW_MODE = true`, display the classified results before the standard fi
 
 ### Ledger Read / Create
 
-1. Use `FEATURE_DIR` resolved in Setup.
-2. Attempt to Read `FEATURE_DIR/review-ledger.json`.
+1. Use `CHANGE_ID` resolved in Setup. All ledger operations target `openspec/changes/<CHANGE_ID>/`.
+2. Attempt to Read `openspec/changes/<CHANGE_ID>/review-ledger.json`.
 
    **Auto-fix mode fail-fast** (`$ARGUMENTS` に `autofix` が含まれる場合):
    - **If file does not exist**: `"⚠ autofix mode: review-ledger.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.impl auto-fix loop に戻り、Case C でエラーハンドオフされる）。
@@ -217,8 +202,8 @@ If `REREVIEW_MODE = true`, display the classified results before the standard fi
    - **If file exists and valid JSON**: 通常通り使用する。
 
    **通常モード** (`$ARGUMENTS` に `autofix` が含まれない場合):
-   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` (Note: the change id is the directory name of `FEATURE_DIR`, e.g. `openspec/changes/my-change` → `my-change`)
-   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
+   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`
+   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
    - **If file exists and valid JSON**: Use it. This is a "clean read" — backup will be created from this content before writing.
 
 ### Ledger Validation
@@ -323,7 +308,7 @@ The Codex response already classifies findings into resolved/still_open/new. Use
 
 **This step runs after the review-ledger has been fully updated, backed up, and persisted to disk.**
 
-1. Read the just-written `FEATURE_DIR/review-ledger.json`.
+1. Read the just-written `openspec/changes/<CHANGE_ID>/review-ledger.json`.
 2. Extract: `feature_id` (or derive from directory name), `current_round`, `status`, `findings[]`.
 3. Compute each field:
    - **Phase**: If `current_round == 1` → `impl-review`; else → `fix-review`. Fallback: `impl-review`.
@@ -339,7 +324,7 @@ The Codex response already classifies findings into resolved/still_open/new. Use
    - Third: use spec-defined fallback values listed above.
    - If `findings[]` is missing from both sources: set `0 件 (ledger findings unavailable)` and `none (ledger findings unavailable)`.
    - Append parenthetical note to any fallback value (e.g., `in_progress (ledger parse error)`).
-5. Write `FEATURE_DIR/current-phase.md` using the Write tool (complete overwrite):
+5. Write `openspec/changes/<CHANGE_ID>/current-phase.md` using the Write tool (complete overwrite):
 
 ```markdown
 # Current Phase: <feature_id>

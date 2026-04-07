@@ -20,17 +20,7 @@ $ARGUMENTS
      2. `/specflow.spec_review` を再度実行
      ```
      → **STOP**.
-2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing:
-     ```
-     ❌ `.specflow/config.env` が見つかりません。
-
-     次のステップで初期化してください:
-     1. `specflow-init` を実行
-     2. `/specflow.spec_review` を再度実行
-     ```
-     → **STOP**.
-3. Run `source .specflow/config.env` via Bash.
+2. Read `openspec/config.yaml`. Extract any relevant settings. If parse fails, display error and **STOP**.
 
 ## Setup
 
@@ -262,6 +252,6 @@ AskUserQuestion:
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
-- Never modify files inside `.specflow/` — read-only.
+- All artifacts (proposal, review-ledger-spec, current-phase) are managed in `openspec/changes/<change id>/`.
 - The spec review ledger file is `review-ledger-spec.json` (NOT `review-ledger.json` which is for impl reviews).
 - If any tool call fails, report the error and ask the user how to proceed.

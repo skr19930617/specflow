@@ -20,18 +20,7 @@ $ARGUMENTS
      2. `/specflow.plan_review` を再度実行
      ```
      → **STOP**.
-2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing:
-     ```
-     ❌ `.specflow/config.env` が見つかりません。
-
-     次のステップで初期化してください:
-     1. `specflow-init` を実行
-     2. `/specflow.plan_review` を再度実行
-     ```
-     → **STOP**.
-3. Run `source .specflow/config.env` via Bash.
-4. Read `SPECFLOW_MAX_AUTOFIX_ROUNDS` from the sourced config. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
+2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
 
 ## Setup
 
@@ -437,7 +426,7 @@ AskUserQuestion:
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
-- Never modify files inside `.specflow/` — read-only.
+- All artifacts (proposal, plan, tasks, review-ledger-plan, current-phase) are managed in `openspec/changes/<change id>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - Ledger file is `FEATURE_DIR/review-ledger-plan.json` (NOT `review-ledger.json`).
 - Phase is `"plan"` in ledger JSON.

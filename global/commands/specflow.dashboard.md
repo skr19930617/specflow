@@ -12,8 +12,6 @@ $ARGUMENTS
 
 1. Run `ls openspec/config.yaml` via Bash to confirm OpenSpec is initialized.
    - If missing: `"❌ openspec/config.yaml が見つかりません。"` → **STOP**.
-2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing: `"❌ .specflow/config.env が見つかりません。"` → **STOP**.
 
 ## Step 1: Discover Features
 

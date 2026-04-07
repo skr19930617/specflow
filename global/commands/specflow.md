@@ -22,17 +22,6 @@ Before starting, verify the project is initialized:
      2. `/specflow` を再度実行
      ```
      → **STOP**.
-2. Run `ls .specflow/config.env` via Bash to confirm `.specflow/` exists.
-   - If missing:
-     ```
-     ❌ `.specflow/config.env` が見つかりません。
-
-     次のステップで初期化してください:
-     1. `specflow-init` を実行
-     2. `/specflow` を再度実行
-     ```
-     → **STOP**.
-3. Run `source .specflow/config.env` via Bash to load project config.
 
 ## Step 1: Setup — 入力取得と分類
 
@@ -92,7 +81,7 @@ Show a brief summary of the issue body.
 
 Using the feature description, create a spec via the following workflow:
 1. Create a feature branch from the current base branch (the branch name determines the change id).
-2. Generate a spec file at `openspec/changes/<change-id>/spec.md` using the spec template.
+2. Generate a proposal file at `openspec/changes/<change-id>/proposal.md` using the spec template.
 3. Run quality validation on the generated spec.
 
 Set `CHANGE_ID` to the branch name (or the change id output by specflow). All subsequent steps use `openspec/changes/<CHANGE_ID>/` as the artifact directory.
@@ -113,7 +102,7 @@ This will:
 - Scan the spec for ambiguity across all taxonomy categories
 - Ask the user up to 5 clarification questions **one at a time** via AskUserQuestion buttons
 - The user answers each question by clicking a button or typing a short answer
-- Integrate answers back into the spec file
+- Integrate answers back into `openspec/changes/<CHANGE_ID>/proposal.md`
 
 Report: `Step 4 complete — Clarify done`
 
@@ -130,7 +119,6 @@ This will:
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
-- Never modify files inside `.specflow/` — read-only (config and review prompts).
-- Spec, plan, tasks are managed in `openspec/changes/<change-id>/`.
+- All artifacts (proposal, plan, tasks) are managed in `openspec/changes/<change-id>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - When reading specflow command files, follow their instructions faithfully.
