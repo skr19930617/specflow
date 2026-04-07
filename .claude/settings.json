@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(wc -l /Users/sakurayuki/work/spec-scripts/global/*.md)",
-      "Bash(grep -o \"\"AskUserQuestion\"\"[^}]*} /Users/sakurayuki/.claude/projects/-Users-sakurayuki-work-spec-scripts/c3127e73-4586-48e0-a1e2-d2fca1b1a006.jsonl)"
-    ]
-  }
-}
