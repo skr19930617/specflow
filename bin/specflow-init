@@ -81,6 +81,29 @@ ensure_gitignore_entry() {
   echo "Added $entry to $gitignore"
 }
 
+prompt_yes_no() {
+  local question=$1
+  local default=$2  # "y" or "n"
+
+  local hint="[Y/n]"
+  if [[ "$default" == "n" ]]; then
+    hint="[y/N]"
+  fi
+
+  while true; do
+    read -rp "$question $hint: " answer
+    answer="${answer,,}"  # lowercase
+    if [[ -z "$answer" ]]; then
+      answer="$default"
+    fi
+    case "$answer" in
+      y|yes) echo "y"; return ;;
+      n|no)  echo "n"; return ;;
+      *) echo "  Please enter y or n." >&2 ;;
+    esac
+  done
+}
+
 check_not_subdirectory() {
   local target_path=$1
   local check_dir="$target_path"
@@ -353,6 +376,15 @@ echo
 TOOLS_ARG="${MAIN_AGENT},${REVIEW_AGENT}"
 
 # -------------------------------------------------------
+# 2.4: .claude/ git tracking preference
+# -------------------------------------------------------
+
+echo "Track .claude/ in git? (commands/ and skills/ will be shared with the team)"
+TRACK_CLAUDE_DIR="$(prompt_yes_no "Include .claude/ in git?" "y")"
+echo "  → track .claude/: $TRACK_CLAUDE_DIR"
+echo
+
+# -------------------------------------------------------
 # 3.1: openspec init
 # -------------------------------------------------------
 
@@ -386,6 +418,15 @@ echo "Created .specflow/config.env"
 # 4.2: .gitignore idempotent update
 # -------------------------------------------------------
 
+if [[ "$TRACK_CLAUDE_DIR" == "y" ]]; then
+  # Track commands/ and skills/, ignore local settings only
+  ensure_gitignore_entry ".claude/settings.json"
+  ensure_gitignore_entry ".claude/settings.local.json"
+else
+  # Ignore entire .claude/ directory
+  ensure_gitignore_entry ".claude/"
+fi
+ensure_gitignore_entry ".mcp.json"
 ensure_gitignore_entry ".specflow/config.env"
 
 # -------------------------------------------------------
