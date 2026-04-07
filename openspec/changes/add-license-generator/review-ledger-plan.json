@@ -1,0 +1,67 @@
+{
+  "feature_id": "add-license-generator",
+  "phase": "plan",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/changes/add-license-generator/plan.md",
+      "title": "License selection design does not meet the required fixed-choice UI",
+      "detail": "The plan/tasks work around AskUserQuestion's 4-option limit by showing only 3-4 buttons and sending the rest through Other free-text with partial matching.",
+      "suggested_resolution": "",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "F2",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/changes/add-license-generator/tasks.md",
+      "title": "Author fallback flow omits required prompt content and placeholder follow-up",
+      "detail": "Task 6 does not include the git config user.name example in the prompt, nor the placeholder replacement guidance when retries are exhausted.",
+      "suggested_resolution": "",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 1,
+      "open": 0,
+      "new": 1,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 0,
+      "new": 1,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
