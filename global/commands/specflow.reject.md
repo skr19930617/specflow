@@ -22,13 +22,13 @@ $ARGUMENTS
 3. 全変更を破棄:
    ```bash
    git checkout -- .
-   git clean -fd -- . ':(exclude).specflow'
+   git clean -fd -- . ':(exclude)openspec'
    ```
 
    これにより:
    - 変更されたファイルは元に戻る (`git checkout`)
    - 新規作成されたファイルは削除される (`git clean`)
-   - `.specflow/` 配下の新規ファイルは保持される
+   - `openspec/` 配下の新規ファイルは保持される
 
 4. 破棄後の状態を確認:
    ```bash
