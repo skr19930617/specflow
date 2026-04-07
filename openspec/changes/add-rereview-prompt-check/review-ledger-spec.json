@@ -1,0 +1,95 @@
+{
+  "feature_id": "add-rereview-prompt-check",
+  "phase": "spec",
+  "current_round": 3,
+  "status": "all_resolved",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 3,
+      "severity": "high",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "Scope does not clearly match the issue body",
+      "detail": "The issue body asks to check whether prompts required outside of plan/tasks exist. The spec narrows scope to adding two rereview prompt files.",
+      "suggested_resolution": "Define the exact scope and enumerate the prompt references covered.",
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": "Spec now has explicit Scope section reconciling issue body with deliverable. Issue author confirmed scope is prompt addition only (2x). All non-plan/tasks prompt references audited: spec rereview and plan rereview are the only gaps."
+    },
+    {
+      "id": "R1-F02",
+      "origin_round": 1,
+      "latest_round": 2,
+      "severity": "high",
+      "category": "consistency",
+      "file": "proposal.md",
+      "title": "Template inclusion is internally contradictory",
+      "detail": "The spec's mandatory requirements said template/, but design decisions said global/ only.",
+      "suggested_resolution": "Choose one approach.",
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F01",
+      "origin_round": 2,
+      "latest_round": 3,
+      "severity": "high",
+      "category": "completeness",
+      "file": "proposal.md",
+      "title": "rereview の出力契約が既存実装に対して未確定",
+      "detail": "spec_fix と plan_fix が消費する JSON フィールドが明記されていなかった。",
+      "suggested_resolution": "各コマンドが受け取る正確な JSON schema を明記。",
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": "Full JSON schema added to spec with field names matching existing fix commands."
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "new": 2, "resolved": 0, "overridden": 0 },
+        "medium": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 },
+        "low": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 3,
+      "open": 1,
+      "new": 1,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 1, "new": 1, "resolved": 1, "overridden": 0 },
+        "medium": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 },
+        "low": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 3,
+      "total": 3,
+      "open": 0,
+      "new": 0,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "new": 0, "resolved": 3, "overridden": 0 },
+        "medium": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 },
+        "low": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

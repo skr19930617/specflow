@@ -1,0 +1,82 @@
+{
+  "feature_id": "add-rereview-prompt-check",
+  "phase": "spec",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 2,
+      "severity": "high",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "Scope does not clearly match the issue body",
+      "detail": "The issue body asks to check whether prompts required outside of plan/tasks exist, which reads like an audit or existence-check task. The spec instead narrows scope to creating two rereview prompt files and explicitly says the check functionality is out of scope.",
+      "suggested_resolution": "Define the exact scope in one place and enumerate the prompt references/commands that must be covered.",
+      "status": "open",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "origin_round": 1,
+      "latest_round": 2,
+      "severity": "high",
+      "category": "consistency",
+      "file": "proposal.md",
+      "title": "Template inclusion is internally contradictory",
+      "detail": "The spec's mandatory requirements say the new prompts must also be added under template/, but the design decisions and scope sections say they must not be added there.",
+      "suggested_resolution": "Choose one distribution approach and make all sections consistent.",
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F01",
+      "origin_round": 2,
+      "latest_round": 2,
+      "severity": "high",
+      "category": "completeness",
+      "file": "proposal.md",
+      "title": "rereview の出力契約が既存実装に対して未確定",
+      "detail": "spec_fix と plan_fix が rereview で実際にどの JSON フィールドを消費するのかが明記されていない。",
+      "suggested_resolution": "各コマンドが rereview で受け取る正確な JSON schema を明記してください。",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "new": 2, "resolved": 0, "overridden": 0 },
+        "medium": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 },
+        "low": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 3,
+      "open": 1,
+      "new": 1,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 1, "new": 1, "resolved": 1, "overridden": 0 },
+        "medium": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 },
+        "low": { "open": 0, "new": 0, "resolved": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
