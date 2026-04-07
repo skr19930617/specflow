@@ -100,12 +100,16 @@ echo
 echo "--- slash commands → ~/.claude/commands/ ---"
 mkdir -p "$HOME/.claude/commands"
 
-for cmd_file in "$CONFIG_DIR/global"/specflow*.md; do
-  [[ -f "$cmd_file" ]] || continue
-  base="$(basename "$cmd_file")"
-  cp "$cmd_file" "$HOME/.claude/commands/$base"
-  echo "  $base"
-done
+if [[ ! -d "$CONFIG_DIR/global/commands" ]]; then
+  echo "  Warning: $CONFIG_DIR/global/commands/ not found, skipped"
+else
+  for cmd_file in "$CONFIG_DIR/global/commands"/*.md; do
+    [[ -f "$cmd_file" ]] || continue
+    base="$(basename "$cmd_file")"
+    cp "$cmd_file" "$HOME/.claude/commands/$base"
+    echo "  $base"
+  done
+fi
 
 # -------------------------------------------------------
 # 4. claude-settings.json の権限を ~/.claude/settings.json にマージ
