@@ -1,0 +1,102 @@
+{
+  "feature_id": "add-license-generator",
+  "phase": "spec",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 5,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "ambiguity",
+      "file": "openspec/changes/add-license-generator/proposal.md",
+      "title": "Recommendation logic is not implementable from the stated analysis data",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "ambiguity",
+      "file": "openspec/changes/add-license-generator/proposal.md",
+      "title": "Manifest file updates add unclear scope and side effects",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "ambiguity",
+      "file": "openspec/changes/add-license-generator/proposal.md",
+      "title": "Author-name fallback flow is undefined",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "F4",
+      "severity": "medium",
+      "category": "ambiguity",
+      "file": "openspec/changes/add-license-generator/proposal.md",
+      "title": "Existing-license detection and overwrite flow are not aligned",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    },
+    {
+      "id": "F5",
+      "severity": "high",
+      "category": "assumption",
+      "file": "openspec/changes/add-license-generator/proposal.md",
+      "title": "TOML manifest update rules assume a universal license field shape",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 1,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "low": { "open": 1, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
