@@ -1,0 +1,140 @@
+{
+  "feature_id": "add-readme-command",
+  "phase": "spec",
+  "current_round": 3,
+  "status": "in_progress",
+  "max_finding_id": 6,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "ambiguity",
+      "file": "proposal.md",
+      "title": "Grounding rules for generated README content",
+      "detail": "The spec requires badges plus sections such as Install, Usage, Config, and Architecture, but the collected inputs will often be insufficient to derive those sections accurately for every project.",
+      "suggested_resolution": "Define a strict source-of-truth rule.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 3
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "ambiguity",
+      "file": "proposal.md",
+      "title": "Required OpenSpec integration is not specified",
+      "detail": "The issue explicitly asks to leverage an existing OpenSpec project-analysis command if one exists.",
+      "suggested_resolution": "Specify the integration contract with OpenSpec.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R2-F01",
+      "severity": "medium",
+      "category": "contradiction",
+      "file": "proposal.md",
+      "title": "CI badge rules conflict and do not cover non-GitHub CI",
+      "detail": "The badge rules say only static shields.io badge URLs may be used, but then require a GitHub Actions workflow status badge.",
+      "suggested_resolution": "Choose one contract for badge types.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 3
+    },
+    {
+      "id": "R2-F02",
+      "severity": "medium",
+      "category": "missing_criteria",
+      "file": "proposal.md",
+      "title": "Features section lacks section-level evidence and fallback rules",
+      "detail": "The evidence table does not define when Features may be emitted.",
+      "suggested_resolution": "Add a Features row to the evidence table.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 3
+    },
+    {
+      "id": "R3-F01",
+      "severity": "medium",
+      "category": "missing_criteria",
+      "file": "proposal.md",
+      "title": "Install and usage sections can still require guessed commands",
+      "detail": "The section table treats package manifests, scripts, or bin entries as sufficient evidence for Installation and Usage, but those sources often do not identify the correct package manager, install command, or executable invocation. As written, implementers will either guess commands (violating the grounding policy) or invent their own omission heuristics.",
+      "suggested_resolution": "Define the exact evidence that permits emitting concrete install/usage commands, such as lockfiles or explicit packageManager/bin metadata, and require omission or a placeholder when that evidence is missing.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 3,
+      "latest_round": 3
+    },
+    {
+      "id": "R3-F02",
+      "severity": "medium",
+      "category": "edge_case",
+      "file": "proposal.md",
+      "title": "GitHub Actions badge rule can generate broken or arbitrary badges",
+      "detail": "The spec says to use the first workflow file and then build a badge URL with {workflow}.yml. That breaks for repositories using .yaml workflow files and is ambiguous when multiple workflows exist, because 'first' is not defined and may select a deploy-only or non-primary workflow.",
+      "suggested_resolution": "Require using the actual discovered workflow filename including its real extension, and define a deterministic selection rule for multiple workflows or an omission rule when a primary workflow cannot be identified.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 3,
+      "latest_round": 3
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 1,
+      "new": 2,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 1, "resolved": 0, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 3,
+      "total": 6,
+      "open": 0,
+      "new": 2,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 3, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

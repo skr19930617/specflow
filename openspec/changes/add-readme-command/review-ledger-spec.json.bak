@@ -1,0 +1,97 @@
+{
+  "feature_id": "add-readme-command",
+  "phase": "spec",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "ambiguity",
+      "file": "proposal.md",
+      "title": "Grounding rules for generated README content",
+      "detail": "The spec requires badges plus sections such as Install, Usage, Config, and Architecture, but the collected inputs will often be insufficient to derive those sections accurately for every project. It does not state whether Claude must limit itself to information explicitly present in project files, existing README content, and OpenSpec metadata, or whether it may infer missing details. This matters because otherwise the command can generate incorrect commands, configuration, or broken badges, and there is no acceptance criterion to tell whether the output is correct.",
+      "suggested_resolution": "Define a strict source-of-truth rule: sections and badges may only be generated when supported by collected evidence; otherwise they must be omitted or preserved from the existing README. Call out how to handle missing usage examples, missing install steps, and badges that require repo/CI metadata not available from analysis.",
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "ambiguity",
+      "file": "proposal.md",
+      "title": "Required OpenSpec integration is not specified",
+      "detail": "The issue explicitly asks to leverage an existing OpenSpec project-analysis command if one exists, but the spec introduces a new specflow-analyze script without defining whether it must call a specific OpenSpec command, read openspec/ files directly, or perform an independent scan. That hidden assumption materially affects implementation approach, dependency behavior, and whether the delivered feature is faithful to the original request.",
+      "suggested_resolution": "Specify the integration contract with OpenSpec: which existing command or data source should be reused, what information must come from it, and what fallback behavior is allowed when that command or data is unavailable.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R2-F01",
+      "severity": "medium",
+      "category": "contradiction",
+      "file": "proposal.md",
+      "title": "CI badge rules conflict and do not cover non-GitHub CI",
+      "detail": "The badge rules say only static shields.io badge URLs may be used, but then require a GitHub Actions workflow status badge, which is dynamic and also needs a specific workflow identifier. The evidence table also treats any CI config as sufficient for a CI badge, while the generation rule only defines behavior for GitHub Actions, leaving GitLab and other CI providers undefined.",
+      "suggested_resolution": "Choose one contract: either allow dynamic status badges and define how to select workflow/provider-specific badges, or restrict CI badges to static provider badges and update the evidence and generation rules to match.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    },
+    {
+      "id": "R2-F02",
+      "severity": "medium",
+      "category": "missing_criteria",
+      "file": "proposal.md",
+      "title": "Features section lacks section-level evidence and fallback rules",
+      "detail": "The default README structure includes a Features section, and OpenSpec specs/ are described as an input for generating it, but the section-by-section evidence table does not define when Features may be emitted or what happens when openspec/ is absent. Implementers cannot tell whether non-OpenSpec projects should omit Features or derive it from other evidence.",
+      "suggested_resolution": "Add a Features row to the evidence table that defines allowed evidence sources and the fallback behavior when no qualifying evidence is present.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 1,
+      "new": 2,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 1, "resolved": 0, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "feature_id": "add-readme-command",
+  "phase": "plan",
+  "current_round": 3,
+  "status": "has_open_high",
+  "max_finding_id": 5,
+  "findings": [
+    {"id":"R1-F01","severity":"high","category":"consistency","file":"plan.md","title":"既存 README の原文保持要件が未設計","status":"resolved","relation":"new","supersedes":null,"notes":"","origin_round":1,"latest_round":2},
+    {"id":"R1-F02","severity":"medium","category":"completeness","file":"plan.md","title":"セクション生成に必要なエビデンス収集が不足している","status":"resolved","relation":"new","supersedes":null,"notes":"","origin_round":1,"latest_round":3},
+    {"id":"R1-F03","severity":"medium","category":"risk","file":"plan.md","title":"承認前 diff の確認方法が要件を満たしていない","status":"resolved","relation":"new","supersedes":null,"notes":"","origin_round":1,"latest_round":2},
+    {"id":"R2-F01","severity":"high","category":"risk","file":"plan.md","title":"生成可能セクション配下の手書きサブセクションが失われる設計","status":"resolved","relation":"new","supersedes":null,"notes":"","origin_round":2,"latest_round":3},
+    {"id":"R3-F01","severity":"high","category":"risk","file":"plan.md","title":"改善対象セクション直下の手書き本文が依然として上書きされうる","status":"new","relation":"new","supersedes":null,"notes":"","origin_round":3,"latest_round":3}
+  ],
+  "round_summaries": [
+    {"round":1,"total":3,"open":0,"new":3,"resolved":0,"overridden":0,"by_severity":{"high":{"open":0,"resolved":0,"new":1,"overridden":0},"medium":{"open":0,"resolved":0,"new":2,"overridden":0},"low":{"open":0,"resolved":0,"new":0,"overridden":0}}},
+    {"round":2,"total":4,"open":1,"new":1,"resolved":2,"overridden":0,"by_severity":{"high":{"open":0,"resolved":1,"new":1,"overridden":0},"medium":{"open":1,"resolved":1,"new":0,"overridden":0},"low":{"open":0,"resolved":0,"new":0,"overridden":0}}},
+    {"round":3,"total":5,"open":0,"new":1,"resolved":4,"overridden":0,"by_severity":{"high":{"open":0,"resolved":2,"new":1,"overridden":0},"medium":{"open":0,"resolved":2,"new":0,"overridden":0},"low":{"open":0,"resolved":0,"new":0,"overridden":0}}}
+  ]
+}
