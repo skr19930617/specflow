@@ -1,0 +1,102 @@
+{
+  "feature_id": "improve-init-command",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "bin/specflow-init",
+      "title": "Agent selection uses Bash 4 namerefs on a Bash 3.2 script baseline",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "correctness",
+      "file": "bin/specflow-init",
+      "title": "Nonexistent nested --dir paths bypass the repository-root guard",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "testing",
+      "file": "bin/specflow-init",
+      "title": "No test coverage was added for the new init flows",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "Shell script project without test framework. Acknowledged.",
+      "origin_round": 1,
+      "latest_round": 2
+    },
+    {
+      "id": "R2-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "bin/specflow-init",
+      "title": "--update no longer preserves repo-root behavior",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    },
+    {
+      "id": "R2-F02",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "bin/specflow-init",
+      "title": "Project names are injected into sed unsafely",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 2,
+      "latest_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 0,
+      "new": 0,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 2, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 3, "new": 0, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

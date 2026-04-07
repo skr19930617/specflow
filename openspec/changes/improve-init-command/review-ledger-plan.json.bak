@@ -1,0 +1,63 @@
+{
+  "feature_id": "improve-init-command",
+  "phase": "plan",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "plan.md",
+      "title": "Required preflight validation is missing and partially misordered",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 1
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "ordering",
+      "file": "tasks.md",
+      "title": "Project-name resolution is not wired into the execution flow",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 1
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "tasks.md",
+      "title": "Subdirectory validation is scoped more broadly than the spec allows",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "origin_round": 1,
+      "latest_round": 1
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
