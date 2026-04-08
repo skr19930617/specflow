@@ -430,4 +430,4 @@ AskUserQuestion:
 - If any tool call fails, report the error and ask the user how to proceed.
 - Ledger file is `FEATURE_DIR/review-ledger-plan.json` (NOT `review-ledger.json`).
 - Phase is `"plan"` in ledger JSON.
-- Auto-fix calls `Skill(skill: "specflow.plan_fix", args: "autofix")` (NOT `specflow.fix`).
+- Auto-fix calls `Skill(skill: "specflow.plan_fix", args: "autofix")` (NOT `specflow.impl_fix`).

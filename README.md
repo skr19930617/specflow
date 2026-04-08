@@ -151,12 +151,12 @@ URL なしで起動してインタラクティブに入力:
 
 /specflow.impl      implement → Codex impl review
                     ┌─ [Approve & Commit]   → /specflow.approve
-                    ├─ [Fix All]            → /specflow.fix
+                    ├─ [Fix All]            → /specflow.impl_fix
                     └─ [Reject]             → /specflow.reject
 
-/specflow.fix       指摘を修正 → Codex impl re-review
+/specflow.impl_fix       指摘を修正 → Codex impl re-review
                     ┌─ [Approve & Commit]   → /specflow.approve
-                    ├─ [Fix All]            → /specflow.fix
+                    ├─ [Fix All]            → /specflow.impl_fix
                     └─ [Reject]             → /specflow.reject
 
 /specflow.approve   commit → push → PR 作成
@@ -174,7 +174,7 @@ URL なしで起動してインタラクティブに入力:
 修正ループ:
 - Spec に問題 → `/specflow.spec_fix` → spec 修正 → Codex spec re-review
 - Plan に問題 → `/specflow.plan_fix` → plan/tasks 修正 → Codex plan/tasks re-review
-- 実装に問題 → `/specflow.fix` → 修正 → Codex impl re-review
+- 実装に問題 → `/specflow.impl_fix` → 修正 → Codex impl re-review
 
 ## MCP サーバー設定
 
@@ -253,7 +253,7 @@ specflow/                      # このリポジトリ（ツール）
     specflow.plan.md           #   /specflow.plan（plan → tasks → review）
     specflow.plan_fix.md       #   /specflow.plan_fix（plan/tasks 修正 → re-review）
     specflow.impl.md           #   /specflow.impl（implement → review）
-    specflow.fix.md            #   /specflow.fix（impl 修正 → re-review）
+    specflow.impl_fix.md            #   /specflow.impl_fix（impl 修正 → re-review）
     specflow.approve.md        #   /specflow.approve（commit → push → PR）
     specflow.reject.md         #   /specflow.reject（全変更破棄）
     specflow.setup.md          #   /specflow.setup（CLAUDE.md インタラクティブ設定）

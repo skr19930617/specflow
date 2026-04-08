@@ -92,7 +92,7 @@ prompt_yes_no() {
 
   while true; do
     read -rp "$question $hint: " answer
-    answer="${answer,,}"  # lowercase
+    answer="$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')"  # lowercase
     if [[ -z "$answer" ]]; then
       answer="$default"
     fi

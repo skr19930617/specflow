@@ -15,7 +15,7 @@
 - [x] T04: `global/commands/specflow.impl_review.md` — prerequisite 置換。Setup の `check-prerequisites.sh` 呼び出しを除去。`BRANCH from check-prerequisites` を `change id` に置換（spec M-02, A-01）
 - [x] T05: `global/commands/specflow.spec_review.md` — 同上パターン（spec M-02, A-01）
 - [x] T06: `global/commands/specflow.plan_review.md` — 同上パターン（spec M-02, A-01）
-- [x] T07: `global/commands/specflow.fix.md` — prerequisite 置換。Setup の `check-prerequisites.sh` 呼び出しを除去（spec M-02, A-01）
+- [x] T07: `global/commands/specflow.impl_fix.md` — prerequisite 置換。Setup の `check-prerequisites.sh` 呼び出しを除去（spec M-02, A-01）
 - [x] T08: `global/commands/specflow.spec_fix.md` — 同上パターン（spec M-02, A-01）
 - [x] T09: `global/commands/specflow.plan_fix.md` — 同上パターン（spec M-02, A-01）
 - [x] T10: `global/commands/specflow.approve.md` — 3 箇所の `check-prerequisites.sh` 呼び出しを change id ベースに置換（spec M-02, A-01）
@@ -35,7 +35,7 @@
 - [x] T15: `global/commands/specflow.plan.md` — 成果物 read/write 先の `FEATURE_DIR` を `openspec/changes/<id>` に固定。二重管理記述を除去（spec M-03）
 - [x] T16: `global/commands/specflow.impl.md` — 同上。二重管理記述を除去（spec M-03）
 - [x] T17: `global/commands/specflow.impl_review.md` — `review-ledger.json`, `current-phase.md` の read/write 先を `openspec/changes/<id>/` に固定（spec M-03）
-- [x] T18: `global/commands/specflow.fix.md` — `review-ledger.json` の read/write 先を固定。diff 除外パターンから `':(exclude).specify'` を除去（spec M-03, R-01）
+- [x] T18: `global/commands/specflow.impl_fix.md` — `review-ledger.json` の read/write 先を固定。diff 除外パターンから `':(exclude).specify'` を除去（spec M-03, R-01）
 - [x] T19: `global/commands/specflow.spec_review.md` — `review-ledger-spec.json` の read/write 先を固定（spec M-03）
 - [x] T20: `global/commands/specflow.spec_fix.md` — 同上（spec M-03）
 - [x] T21: `global/commands/specflow.plan_review.md` — `review-ledger-plan.json` の read/write 先を固定（spec M-03）

@@ -17,7 +17,7 @@ $ARGUMENTS
 
      次のステップで初期化してください:
      1. `openspec/config.yaml` を作成
-     2. `/specflow.fix` を再度実行
+     2. `/specflow.impl_fix` を再度実行
      ```
      → **STOP**.
 
@@ -317,7 +317,7 @@ The Codex response already classifies findings into resolved/still_open/new. Use
    - **Open High Findings**: Filter `findings[]` where `severity == "high"` AND `status in ["new", "open"]`. Format: `<count> 件 — "<title1>", "<title2>"`. If none: `0 件`. Fallback: `0 件`.
    - **Accepted Risks**: Filter `findings[]` where `status in ["accepted_risk", "ignored"]`. Format each as `<title> (<status>, notes: "<notes>")`. If none: `none`. Fallback: `none`.
    - **Latest Changes**: Run `git log --oneline -5 $(git merge-base HEAD ${BASE_BRANCH:-main})..HEAD` via Bash. Format each line as `  - <hash> <subject>`. If the command fails or returns empty output, use: `(no commits yet)`.
-   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.fix`; else → `/specflow.approve`. Fallback: `/specflow.fix`.
+   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.impl_fix`; else → `/specflow.approve`. Fallback: `/specflow.impl_fix`.
 4. **Malformed/missing ledger recovery** (if the ledger read in step 1 fails):
    - First: attempt partial recovery — extract any readable top-level fields from the file.
    - Second: supplement missing fields with in-memory data from the just-completed Codex review (findings, decision).
@@ -371,7 +371,7 @@ Report the review results.
 
 次のアクションを選択してください（テキスト入力またはボタンで回答）:
 - **Approve & Commit** → `/specflow.approve`
-- **Fix All** → `/specflow.fix`
+- **Fix All** → `/specflow.impl_fix`
 - **Reject** → `/specflow.reject`
 ```
 
@@ -392,7 +392,7 @@ AskUserQuestion:
 
 ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
 - 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
-- 「Fix All」 → `Skill(skill: "specflow.fix")`
+- 「Fix All」 → `Skill(skill: "specflow.impl_fix")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
 **IMPORTANT:** テキストプロンプトと AskUserQuestion の両方を必ず表示すること（Dual-Display）。
