@@ -66,7 +66,7 @@ Report what was fixed.
 
 **If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
 
-Read `~/.config/specflow/global/review_spec_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_spec_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_spec_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_spec_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Read the original issue body from `/tmp/specflow-issue.json` if available.
 
@@ -84,7 +84,7 @@ SPEC CONTENT:
 
 **If `REREVIEW_MODE = true`** (ledger exists, re-review prompt):
 
-Read `~/.config/specflow/global/review_spec_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_spec_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_spec_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_spec_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Read the original issue body from `/tmp/specflow-issue.json` if available.
 

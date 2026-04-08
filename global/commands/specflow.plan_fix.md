@@ -72,7 +72,7 @@ Report what was fixed.
 
 **If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
 
-Read `~/.config/specflow/global/review_plan_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_plan_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_plan_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_plan_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Read the updated `FEATURE_SPEC`, `PLAN_FILE`, and `TASKS_FILE`.
 
@@ -95,7 +95,7 @@ TASKS CONTENT:
 
 Extract from ledger: `PREVIOUS_FINDINGS` = findings where status in ["new", "open", "accepted_risk", "ignored"]. Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty. If `LEDGER_ERROR = true`, use empty `PREVIOUS_FINDINGS` array and `MAX_FINDING_ID = 0`.
 
-Read `~/.config/specflow/global/review_plan_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_plan_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_plan_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_plan_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Read the updated `FEATURE_SPEC`, `PLAN_FILE`, and `TASKS_FILE`.
 

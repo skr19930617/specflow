@@ -115,7 +115,7 @@ Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 **If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
 
-Read `~/.config/specflow/global/review_impl_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/prompts/review_impl_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
 <review_impl_prompt.md の内容>
@@ -129,7 +129,7 @@ SPEC CONTENT:
 
 **If `REREVIEW_MODE = true`** (ledger exists, re-review prompt):
 
-Read `~/.config/specflow/global/review_impl_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/prompts/review_impl_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_impl_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
 <review_impl_rereview_prompt.md の内容>

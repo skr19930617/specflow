@@ -87,7 +87,7 @@ If user chooses "中止", display `"レビューをスキップしました。"`
 
 ### Review
 
-Read `~/.config/specflow/global/review_impl_prompt.md` and `openspec/changes/<CHANGE_ID>/proposal.md`. If the prompt file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_impl_prompt.md` and `openspec/changes/<CHANGE_ID>/proposal.md`. If the prompt file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 

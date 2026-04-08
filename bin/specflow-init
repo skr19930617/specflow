@@ -239,11 +239,15 @@ if [[ "$UPDATE_MODE" == true ]]; then
   cd "$UPDATE_ROOT"
 
   GLOBAL_DIR="$CONFIG_DIR/global"
+  TEMPLATE_DIR="$CONFIG_DIR/template"
+
   if [[ ! -d "$GLOBAL_DIR" ]]; then
     echo "Error: global/ not found at $GLOBAL_DIR"
     echo "Run 'specflow-install' to update."
     exit 1
   fi
+
+  # --- Slash commands (auto-update) ---
   if [[ -d "$GLOBAL_DIR/commands" ]]; then
     mkdir -p "$HOME/.claude/commands"
     for cmd_file in "$GLOBAL_DIR/commands"/*.md; do
@@ -255,10 +259,59 @@ if [[ "$UPDATE_MODE" == true ]]; then
   else
     echo "Warning: $GLOBAL_DIR/commands/ not found, skipping slash commands"
   fi
+
+  # --- Prompts (auto-update from source repo via specflow-install) ---
+  # Prompts live at $GLOBAL_DIR/prompts/ and are referenced by commands
+  # from that path. specflow-install copies them there.
+  # Here we verify they exist and report status.
+  if [[ -d "$GLOBAL_DIR/prompts" ]]; then
+    PROMPT_COUNT=0
+    for prompt_file in "$GLOBAL_DIR/prompts"/*.md; do
+      [[ -f "$prompt_file" ]] || continue
+      PROMPT_COUNT=$((PROMPT_COUNT + 1))
+    done
+    echo "Verified $PROMPT_COUNT prompt(s) in $GLOBAL_DIR/prompts/"
+  else
+    echo "Warning: $GLOBAL_DIR/prompts/ not found. Run 'specflow-install' to fix."
+  fi
+
+  # --- .mcp.json (auto-update from template) ---
+  if [[ -d "$TEMPLATE_DIR" ]] && [[ -f "$TEMPLATE_DIR/.mcp.json" ]]; then
+    cp "$TEMPLATE_DIR/.mcp.json" .mcp.json
+    echo "Updated .mcp.json"
+  else
+    echo "Warning: template/.mcp.json not found, skipping"
+  fi
+
+  # --- CLAUDE.md (confirm with user if changed) ---
+  if [[ -d "$TEMPLATE_DIR" ]] && [[ -f "$TEMPLATE_DIR/CLAUDE.md" ]]; then
+    if [[ ! -f "CLAUDE.md" ]]; then
+      cp "$TEMPLATE_DIR/CLAUDE.md" CLAUDE.md
+      echo "Created CLAUDE.md"
+    elif ! diff -q "$TEMPLATE_DIR/CLAUDE.md" CLAUDE.md &>/dev/null; then
+      echo
+      echo "CLAUDE.md differs from the template:"
+      diff -u CLAUDE.md "$TEMPLATE_DIR/CLAUDE.md" | head -40 || true
+      echo
+      OVERWRITE_CLAUDE="$(prompt_yes_no "Overwrite CLAUDE.md with template? (your changes will be lost)" "n")"
+      if [[ "$OVERWRITE_CLAUDE" == "y" ]]; then
+        cp "$TEMPLATE_DIR/CLAUDE.md" CLAUDE.md
+        echo "Updated CLAUDE.md"
+      else
+        echo "Skipped CLAUDE.md"
+      fi
+    else
+      echo "CLAUDE.md is up to date"
+    fi
+  fi
+
+  # --- openspec directories ---
   if [[ -d "openspec" ]]; then
     mkdir -p openspec/specs openspec/changes
   fi
-  echo "Done. Slash commands updated."
+
+  echo
+  echo "Done. All templates updated."
   exit 0
 fi
 
