@@ -196,14 +196,14 @@ If `REREVIEW_MODE = true`, display the classified results before the standard fi
 1. Use `CHANGE_ID` resolved in Setup. All ledger operations target `openspec/changes/<CHANGE_ID>/`.
 2. Attempt to Read `openspec/changes/<CHANGE_ID>/review-ledger.json`.
 
-   **Auto-fix mode fail-fast** (`$ARGUMENTS` に `autofix` が含まれる場合):
-   - **If file does not exist**: `"⚠ autofix mode: review-ledger.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.apply auto-fix loop に戻り、Case C でエラーハンドオフされる）。
-   - **If file exists but JSON parse fails**: `"⚠ autofix mode: review-ledger.json が破損しています。ループを停止します。"` と表示し、**即座に処理を終了**する（バックアップ復旧や AskUserQuestion は行わない）。
+   **Auto-fix mode ledger recovery** (`$ARGUMENTS` に `autofix` が含まれる場合):
+   - **If file does not exist**: `"⚠ autofix mode: review-ledger.json が見つかりません。新規作成して継続します。"` と表示し、空の ledger を新規作成して継続する: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`。これは "clean read" ではない — この空 ledger からバックアップを作成しない。
+   - **If file exists but JSON parse fails**: 破損ファイルを `review-ledger.json.corrupt` にリネーム（`mv`）。`"⚠ autofix mode: review-ledger.json が破損していました。新規作成して継続します。（破損ファイルは .corrupt に退避）"` と表示し、空の ledger を新規作成して継続する: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`。これは "clean read" ではない。
    - **If file exists and valid JSON**: 通常通り使用する。
 
    **通常モード** (`$ARGUMENTS` に `autofix` が含まれない場合):
-   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "apply", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`
-   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "apply", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
+   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`
+   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
    - **If file exists and valid JSON**: Use it. This is a "clean read" — backup will be created from this content before writing.
 
 ### Ledger Validation

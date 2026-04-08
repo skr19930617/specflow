@@ -407,8 +407,8 @@ previous_new_high_count = baseline_new_high_count
 previous_resolved_high_titles = baseline_resolved_high_titles
 previous_all_resolved_high_titles = baseline_resolved_high_titles
 previous_all_high_titles = baseline_all_high_titles
-divergence_detected = false
-divergence_reason = ""
+divergence_warnings = []
+round_scores = []
 loop_success = false
 ```
 
@@ -417,7 +417,7 @@ loop_success = false
 以下を `MAX_AUTOFIX_ROUNDS` 回まで繰り返す:
 
 ```
-WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT divergence_detected AND NOT loop_success:
+WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT loop_success:
 ```
 
 1. `autofix_round` をインクリメント
@@ -433,41 +433,47 @@ WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT divergence_detected AND NOT loo
 4. 更新された `openspec/changes/<CHANGE_ID>/review-ledger.json` を Read する。
    - もし読み込み失敗: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
 
-5. **停止条件チェック**（優先順位順に実行、最初にトリガーされた条件で停止）:
+5. **スコア計算**（停止条件チェックの前に実行し、全終了パスでスコアが記録されるようにする）:
+   - `current_score = Σ weight(f.severity) for f in findings where f.status ∉ {"resolved"}`（high=3, medium=2, low=1）
+   - `previous_all_high_titles` に存在しなかった title の件数 = `current_new_high_count`
+   - `unresolved_high_count` = `findings[]` 内の `severity == "high"` かつ `status ∈ {"new", "open"}` の件数
 
-   **5a. Success check（最優先）**:
-   - `findings[]` 内の `severity == "high"` かつ `status ∈ {"new", "open"}` の件数をカウント
-   - 0 件の場合: `loop_success = true` → ループ終了
+6. **スコア記録**（全終了パスで確実に記録される）:
+   - `round_scores.push({ round: autofix_round, score: current_score, unresolved_high: unresolved_high_count, new_high: current_new_high_count })`
 
-   **5b. 同種 high 再発チェック**:
+7. **停止条件チェック**（優先順位順に実行、最初にトリガーされた条件で停止）:
+
+   **7a. Success check（最優先）**:
+   - `unresolved_high_count == 0` の場合: `loop_success = true` → ループ終了
+
+   **7b. 同種 high 再発チェック**（警告のみ、停止しない）:
    - 現ラウンドの ledger で `status == "resolved"` かつ `severity == "high"` の `title` 一覧を取得し、`previous_all_resolved_high_titles` になかったものを抽出 → 「直前ラウンドで新たに resolved になった high titles」
    - 現ラウンドの unresolved high titles と case-insensitive 部分文字列比較
-   - 1 件でも一致 → `divergence_detected = true`, `divergence_reason = "同種 finding の再発"`
+   - 1 件でも一致 → `divergence_warnings.push({ round: autofix_round, type: "finding_re_emergence", detail: "<matching title>" })`
 
-   **5c. Quality gate 悪化チェック**:
-   - `current_score = Σ weight(f.severity) for f in findings where f.status ∉ {"resolved"}`（high=3, medium=2, low=1）
-   - `current_score > previous_score` → `divergence_detected = true`, `divergence_reason = "quality gate 悪化"`
+   **7c. Quality gate 悪化チェック**（警告のみ、停止しない）:
+   - `current_score > previous_score` → `divergence_warnings.push({ round: autofix_round, type: "quality_gate_degradation", detail: "+<score delta>" })`
 
-   **5d. New high 増加チェック**（autofix_round >= 2 のみ）:
-   - `previous_all_high_titles` に存在しなかった title の件数 = `current_new_high_count`
-   - `current_new_high_count > previous_new_high_count` → `divergence_detected = true`, `divergence_reason = "new high が増加傾向"`
+   **7d. New high 増加チェック**（autofix_round >= 2 のみ、警告のみ、停止しない）:
+   - `current_new_high_count > previous_new_high_count` → `divergence_warnings.push({ round: autofix_round, type: "new_high_increase", detail: "+<count delta>" })`
 
-   **5e. Max rounds チェック**:
-   - `autofix_round >= MAX_AUTOFIX_ROUNDS` かつ unresolved high > 0 → ループ終了
+   **7e. Max rounds チェック**:
+   - `autofix_round >= MAX_AUTOFIX_ROUNDS` かつ unresolved_high_count > 0 → ループ終了
 
-6. **追跡変数を更新**:
+8. **追跡変数を更新**:
    - `previous_score = current_score`
    - `previous_new_high_count = current_new_high_count`
    - `previous_all_resolved_high_titles = findings[]` 内の resolved high titles
    - `previous_all_high_titles = findings[]` 内の全 high titles
 
-7. ラウンド結果を表示:
+9. ラウンド結果を表示:
    ```
    Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}:
      - Unresolved high: {count} ({delta} from previous)
      - Severity score: {current_score} ({delta} from previous)
      - New high: {current_new_high_count}
-     - Status: {continuing | stopped: <reason>}
+     - Warnings: {divergence_warnings for this round, or "none"}
+     - Status: continuing
    ```
 
 #### ループ完了サマリー
@@ -475,10 +481,26 @@ WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT divergence_detected AND NOT loo
 ```
 Auto-fix Loop Complete:
   - Total rounds: {autofix_round}
-  - Result: {success | stopped}
-  - Reason: {unresolved high = 0 | max rounds reached | divergence: <divergence_reason>}
+  - Result: {loop_success ? "success" : "max rounds reached"}
+  - Reason: {loop_success ? "unresolved high = 0" : "max rounds reached"}
   - Remaining actionable: {actionable_count} (high: {high_count}, medium: {medium_count}, low: {low_count})
 ```
+
+**スコア推移テーブル**（`round_scores` が 1 件以上の場合に表示）:
+```
+| Round | Score | Unresolved High | New High |
+|-------|-------|-----------------|----------|
+| 1     | 12    | 3               | 1        |
+| 2     | 9     | 2               | 0        |
+```
+
+**Divergence 警告履歴**（`divergence_warnings` が 1 件以上の場合に表示）:
+```
+Divergence Warnings:
+  - Round {round}: {type} ({detail})
+  - Round {round}: {type} ({detail})
+```
+`divergence_warnings` が空の場合、この警告履歴セクションは表示しない。
 
 #### ループ後のハンドオフ状態判定
 
@@ -526,7 +548,7 @@ AskUserQuestion:
 
 **テキストプロンプト（AskUserQuestion の前に必ず表示）**:
 ```
-⚠ Auto-fix stopped — {reason}. Remaining: {severity_summary}
+⚠ Auto-fix stopped — {loop_success ? "success (high resolved, lower-severity remaining)" : "max rounds reached"}. Remaining: {severity_summary}
 
 次のアクションを選択してください（テキスト入力またはボタンで回答）:
 - **Auto-fix 続行** → `/specflow.fix_apply autofix`
@@ -538,7 +560,7 @@ AskUserQuestion:
 **AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
 ```
 AskUserQuestion:
-  question: "Auto-fix loop 停止（{reason}）。残存指摘: {severity_summary}\n次のアクションを選択してください"
+  question: "Auto-fix loop 停止（{loop_success ? 'high resolved, lower-severity remaining' : 'max rounds reached'}）。残存指摘: {severity_summary}\n次のアクションを選択してください"
   options:
     - label: "Auto-fix 続行"
       description: "自動修正を続行し、再レビューする"
