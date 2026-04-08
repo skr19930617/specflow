@@ -88,7 +88,72 @@ Set `CHANGE_ID` to the branch name (or the change id output by specflow). All su
 
 Report: `Step 3 complete — Spec created`
 
-## Step 4: Clarify
+## Step 4: Complexity Check
+
+<!-- Lightweight analysis to detect multi-area specs before Clarify.
+     Uses the same classification criteria as specflow.decompose Step 2,
+     but does NOT produce full sub-feature structuring. -->
+
+Read the spec file at `openspec/changes/<CHANGE_ID>/proposal.md` and analyze it for independent functional areas — groups of requirements that could be implemented and tested separately without depending on each other.
+
+**Classification:**
+- **Outcome (a) "decompose"**: The spec contains **2 or more** clearly independent functional areas.
+- **Outcome (b) "no-action"**: The spec is well-scoped — single functional area.
+- **Outcome (c) "no-clear-split"**: Multiple topics but heavily interconnected.
+
+### If outcome is (b) or (c):
+
+Report: `Step 4 complete — Spec is well-scoped, proceeding to Clarify`
+→ Proceed to Step 5.
+
+### If outcome is (a):
+
+Use `AskUserQuestion` to present the detected areas and let the user decide:
+
+**Question text:**
+```
+⚠️ このspecには複数の独立した機能領域が含まれています:
+
+<detected areas as bullet list, e.g.:
+- 領域1: <area title>
+- 領域2: <area title>
+>
+
+サブ機能に分解しますか？分解すると、各領域を個別の issue/spec として実装・テストできます。
+```
+
+**Options:**
+- **"分解する (Decompose)"**
+- **"このまま続行 (Continue as-is)"**
+
+#### If user selects "分解する (Decompose)":
+
+- **If `MODE = issue_url`**:
+  Read the file `global/commands/specflow.decompose.md` and follow its complete workflow starting from Step 1.
+  → **STOP** after the decompose flow completes.
+
+- **If `MODE = inline_spec`**:
+  Display:
+  ```
+  ⚠️ インラインspecには GitHub issue が紐づいていないため、自動的なsub-issue作成はできません。
+
+  以下の独立した機能領域が検出されました:
+
+  | # | 領域 | 概要 |
+  |---|------|------|
+  | 1 | <area title> | <brief description> |
+  | 2 | <area title> | <brief description> |
+
+  各領域ごとに `/specflow` を個別に実行することを推奨します。
+  ```
+  → **STOP**.
+
+#### If user selects "このまま続行 (Continue as-is)":
+
+Report: `Step 4 complete — Continuing with full spec`
+→ Proceed to Step 5.
+
+## Step 5: Clarify
 
 ### Clarify Override: AskUserQuestion でボタン表示
 
@@ -104,9 +169,9 @@ This will:
 - The user answers each question by clicking a button or typing a short answer
 - Integrate answers back into `openspec/changes/<CHANGE_ID>/proposal.md`
 
-Report: `Step 4 complete — Clarify done`
+Report: `Step 5 complete — Clarify done`
 
-## Step 5: Codex Spec Review
+## Step 6: Codex Spec Review
 
 Read the file `global/specflow.spec_review.md` and follow its complete workflow.
 
