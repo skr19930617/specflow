@@ -23,6 +23,10 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 | `/specflow.approve` | commit → push → PR 作成 |
 | `/specflow.reject` | 全変更破棄 |
 | `/specflow.setup` | CLAUDE.md をインタラクティブに設定 |
+| `/specflow.decompose` | spec の複雑さを分析し、issue-linked spec は GitHub sub-issue に分解 |
+| `/specflow.dashboard` | 全 feature のレビュー台帳を集計し、ダッシュボードとして表示・保存 |
+| `/specflow.license` | プロジェクト解析に基づいてライセンスファイルを生成 |
+| `/specflow.readme` | プロジェクト解析に基づいて OSS 風 README を生成・更新 |
 
 フロー: `/specflow` → `/specflow.design` → `/specflow.apply` → `/specflow.approve`
 修正ループ: design → `/specflow.fix_design` / apply → `/specflow.fix_apply`

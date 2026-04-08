@@ -1,5 +1,10 @@
 # specflow
 
+![Bash](https://img.shields.io/badge/Bash-4EAA25?logo=gnubash&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+
+[日本語](#セットアップ) | [English](#english)
+
 GitHub issue URL を入力にして、Claude + Codex による proposal → clarify → validate → design → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
 
 ## セットアップ
@@ -167,6 +172,10 @@ URL なしで起動してインタラクティブに入力:
 /specflow.approve   commit → push → PR 作成
 /specflow.reject    全変更破棄
 /specflow.setup     CLAUDE.md をインタラクティブに設定
+/specflow.decompose spec の複雑さを分析 → issue-linked spec は GitHub sub-issue に分解
+/specflow.dashboard 全 feature のレビュー台帳を集計 → ダッシュボード表示・保存
+/specflow.license   プロジェクト解析に基づいてライセンスファイルを生成
+/specflow.readme    プロジェクト解析に基づいて OSS 風 README を生成・更新
 ```
 
 #### フェーズの流れ
@@ -180,6 +189,12 @@ URL なしで起動してインタラクティブに入力:
 修正ループ:
 - Design に問題 → `/specflow.fix_design` → design/tasks 修正 → Codex design/tasks re-review
 - 実装に問題 → `/specflow.fix_apply` → 修正 → Codex impl re-review
+
+ユーティリティ:
+- `/specflow.decompose` — spec の複雑さを分析し、issue-linked spec は GitHub sub-issue に分解
+- `/specflow.dashboard` — 全 feature のレビュー台帳を集計し、ダッシュボードとして表示・保存
+- `/specflow.license` — プロジェクト解析に基づいてライセンスファイルを生成
+- `/specflow.readme` — プロジェクト解析に基づいて OSS 風 README を生成・更新
 
 ## MCP サーバー設定
 
@@ -228,9 +243,8 @@ specflow/
 └── openspec/                      # 計画状態: OpenSpec 準拠のリポジトリ内部資産
     ├── specs/                     #   Capability specs (現在の真実) — 現在は空
     ├── changes/                   #   Change records (提案・変更履歴)
-    │   ├── 001-current-truth/     #     歴史的な変更レコード
-    │   ├── 002-review-ledger/
-    │   └── ...
+    │   ├── <change-name>/          #     各変更の proposal / design / tasks
+    │   └── archive/                #     完了済み変更レコード
     └── README.md                  #   OpenSpec ディレクトリ規約
 ```
 
@@ -246,37 +260,131 @@ specflow/
 ## ファイル構成
 
 ```
-specflow/                      # このリポジトリ（ツール）
+specflow/                        # このリポジトリ（ツール）
+  .claude/                       # Claude Code プロジェクト設定
+    commands/opsx/               #   OpenSpec CLI 直接操作コマンド
+    skills/                      #   スキル定義（openspec-apply-change 等）
+    settings.json                #   プロジェクト権限設定
+    settings.local.json          #   ローカル権限設定（git 管理外）
   bin/
-    specflow-install           #   グローバルインストール（PATH, コマンド, 権限, テンプレート）
-    specflow-fetch-issue       #   gh で issue 取得
-    specflow-init              #   プロジェクト初期化 / コマンド更新
-    specflow-migrate-openspec.sh  # specs/ → openspec/ 移行スクリプト
-  global/                      # グローバル設定・スラッシュコマンド
-    specflow.md                #   /specflow メインコマンド（proposal フェーズ）
-    specflow.explore.md        #   /specflow.explore（アイデア探索・設計検討）
-    specflow.design.md         #   /specflow.design（design → tasks → review）
-    specflow.fix_design.md     #   /specflow.fix_design（design/tasks 修正 → re-review）
-    specflow.apply.md          #   /specflow.apply（implement → review）
-    specflow.fix_apply.md      #   /specflow.fix_apply（impl 修正 → re-review）
-    specflow.approve.md        #   /specflow.approve（commit → push → PR）
-    specflow.reject.md         #   /specflow.reject（全変更破棄）
-    specflow.setup.md          #   /specflow.setup（CLAUDE.md インタラクティブ設定）
-    claude-settings.json       #   ~/.claude/settings.json 用権限テンプレート
-  template/                    # プロジェクトテンプレート（init でコピーされる）
-    openspec/                  #   OpenSpec ディレクトリ構造テンプレート
-      specs/.gitkeep
-      changes/.gitkeep
-      README.md
-    .mcp.json                  #   Codex MCP サーバー設定
-    CLAUDE.md                  #   Claude Code 用プロジェクト設定テンプレート
-  openspec/                    # このリポジトリの計画状態 (OpenSpec)
-    specs/                     #   Capability specs (現在は空)
-    changes/                   #   歴史的変更レコード (001〜020)
-    README.md
+    specflow-analyze             #   プロジェクト解析（言語、フレームワーク、ライセンス検出）
+    specflow-create-sub-issues   #   GitHub sub-issue 作成
+    specflow-fetch-issue         #   gh で issue 取得
+    specflow-filter-diff         #   diff フィルタリング
+    specflow-init                #   プロジェクト初期化 / コマンド更新
+    specflow-install             #   グローバルインストール（PATH, コマンド, 権限, テンプレート）
+  global/                        # グローバル設定・スラッシュコマンド
+    commands/                    #   スラッシュコマンド定義
+    prompts/                     #   レビュー・ワークフロープロンプト
+    claude-settings.json         #   ~/.claude/settings.json 用権限テンプレート
+  template/                      # プロジェクトテンプレート（init でコピーされる）
+    openspec/                    #   OpenSpec ディレクトリ構造テンプレート
+    CLAUDE.md                    #   Claude Code 用プロジェクト設定テンプレート
+  openspec/                      # このリポジトリの計画状態 (OpenSpec)
+    specs/                       #   Capability specs
+    changes/                     #   変更レコード
+    config.yaml                  #   OpenSpec 設定
+    README.md                    #   OpenSpec ディレクトリ規約
+  .gitignore                     # Git 除外設定
+  .mcp.json                      # Codex MCP サーバー設定
+  install.sh                     # curl ワンライナーインストーラー
+  CLAUDE.md                      # プロジェクトガイドライン
+  LICENSE                        # MIT License
   README.md
 
-~/.config/specflow/            # specflow-install でコピーされる
-  template/                    #   init 時の参照元
-  global/                      #   update 時の参照元
+~/.config/specflow/              # specflow-install でコピーされる
+  template/                      #   init 時の参照元
+  global/                        #   update 時の参照元
 ```
+
+## 貢献
+
+コントリビューション歓迎です。お気軽に Pull Request をお送りください。
+
+1. リポジトリをフォーク
+2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'feat: add amazing feature'`)
+4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
+5. Pull Request を作成
+
+## ライセンス
+
+このプロジェクトは MIT License のもとで公開されています。詳細は [LICENSE](LICENSE) ファイルを参照してください。
+
+---
+
+<a id="english"></a>
+
+# English
+
+An interactive tool that runs the full proposal → clarify → validate → design → implement → review workflow inside Claude Code, driven by GitHub issue URLs using Claude + Codex.
+
+## Quick Start
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/skr19930617/specflow/main/install.sh | bash
+```
+
+Or install manually:
+
+```bash
+git clone https://github.com/skr19930617/specflow.git
+cd specflow
+./bin/specflow-install
+```
+
+## Prerequisites
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| `gh` | Fetch GitHub issues | `brew install gh && gh auth login` |
+| `claude` | Proposal clarify / design / implement | Claude Code CLI |
+| `git` | Repository operations | macOS built-in or `brew install git` |
+| `jq` | Config merging (during install) | `brew install jq` |
+| OpenSpec CLI | Proposal/design/tasks/implement management | `npm install -g openspec` |
+| `codex` | Codex CLI (review MCP server) | `npm install -g @openai/codex` |
+
+## Usage
+
+1. Initialize your project (first time only):
+   ```bash
+   cd /path/to/your-project
+   specflow-init
+   ```
+
+2. Set up CLAUDE.md interactively in Claude Code:
+   ```
+   /specflow.setup
+   ```
+
+3. Start the workflow with a GitHub issue:
+   ```
+   /specflow https://github.com/OWNER/REPO/issues/123
+   ```
+
+### Workflow
+
+```
+/specflow          → proposal → clarify → validate
+/specflow.design   → design artifacts → Codex review
+/specflow.apply    → implement → Codex review
+/specflow.approve  → commit → push → PR
+```
+
+Fix loops: `/specflow.fix_design` (design fixes) and `/specflow.fix_apply` (implementation fixes).
+
+Utilities: `/specflow.decompose` (split into sub-issues), `/specflow.dashboard` (review ledger dashboard), `/specflow.license` (generate license), `/specflow.readme` (generate README).
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
