@@ -203,7 +203,7 @@ Report: `Step 5 complete — Clarify done`
 Run structural validation on the change:
 
 ```bash
-openspec validate --change "<CHANGE_ID>" --json
+openspec validate "<CHANGE_ID>" --type change --json
 ```
 
 Parse the JSON response:

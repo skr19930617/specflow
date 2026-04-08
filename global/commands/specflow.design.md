@@ -71,7 +71,7 @@ If any are incomplete, report which artifacts are missing and ask the user how t
 
 Run:
 ```bash
-openspec validate --change "<CHANGE_ID>" --json
+openspec validate "<CHANGE_ID>" --type change --json
 ```
 
 Present validation results to the user.
