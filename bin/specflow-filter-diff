@@ -100,10 +100,8 @@ BUILTIN_EXCLUDE_PATTERNS=(
     "*/review-ledger.json"
     "*/review-ledger.json.bak"
     "*/review-ledger.json.corrupt"
-    "*/review-ledger-spec.json"
-    "*/review-ledger-spec.json.bak"
-    "*/review-ledger-plan.json"
-    "*/review-ledger-plan.json.bak"
+    "*/review-ledger-design.json"
+    "*/review-ledger-design.json.bak"
     "*/current-phase.md"
 )
 for pattern in "${BUILTIN_EXCLUDE_PATTERNS[@]}"; do

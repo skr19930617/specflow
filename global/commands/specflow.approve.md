@@ -34,17 +34,11 @@ $ARGUMENTS
    - JSON パースに失敗した場合 → `IMPL_LEDGER_AVAILABLE = false`、`IMPL_LEDGER_PARSE_ERROR = true`
    - 正常に読み込めた場合 → `IMPL_LEDGER_AVAILABLE = true`
 
-   **spec ledger** (`FEATURE_DIR/review-ledger-spec.json`):
+   **design ledger** (`FEATURE_DIR/review-ledger-design.json`):
    - Read ツールで読み込む。
-   - ファイルが存在しない場合 → `SPEC_LEDGER_AVAILABLE = false`（specレビュー未実施は正常）
-   - JSON パースに失敗した場合 → `SPEC_LEDGER_AVAILABLE = false`、`SPEC_LEDGER_PARSE_ERROR = true`
-   - 正常に読み込めた場合 → `SPEC_LEDGER_AVAILABLE = true`
-
-   **plan ledger** (`FEATURE_DIR/review-ledger-plan.json`):
-   - Read ツールで読み込む。
-   - ファイルが存在しない場合 → `PLAN_LEDGER_AVAILABLE = false`（planレビュー未実施は正常）
-   - JSON パースに失敗した場合 → `PLAN_LEDGER_AVAILABLE = false`、`PLAN_LEDGER_PARSE_ERROR = true`
-   - 正常に読み込めた場合 → `PLAN_LEDGER_AVAILABLE = true`
+   - ファイルが存在しない場合 → `DESIGN_LEDGER_AVAILABLE = false`（designレビュー未実施は正常）
+   - JSON パースに失敗した場合 → `DESIGN_LEDGER_AVAILABLE = false`、`DESIGN_LEDGER_PARSE_ERROR = true`
+   - 正常に読み込めた場合 → `DESIGN_LEDGER_AVAILABLE = true`
 
    **後方互換性**: `LEDGER_AVAILABLE` は `IMPL_LEDGER_AVAILABLE` のエイリアスとして維持する。
 
@@ -93,9 +87,9 @@ $ARGUMENTS
 
 ### 1. Gather Inputs
 
-1. `FEATURE_DIR` は Step 0.5 で取得済み。Set `FEATURE_SPEC` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback.
+1. `FEATURE_DIR` は Step 0.5 で取得済み。Set `FEATURE_PROPOSAL` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback.
 
-2. Read `FEATURE_SPEC` via Read tool. If the file does not exist or is empty, set `SPEC_AVAILABLE = false`. Otherwise `SPEC_AVAILABLE = true`.
+2. Read `FEATURE_PROPOSAL` via Read tool. If the file does not exist or is empty, set `PROPOSAL_AVAILABLE = false`. Otherwise `PROPOSAL_AVAILABLE = true`.
 
 3. Read `FEATURE_DIR/review-ledger.json` via Read tool. (Already loaded from Quality Gate — reuse `LEDGER_AVAILABLE` and `LEDGER_PARSE_ERROR` flags if set.)
    - If file exists and is valid JSON: set `LEDGER_AVAILABLE = true`.
@@ -150,7 +144,7 @@ The status line is determined after computing Review Loop Summary (step 2c):
 
 #### 2c. Review Loop Summary
 
-- For each available ledger (spec, plan, impl), compute from the `findings` array using these formulas:
+- For each available ledger (design, impl), compute from the `findings` array using these formulas:
   ```
   initial_high    = findings.filter(f => f.severity == "high" && f.origin_round == 1).length
   resolved_high   = findings.filter(f => f.severity == "high" && f.status == "resolved").length
@@ -161,7 +155,7 @@ The status line is determined after computing Review Loop Summary (step 2c):
 
   Output as a **phase-separated** Markdown table:
   ```markdown
-  ### Spec Review
+  ### Design Review
   | Metric             | Count |
   |--------------------|-------|
   | Initial high       | <n>   |
@@ -169,11 +163,6 @@ The status line is determined after computing Review Loop Summary (step 2c):
   | Unresolved high    | <n>   |
   | New high (later)   | <n>   |
   | Total rounds       | <n>   |
-
-  ### Plan Review
-  | Metric             | Count |
-  |--------------------|-------|
-  | ... (same format)  |       |
 
   ### Impl Review
   | Metric             | Count |
@@ -185,9 +174,9 @@ The status line is determined after computing Review Loop Summary (step 2c):
   - If all ledgers have parse errors: Display `⚠️ review-ledger parse error — review data unavailable`.
   - If no ledgers exist: Display `⚠️ No review data available`.
 
-#### 2d. Spec Coverage
+#### 2d. Proposal Coverage
 
-- If `SPEC_AVAILABLE` AND `DIFF_AVAILABLE`:
+- If `PROPOSAL_AVAILABLE` AND `DIFF_AVAILABLE`:
   1. Extract acceptance criteria from `spec.md` using these formats in priority order:
      - **Given/When/Then**: Each numbered `**Given**/**When**/**Then**` line under `Acceptance Scenarios` subsections.
      - **Numbered scenarios**: Numbered lines (e.g., `1.`, `2.`) under `Acceptance Scenarios` that describe expected behavior.
@@ -205,7 +194,7 @@ The status line is determined after computing Review Loop Summary (step 2c):
   4. Compute and display: `**Coverage Rate**: <covered>/<total> (<percentage>%)`
   5. Store the list of uncovered criteria for Remaining Risks.
   6. Store covered/total counts for terminal summary.
-- If `SPEC_AVAILABLE` is false: Display `⚠️ Spec not found — coverage cannot be computed`.
+- If `PROPOSAL_AVAILABLE` is false: Display `⚠️ Proposal not found — coverage cannot be computed`.
 - If `DIFF_AVAILABLE` is false: Display `⚠️ Diff unavailable — coverage cannot be computed`.
 - If spec has no recognizable criteria: Display `⚠️ No criteria found`.
 
@@ -220,10 +209,10 @@ Three sources, in order:
    If ledger is missing (not parse error): Display `⚠️ No review data available`.
 
 2. **Untested new files** (requires `DIFF_AVAILABLE` and `LEDGER_AVAILABLE`):
-   From the cached `--diff-filter=A` output (newly added files only), find `.sh` or `.md` files — excluding `openspec/changes/*/spec.md`, `openspec/changes/*/plan.md`, `openspec/changes/*/tasks.md`, `openspec/changes/*/approval-summary.md` — whose path does not appear in any finding's `file` field.
+   From the cached `--diff-filter=A` output (newly added files only), find `.sh` or `.md` files — excluding `openspec/changes/*/spec.md`, `openspec/changes/*/design.md`, `openspec/changes/*/tasks.md`, `openspec/changes/*/approval-summary.md` — whose path does not appear in any finding's `file` field.
    List as warnings: `- ⚠️ New file not mentioned in review: <path>`.
 
-3. **Uncovered criteria** (from Spec Coverage):
+3. **Uncovered criteria** (from Proposal Coverage):
    List criteria with `Covered? = No` from section 2d.
    `- ⚠️ Uncovered criterion: <criterion summary>`.
 
@@ -249,7 +238,7 @@ Display a concise terminal summary:
 ## Approval Summary
 
 **Unresolved High**: <N>
-**Spec Coverage**: <covered>/<total> (<percentage>%) [omit if unavailable]
+**Proposal Coverage**: <covered>/<total> (<percentage>%) [omit if unavailable]
 **Remaining Risks**: <count>
 ```
 
@@ -271,9 +260,9 @@ The Commit section uses `git add -A` which stages all files including `openspec/
 
 1. `git status` で変更ファイルを確認し一覧をユーザーに表示する。
 2. `git diff --stat` で変更量を表示する。
-3. `FEATURE_SPEC` は Step 0.5 / Approval Summary で取得済み。spec の内容を読む。
+3. `FEATURE_PROPOSAL` は Step 0.5 / Approval Summary で取得済み。proposal の内容を読む。
 
-4. spec の内容に基づいてコミットメッセージを生成する。フォーマット:
+4. proposal の内容に基づいてコミットメッセージを生成する。フォーマット:
    ```
    <type>: <short summary> (#<issue-number>)
 
@@ -282,7 +271,7 @@ The Commit section uses `git add -A` which stages all files including `openspec/
    Issue: <issue-url>
    ```
    - `<type>` は feat / fix / refactor / docs / chore などから適切なものを選ぶ
-   - issue-number と issue-url は spec ファイルの Source URL / Issue Number から取得する
+   - issue-number と issue-url は proposal ファイルの Source URL / Issue Number から取得する
 
 5. 生成したコミットメッセージをユーザーに表示する。
 
@@ -314,7 +303,7 @@ The Commit section uses `git add -A` which stages all files including `openspec/
    - **本文**: 以下のフォーマット
      ```markdown
      ## Summary
-     <spec の Acceptance Criteria や実装内容を箇条書きで 3-5 行>
+     <proposal の Acceptance Criteria や実装内容を箇条書きで 3-5 行>
 
      ## Issue
      Closes <issue-url>
@@ -327,4 +316,16 @@ The Commit section uses `git add -A` which stages all files including `openspec/
 
 6. PR 作成後、PR の URL をユーザーに表示する。
 
-Report: "Implementation approved, committed, and PR created: `<PR-URL>`" → **END**.
+## Archive
+
+After the PR is created, archive the change:
+
+```bash
+openspec archive "<CHANGE_ID>"
+```
+
+If the archive command fails, display the error but do not fail the overall approve flow (the PR was already created).
+
+Report: `Change archived: openspec/changes/archive/<date>-<CHANGE_ID>/`
+
+Report: "Implementation approved, committed, PR created: `<PR-URL>`, change archived." → **END**.

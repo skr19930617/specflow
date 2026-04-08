@@ -20,13 +20,19 @@ $ARGUMENTS
    git rev-parse --show-toplevel
    ```
 
-2. List all feature directories under `openspec/changes/`:
+2. Get the list of active changes from OpenSpec:
    ```bash
-   ls -d openspec/changes/*/proposal.md 2>/dev/null | sed 's|/proposal.md||'
+   openspec list --json
    ```
-   Each result is a feature directory. Only directories containing `proposal.md` are included.
+   Parse the JSON to get the list of changes with their names and status.
 
-3. If no features found, display: `"レビュー対象のfeatureがありません。"` → **STOP**.
+3. For each change, get artifact completion status:
+   ```bash
+   openspec status --change "<name>" --json
+   ```
+   Record the `schemaName`, artifact statuses, and task completion.
+
+4. If no changes found, display: `"レビュー対象のfeatureがありません。"` → **STOP**.
 
 ## Step 2: Collect Ledger Data
 
@@ -34,9 +40,8 @@ For each feature directory found in Step 1:
 
 1. Extract the feature name from the directory path (e.g., `openspec/changes/007-current-phase` → `007-current-phase`).
 
-2. Attempt to read each of the 3 ledger files via Read tool:
-   - `<feature_dir>/review-ledger-spec.json` (spec phase)
-   - `<feature_dir>/review-ledger-plan.json` (plan phase)
+2. Attempt to read each of the 2 ledger files via Read tool:
+   - `<feature_dir>/review-ledger-design.json` (design phase)
    - `<feature_dir>/review-ledger.json` (impl phase)
 
 3. For each ledger file:
@@ -53,7 +58,7 @@ For each feature directory found in Step 1:
 Build a Markdown table with the following columns:
 
 ```
-| Feature | Spec Rounds | Spec Findings | Spec Rate | Plan Rounds | Plan Findings | Plan Rate | Impl Rounds | Impl Findings | Impl Rate |
+| Feature | Design Rounds | Design Findings | Design Rate | Impl Rounds | Impl Findings | Impl Rate |
 ```
 
 ### Display Value Mapping
@@ -71,7 +76,7 @@ For each phase cell:
 
 After the table, display a summary line:
 ```
-**Total**: <N> features | Spec reviewed: <N> | Plan reviewed: <N> | Impl reviewed: <N>
+**Total**: <N> features | Design reviewed: <N> | Impl reviewed: <N>
 ```
 Where "reviewed" means the ledger file exists (regardless of error state).
 

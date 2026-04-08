@@ -37,8 +37,8 @@ $ARGUMENTS
    - If `$ARGUMENTS` contains a change id, set `FEATURE_DIR=openspec/changes/<id>`.
    - Otherwise, detect the active change from the current branch name or prompt the user.
    - Verify `FEATURE_DIR` exists via Bash (`ls <FEATURE_DIR>/proposal.md`). If missing → **STOP** with error.
-   - Set `FEATURE_SPEC` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback.
-2. Read the `FEATURE_SPEC` file.
+   - Set `FEATURE_PROPOSAL` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback.
+2. Read the `FEATURE_PROPOSAL` file.
 3. Check if `/tmp/specflow-issue.json` exists (via Read tool).
    - **If it exists and contains a valid `url` and `number` field**:
      - **Stale state check**: Extract the issue `number` from the JSON. Find the spec's `**Input**:` line. Check if the Input line starts with a pattern that references the issue as the **primary source** — specifically: `GitHub Issue #<number>` or `Issue #<number>` or contains `issues/<number>` as a URL path segment. Do NOT match bare `#<number>` that could appear inside a quoted title (e.g., `"Follow-up to #39"` should not match issue 39 as the primary source). If the primary source pattern does not match, the JSON is stale from a previous run. Treat as `MODE = inline` and display: `"⚠️ /tmp/specflow-issue.json is stale (issue #<number> is not the primary source in current spec's Input). Treating as inline spec."`. Run `rm -f /tmp/specflow-issue.json` via Bash to clean up.
@@ -52,7 +52,7 @@ Note: Parent issue accessibility is validated later in Step 4, after the user co
 Analyze the spec content to identify independent functional areas. Determine one of three outcomes:
 
 **Instructions for analysis:**
-Read the spec file and identify logically independent functional areas — groups of requirements that could be implemented and tested separately without depending on each other.
+Read the proposal file and identify logically independent functional areas — groups of requirements that could be implemented and tested separately without depending on each other.
 
 **Outcome (a) — "decompose"**: The spec contains **2 or more** clearly independent functional areas. For each area, produce a structured sub-feature:
 - `phase_number`: sequential ordering (1, 2, 3...)

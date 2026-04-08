@@ -1,5 +1,5 @@
 ---
-description: Plan/Tasks のレビュー指摘を修正し、再度 Codex review を実行
+description: Design/Tasks のレビュー指摘を修正し、再度 Codex review を実行
 ---
 
 ## User Input
@@ -17,7 +17,7 @@ $ARGUMENTS
 
      次のステップで初期化してください:
      1. `openspec/config.yaml` を作成
-     2. `/specflow.plan_fix` を再度実行
+     2. `/specflow.fix_design` を再度実行
      ```
      → **STOP**.
 2. Read `openspec/config.yaml`. Extract any relevant settings. If parse fails, display error and **STOP**.
@@ -30,15 +30,15 @@ Resolve `FEATURE_DIR` from the current change id:
 
 Verify `FEATURE_DIR` exists via Bash (`ls <FEATURE_DIR>/proposal.md`). If missing → **STOP** with error.
 
-Derive the plan and tasks file paths:
+Derive the design and tasks file paths:
 ```
-FEATURE_SPEC = <FEATURE_DIR>/specs/*/spec.md (glob for the first match) or <FEATURE_DIR>/proposal.md as fallback
-PLAN_FILE = <FEATURE_DIR>/plan.md
+FEATURE_PROPOSAL = <FEATURE_DIR>/specs/*/spec.md (glob for the first match) or <FEATURE_DIR>/proposal.md as fallback
+DESIGN_FILE = <FEATURE_DIR>/design.md
 TASKS_FILE = <FEATURE_DIR>/tasks.md
-LEDGER_FILE = <FEATURE_DIR>/review-ledger-plan.json
+LEDGER_FILE = <FEATURE_DIR>/review-ledger-design.json
 ```
 
-Read all three files: `FEATURE_SPEC`, `PLAN_FILE`, `TASKS_FILE`.
+Read all three files: `FEATURE_PROPOSAL`, `DESIGN_FILE`, `TASKS_FILE`.
 
 ### Ledger Detection
 
@@ -46,13 +46,13 @@ Attempt to Read `LEDGER_FILE` to determine review mode:
 
 - **If file does not exist**: Set `REREVIEW_MODE = false`.
 - **If file exists and valid JSON**: Set `REREVIEW_MODE = true`.
-- **If file exists but JSON parse fails**: Set `REREVIEW_MODE = true`, `LEDGER_ERROR = true`. Display: `"⚠ review-ledger-plan.json が破損しています。空の前回 findings で re-review を実行します。"`.
+- **If file exists but JSON parse fails**: Set `REREVIEW_MODE = true`, `LEDGER_ERROR = true`. Display: `"⚠ review-ledger-design.json が破損しています。空の前回 findings で re-review を実行します。"`.
 
 ### Autofix Detection
 
 If `$ARGUMENTS` contains `autofix` → set `AUTOFIX_MODE = true`. Otherwise `AUTOFIX_MODE = false`.
 
-## Step 1: Apply Plan/Tasks Fixes
+## Step 1: Apply Design/Tasks Fixes
 
 Based on the review findings from the previous step (the user has just seen them), apply fixes to address all findings:
 - Completeness gaps (missing acceptance criteria coverage)
@@ -60,32 +60,32 @@ Based on the review findings from the previous step (the user has just seen them
 - Granularity problems (tasks too large or too small)
 - Feasibility concerns (technically unsound approaches)
 - Scope violations (unnecessary work)
-- Consistency issues (tasks not matching plan design decisions)
+- Consistency issues (tasks not matching design decisions)
 
-Update `PLAN_FILE` and/or `TASKS_FILE` as needed. If a finding requires fundamental restructuring, re-run the relevant specflow command (specflow.plan or specflow.tasks).
+Update `DESIGN_FILE` and/or `TASKS_FILE` as needed. If a finding requires fundamental restructuring, re-run the relevant specflow command (specflow.design or specflow.tasks).
 
 Report what was fixed.
 
-## Step 2: Re-run Codex Plan/Tasks Review
+## Step 2: Re-run Codex Design/Tasks Review
 
 ### Prompt Selection
 
 **If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
 
-Read `~/.config/specflow/global/prompts/review_plan_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_plan_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_design_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_design_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
-Read the updated `FEATURE_SPEC`, `PLAN_FILE`, and `TASKS_FILE`.
+Read the updated `FEATURE_PROPOSAL`, `DESIGN_FILE`, and `TASKS_FILE`.
 
 Call the `codex` MCP server tool with:
 
 ```
-<review_plan_prompt.md の内容>
+<review_design_prompt.md の内容>
 
-SPEC CONTENT:
-<FEATURE_SPEC の内容>
+PROPOSAL CONTENT:
+<FEATURE_PROPOSAL の内容>
 
-PLAN CONTENT:
-<PLAN_FILE の内容>
+DESIGN CONTENT:
+<DESIGN_FILE の内容>
 
 TASKS CONTENT:
 <TASKS_FILE の内容>
@@ -95,14 +95,14 @@ TASKS CONTENT:
 
 Extract from ledger: `PREVIOUS_FINDINGS` = findings where status in ["new", "open", "accepted_risk", "ignored"]. Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty. If `LEDGER_ERROR = true`, use empty `PREVIOUS_FINDINGS` array and `MAX_FINDING_ID = 0`.
 
-Read `~/.config/specflow/global/prompts/review_plan_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_plan_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_design_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_design_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
-Read the updated `FEATURE_SPEC`, `PLAN_FILE`, and `TASKS_FILE`.
+Read the updated `FEATURE_PROPOSAL`, `DESIGN_FILE`, and `TASKS_FILE`.
 
 Call the `codex` MCP server tool with:
 
 ```
-<review_plan_rereview_prompt.md の内容>
+<review_design_rereview_prompt.md の内容>
 
 PREVIOUS_FINDINGS:
 <PREVIOUS_FINDINGS の JSON 配列>
@@ -110,11 +110,11 @@ PREVIOUS_FINDINGS:
 MAX_FINDING_ID:
 <MAX_FINDING_ID の値>
 
-SPEC CONTENT:
-<FEATURE_SPEC の内容>
+PROPOSAL CONTENT:
+<FEATURE_PROPOSAL の内容>
 
-PLAN CONTENT:
-<PLAN_FILE の内容>
+DESIGN CONTENT:
+<DESIGN_FILE の内容>
 
 TASKS CONTENT:
 <TASKS_FILE の内容>
@@ -166,17 +166,17 @@ If `REREVIEW_MODE = true`, display the classified results before the standard fi
 
 ### Ledger Read / Create
 
-1. Determine `FEATURE_DIR` from `FEATURE_SPEC` (its parent directory).
-2. Attempt to Read `FEATURE_DIR/review-ledger-plan.json`.
+1. Determine `FEATURE_DIR` from `FEATURE_PROPOSAL` (its parent directory).
+2. Attempt to Read `FEATURE_DIR/review-ledger-design.json`.
 
    **Auto-fix mode fail-fast** (`AUTOFIX_MODE = true`):
-   - **If file does not exist**: `"⚠ autofix mode: review-ledger-plan.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.plan_review auto-fix loop に戻る）。
-   - **If file exists but JSON parse fails**: `"⚠ autofix mode: review-ledger-plan.json が破損しています。ループを停止します。"` と表示し、**即座に処理を終了**する（バックアップ復旧や AskUserQuestion は行わない）。
+   - **If file does not exist**: `"⚠ autofix mode: review-ledger-design.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.review_design auto-fix loop に戻る）。
+   - **If file exists but JSON parse fails**: `"⚠ autofix mode: review-ledger-design.json が破損しています。ループを停止します。"` と表示し、**即座に処理を終了**する（バックアップ復旧や AskUserQuestion は行わない）。
    - **If file exists and valid JSON**: 通常通り使用する。
 
    **通常モード** (`AUTOFIX_MODE = false`):
-   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<change id>", "phase": "plan", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`.
-   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger-plan.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger-plan.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger-plan.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<change id>", "phase": "plan", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
+   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<change id>", "phase": "design", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`.
+   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger-design.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger-design.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger-design.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<change id>", "phase": "design", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
    - **If file exists and valid JSON**: Use it. This is a "clean read" — backup will be created from this content before writing.
 
 ### Ledger Validation
@@ -258,8 +258,8 @@ The Codex response already classifies findings into resolved/still_open/new. Use
 
 ### Backup and Write
 
-13. If the ledger was a "clean read" (not recovered from backup): Write the pre-update ledger content to `review-ledger-plan.json.bak` via Write tool.
-14. Write the updated ledger JSON to `review-ledger-plan.json` via Write tool.
+13. If the ledger was a "clean read" (not recovered from backup): Write the pre-update ledger content to `review-ledger-design.json.bak` via Write tool.
+14. Write the updated ledger JSON to `review-ledger-design.json` via Write tool.
 
 ### Ledger Summary Display
 
@@ -280,16 +280,16 @@ The Codex response already classifies findings into resolved/still_open/new. Use
 
 **This step runs after the review-ledger has been fully updated, backed up, and persisted to disk.**
 
-1. Read the just-written `FEATURE_DIR/review-ledger-plan.json`.
+1. Read the just-written `FEATURE_DIR/review-ledger-design.json`.
 2. Extract: `feature_id` (or derive from directory name), `current_round`, `status`, `findings[]`.
 3. Compute each field:
-   - **Phase**: `plan-fix-review`.
+   - **Phase**: `design-fix-review`.
    - **Round**: `current_round`. Fallback: `1`.
    - **Status**: Direct read from `status`. Fallback: `in_progress`.
    - **Open High Findings**: Filter `findings[]` where `severity == "high"` AND `status in ["new", "open"]`. Format: `<count> 件 — "<title1>", "<title2>"`. If none: `0 件`. Fallback: `0 件`.
    - **Accepted Risks**: Filter `findings[]` where `status in ["accepted_risk", "ignored"]`. Format each as `<title> (<status>, notes: "<notes>")`. If none: `none`. Fallback: `none`.
    - **Latest Changes**: Run `git log --oneline -5 $(git merge-base HEAD ${BASE_BRANCH:-main})..HEAD` via Bash. Format each line as `  - <hash> <subject>`. If the command fails or returns empty output, use: `(no commits yet)`.
-   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.plan_fix`; else → `/specflow.impl`. Fallback: `/specflow.plan_fix`.
+   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.fix_design`; else → `/specflow.apply`. Fallback: `/specflow.fix_design`.
 4. **Malformed/missing ledger recovery** (if the ledger read in step 1 fails):
    - First: attempt partial recovery — extract any readable top-level fields from the file.
    - Second: supplement missing fields with in-memory data from the just-completed Codex review (findings, decision).
@@ -317,7 +317,7 @@ Report: `current-phase.md updated`
 
 After the ledger update, present the Codex review findings:
 ```
-Codex Plan/Tasks Review (after fix)
+Codex Design/Tasks Review (after fix)
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>
@@ -343,15 +343,15 @@ AskUserQuestion:
   options:
     - label: "実装に進む"
       description: "specflow で実装を実行"
-    - label: "Plan を修正"
-      description: "レビュー指摘に基づいて Plan/Tasks を再修正し再レビュー"
+    - label: "Design を修正"
+      description: "レビュー指摘に基づいて Design/Tasks を再修正し再レビュー"
     - label: "中止"
       description: "変更を破棄して終了"
 ```
 
 ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
-- 「実装に進む」 → `Skill(skill: "specflow.impl")`
-- 「Plan を修正」 → `Skill(skill: "specflow.plan_fix")`
+- 「実装に進む」 → `Skill(skill: "specflow.apply")`
+- 「Design を修正」 → `Skill(skill: "specflow.fix_design")`
 - 「中止」 → `Skill(skill: "specflow.reject")`
 
 **IMPORTANT:** Do NOT present next-action choices as text.必ず `AskUserQuestion` のボタン UI を使うこと。

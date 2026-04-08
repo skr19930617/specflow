@@ -17,7 +17,7 @@ $ARGUMENTS
 
      次のステップで初期化してください:
      1. `openspec/config.yaml` を作成
-     2. `/specflow.impl_review` を再度実行
+     2. `/specflow.review_apply` を再度実行
      ```
      → **STOP**.
 2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
@@ -87,19 +87,19 @@ If user chooses "中止", display `"レビューをスキップしました。"`
 
 ### Review
 
-Read `~/.config/specflow/global/prompts/review_impl_prompt.md` and `openspec/changes/<CHANGE_ID>/proposal.md`. If the prompt file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_apply_prompt.md` and `openspec/changes/<CHANGE_ID>/proposal.md`. If the prompt file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_apply_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
 Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 Call the `codex` MCP server tool to review the implementation. Pass the following as the prompt:
 
 ```
-<review_impl_prompt.md の内容>
+<review_apply_prompt.md の内容>
 
 CURRENT GIT DIFF:
 <filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
-SPEC CONTENT:
+PROPOSAL CONTENT:
 <openspec/changes/<CHANGE_ID>/proposal.md の内容>
 ```
 
@@ -208,7 +208,7 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
    - **Open High Findings**: Filter `findings[]` where `severity == "high"` AND `status in ["new", "open"]`. Format: `<count> 件 — "<title1>", "<title2>"`. If none: `0 件`. Fallback: `0 件`.
    - **Accepted Risks**: Filter `findings[]` where `status in ["accepted_risk", "ignored"]`. Format each as `<title> (<status>, notes: "<notes>")`. If none: `none`. Fallback: `none`.
    - **Latest Changes**: Run `git log --oneline -5 $(git merge-base HEAD ${BASE_BRANCH:-main})..HEAD` via Bash. Format each line as `  - <hash> <subject>`. If the command fails or returns empty output, use: `(no commits yet)`.
-   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.impl_fix`; else → `/specflow.approve`. Fallback: `/specflow.impl_fix`.
+   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.fix_apply`; else → `/specflow.approve`. Fallback: `/specflow.fix_apply`.
 4. **Malformed/missing ledger recovery** (if the ledger read in step 1 fails):
    - First: attempt partial recovery — extract any readable top-level fields from the file.
    - Second: supplement missing fields with in-memory data from the just-completed Codex review (findings, decision).
@@ -263,10 +263,10 @@ Report the review results.
 
 | State | Condition | Options (label → command) |
 |-------|-----------|--------------------------|
-| `review_with_findings` | `actionable_count > 0` after review | "Auto-fix 実行" → `/specflow.impl_fix autofix`, "手動修正" → `/specflow.impl_fix` |
-| `review_no_findings` | `actionable_count == 0` after review | "Approve" → `/specflow.approve`, "手動修正" → `/specflow.impl_fix`, "中止" → `/specflow.reject` |
-| `loop_no_findings` | `actionable_count == 0` after loop | "Approve" → `/specflow.approve`, "手動修正" → `/specflow.impl_fix`, "中止" → `/specflow.reject` |
-| `loop_with_findings` | `actionable_count > 0` after loop | "Auto-fix 続行" → `/specflow.impl_fix autofix`, "手動修正" → `/specflow.impl_fix`, "Approve" → `/specflow.approve`, "中止" → `/specflow.reject` |
+| `review_with_findings` | `actionable_count > 0` after review | "Auto-fix 実行" → `/specflow.fix_apply autofix`, "手動修正" → `/specflow.fix_apply` |
+| `review_no_findings` | `actionable_count == 0` after review | "Approve" → `/specflow.approve`, "手動修正" → `/specflow.fix_apply`, "中止" → `/specflow.reject` |
+| `loop_no_findings` | `actionable_count == 0` after loop | "Approve" → `/specflow.approve`, "手動修正" → `/specflow.fix_apply`, "中止" → `/specflow.reject` |
+| `loop_with_findings` | `actionable_count > 0` after loop | "Auto-fix 続行" → `/specflow.fix_apply autofix`, "手動修正" → `/specflow.fix_apply`, "Approve" → `/specflow.approve`, "中止" → `/specflow.reject` |
 | `diff_warning` | diff が閾値超過 | "続行" → continue, "中止" → abort |
 
 ### Dual-Display Fallback Pattern
@@ -307,7 +307,7 @@ actionable findings が 0 件の場合（全て resolved、または全て accep
 
 次のアクションを選択してください（テキスト入力またはボタンで回答）:
 - **Approve** → `/specflow.approve`
-- **手動修正** → `/specflow.impl_fix`
+- **手動修正** → `/specflow.fix_apply`
 - **中止** → `/specflow.reject`
 ```
 
@@ -318,7 +318,7 @@ AskUserQuestion:
   options:
     - label: "Approve"
       description: "実装を承認してコミット・PR 作成"
-    - label: "手動修正 (/specflow.impl_fix)"
+    - label: "手動修正 (/specflow.fix_apply)"
       description: "手動で修正した後に再レビューする"
     - label: "中止"
       description: "全変更を破棄して終了"
@@ -327,7 +327,7 @@ AskUserQuestion:
 **入力受理**: 最初に受理された有効入力（ボタンまたはテキスト）のみを採用する。テキスト入力が label または command に一致しない場合、テキストプロンプトを再表示して再度入力を待つ。
 
 - 「Approve」 → `Skill(skill: "specflow.approve")`
-- 「手動修正 (/specflow.impl_fix)」 → `Skill(skill: "specflow.impl_fix")`
+- 「手動修正 (/specflow.fix_apply)」 → `Skill(skill: "specflow.fix_apply")`
 - 「中止」 → `Skill(skill: "specflow.reject")`
 
 ### Step: Auto-fix 確認プロンプト表示
@@ -339,8 +339,8 @@ actionable findings が 1 件以上ある場合、Dual-Display Fallback Pattern 
 ⚠ Review complete — {actionable_count} actionable finding(s): {severity_summary}
 
 次のアクションを選択してください（テキスト入力またはボタンで回答）:
-- **Auto-fix 実行** → `/specflow.impl_fix autofix`
-- **手動修正** → `/specflow.impl_fix`
+- **Auto-fix 実行** → `/specflow.fix_apply autofix`
+- **手動修正** → `/specflow.fix_apply`
 ```
 
 **AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
@@ -350,7 +350,7 @@ AskUserQuestion:
   options:
     - label: "Auto-fix 実行"
       description: "自動修正を実行し、再レビューする"
-    - label: "手動修正 (/specflow.impl_fix)"
+    - label: "手動修正 (/specflow.fix_apply)"
       description: "手動で修正した後に再レビューする"
 ```
 
@@ -358,12 +358,12 @@ AskUserQuestion:
 
 ユーザーの選択に応じて分岐:
 - 「Auto-fix 実行」 → 以下の Round 0 Baseline Snapshot に進む（auto-fix loop 開始）
-- 「手動修正 (/specflow.impl_fix)」 → 手動修正誘導メッセージを表示し、`Skill(skill: "specflow.impl_fix")` を実行する
+- 「手動修正 (/specflow.fix_apply)」 → 手動修正誘導メッセージを表示し、`Skill(skill: "specflow.fix_apply")` を実行する
 - **スキップ/dismiss/タイムアウト時**: テキストプロンプトが既に表示されているため、テキスト入力を待つ。自動選択は行わない。
 
 **手動修正誘導メッセージ**:
 ```
-手動修正モードに進みます。/specflow.impl_fix で指摘を修正し、再レビューしてください。
+手動修正モードに進みます。/specflow.fix_apply で指摘を修正し、再レビューしてください。
 ```
 
 ### Step: エラー時の処理
@@ -374,7 +374,7 @@ review-ledger.json が存在しない、読み込みに失敗した、または 
 ❌ review-ledger.json の読み込みに失敗しました。ワークフローを停止します。
 原因: {ファイルが存在しない | 読み込みエラー | JSON パースエラー}
 
-review-ledger.json を確認し、再度 /specflow.impl_review を実行してください。
+review-ledger.json を確認し、再度 /specflow.review_apply を実行してください。
 ```
 
 → **STOP**（ワークフロー終了。AskUserQuestion は表示しない）。
@@ -427,7 +427,7 @@ WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT divergence_detected AND NOT loo
    Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}: Starting fix...
    ```
 
-3. `Skill(skill: "specflow.impl_fix", args: "autofix")` を呼び出す。`autofix` 引数により specflow.impl_fix はハンドオフをスキップし、fix → re-review → ledger 更新のみ実行して制御を返す。
+3. `Skill(skill: "specflow.fix_apply", args: "autofix")` を呼び出す。`autofix` 引数により specflow.fix_apply はハンドオフをスキップし、fix → re-review → ledger 更新のみ実行して制御を返す。
    - もし Skill 呼び出しが失敗した場合: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
 
 4. 更新された `openspec/changes/<CHANGE_ID>/review-ledger.json` を Read する。
@@ -497,7 +497,7 @@ Auto-fix Loop Complete:
 
 次のアクションを選択してください（テキスト入力またはボタンで回答）:
 - **Approve** → `/specflow.approve`
-- **手動修正** → `/specflow.impl_fix`
+- **手動修正** → `/specflow.fix_apply`
 - **中止** → `/specflow.reject`
 ```
 
@@ -508,7 +508,7 @@ AskUserQuestion:
   options:
     - label: "Approve"
       description: "実装を承認してコミット・PR 作成"
-    - label: "手動修正 (/specflow.impl_fix)"
+    - label: "手動修正 (/specflow.fix_apply)"
       description: "手動で修正した後に再レビューする"
     - label: "中止"
       description: "全変更を破棄して終了"
@@ -517,7 +517,7 @@ AskUserQuestion:
 **入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
 
 - 「Approve」 → `Skill(skill: "specflow.approve")`
-- 「手動修正 (/specflow.impl_fix)」 → `Skill(skill: "specflow.impl_fix")`
+- 「手動修正 (/specflow.fix_apply)」 → `Skill(skill: "specflow.fix_apply")`
 - 「中止」 → `Skill(skill: "specflow.reject")`
 
 **`loop_with_findings`**（`actionable_count > 0`）— Dual-Display Fallback Pattern に従う:
@@ -529,8 +529,8 @@ AskUserQuestion:
 ⚠ Auto-fix stopped — {reason}. Remaining: {severity_summary}
 
 次のアクションを選択してください（テキスト入力またはボタンで回答）:
-- **Auto-fix 続行** → `/specflow.impl_fix autofix`
-- **手動修正** → `/specflow.impl_fix`
+- **Auto-fix 続行** → `/specflow.fix_apply autofix`
+- **手動修正** → `/specflow.fix_apply`
 - **Approve** → `/specflow.approve`
 - **中止** → `/specflow.reject`
 ```
@@ -542,7 +542,7 @@ AskUserQuestion:
   options:
     - label: "Auto-fix 続行"
       description: "自動修正を続行し、再レビューする"
-    - label: "手動修正 (/specflow.impl_fix)"
+    - label: "手動修正 (/specflow.fix_apply)"
       description: "残りの指摘を手動で修正して再レビュー"
     - label: "Approve"
       description: "現状で承認してコミット・PR 作成"
@@ -553,7 +553,7 @@ AskUserQuestion:
 **入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
 
 - 「Auto-fix 続行」 → auto-fix loop を再開始（Round 0 Baseline Snapshot から再開）
-- 「手動修正 (/specflow.impl_fix)」 → `Skill(skill: "specflow.impl_fix")`
+- 「手動修正 (/specflow.fix_apply)」 → `Skill(skill: "specflow.fix_apply")`
 - 「Approve」 → `Skill(skill: "specflow.approve")`
 - 「中止」 → `Skill(skill: "specflow.reject")`
 

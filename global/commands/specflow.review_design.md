@@ -1,5 +1,5 @@
 ---
-description: Codex plan/tasks review を実行し、ledger 更新・auto-fix loop・handoff を管理
+description: Codex design/tasks review を実行し、ledger 更新・auto-fix loop・handoff を管理
 ---
 
 ## User Input
@@ -17,7 +17,7 @@ $ARGUMENTS
 
      次のステップで初期化してください:
      1. `openspec/config.yaml` を作成
-     2. `/specflow.plan_review` を再度実行
+     2. `/specflow.review_design` を再度実行
      ```
      → **STOP**.
 2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
@@ -30,32 +30,32 @@ Resolve `FEATURE_DIR` from the current change id:
 
 Verify `FEATURE_DIR` exists via Bash (`ls <FEATURE_DIR>/proposal.md`). If missing → **STOP** with error.
 
-Set `FEATURE_SPEC` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback.
+Set `FEATURE_PROPOSAL` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback.
 
-Derive the plan and tasks file paths:
+Derive the design and tasks file paths:
 ```
-PLAN_FILE = FEATURE_DIR/plan.md
+DESIGN_FILE = FEATURE_DIR/design.md
 TASKS_FILE = FEATURE_DIR/tasks.md
 ```
 
-Verify that `PLAN_FILE` and `TASKS_FILE` exist (via Read tool). If either file does not exist, display an error: `"plan.md または tasks.md が見つかりません。先に /specflow.plan を実行してください。"` → **STOP**.
+Verify that `DESIGN_FILE` and `TASKS_FILE` exist (via Read tool). If either file does not exist, display an error: `"design.md または tasks.md が見つかりません。先に /specflow.design を実行してください。"` → **STOP**.
 
-Read all three files: `FEATURE_SPEC`, `PLAN_FILE`, `TASKS_FILE`.
+Read all three files: `FEATURE_PROPOSAL`, `DESIGN_FILE`, `TASKS_FILE`.
 
-## Step 1: Codex Plan/Tasks Review
+## Step 1: Codex Design/Tasks Review
 
-Read `~/.config/specflow/global/prompts/review_plan_prompt.md` for the review prompt. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_plan_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
+Read `~/.config/specflow/global/prompts/review_design_prompt.md` for the review prompt. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_design_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
 
-Call the `codex` MCP server tool to review the plan and tasks. Pass the following as the prompt:
+Call the `codex` MCP server tool to review the design and tasks. Pass the following as the prompt:
 
 ```
-<review_plan_prompt.md の内容>
+<review_design_prompt.md の内容>
 
-SPEC CONTENT:
-<FEATURE_SPEC の内容>
+PROPOSAL CONTENT:
+<FEATURE_PROPOSAL の内容>
 
-PLAN CONTENT:
-<PLAN_FILE の内容>
+DESIGN CONTENT:
+<DESIGN_FILE の内容>
 
 TASKS CONTENT:
 <TASKS_FILE の内容>
@@ -70,9 +70,9 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
 ### Ledger Read / Create
 
 1. Use `FEATURE_DIR` resolved in Setup.
-2. Attempt to Read `FEATURE_DIR/review-ledger-plan.json`.
-   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "plan", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }` (Note: the change id is the directory name of `FEATURE_DIR`, e.g. `openspec/changes/my-change` → `my-change`)
-   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger-plan.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger-plan.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger-plan.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "plan", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
+2. Attempt to Read `FEATURE_DIR/review-ledger-design.json`.
+   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "design", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }` (Note: the change id is the directory name of `FEATURE_DIR`, e.g. `openspec/changes/my-change` → `my-change`)
+   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger-design.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger-design.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger-design.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "design", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
    - **If file exists and valid JSON**: Use it. This is a "clean read" — backup will be created from this content before writing.
 
 ### Ledger Validation
@@ -135,8 +135,8 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
 
 ### Backup and Write
 
-14. If the ledger was a "clean read" (not recovered from backup): Write the pre-update ledger content to `review-ledger-plan.json.bak` via Write tool.
-15. Write the updated ledger JSON (including `max_finding_id`) to `review-ledger-plan.json` via Write tool.
+14. If the ledger was a "clean read" (not recovered from backup): Write the pre-update ledger content to `review-ledger-design.json.bak` via Write tool.
+15. Write the updated ledger JSON (including `max_finding_id`) to `review-ledger-design.json` via Write tool.
 
 ### Ledger Summary Display
 
@@ -157,16 +157,16 @@ Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON
 
 **This step runs after the review-ledger has been fully updated, backed up, and persisted to disk.**
 
-1. Read the just-written `FEATURE_DIR/review-ledger-plan.json`.
+1. Read the just-written `FEATURE_DIR/review-ledger-design.json`.
 2. Extract: `feature_id` (or derive from directory name), `current_round`, `status`, `findings[]`.
 3. Compute each field:
-   - **Phase**: `plan-review`.
+   - **Phase**: `design-review`.
    - **Round**: `current_round`. Fallback: `1`.
    - **Status**: Direct read from `status`. Fallback: `in_progress`.
    - **Open High Findings**: Filter `findings[]` where `severity == "high"` AND `status in ["new", "open"]`. Format: `<count> 件 — "<title1>", "<title2>"`. If none: `0 件`. Fallback: `0 件`.
    - **Accepted Risks**: Filter `findings[]` where `status in ["accepted_risk", "ignored"]`. Format each as `<title> (<status>, notes: "<notes>")`. If none: `none`. Fallback: `none`.
    - **Latest Changes**: Run `git log --oneline -5 $(git merge-base HEAD ${BASE_BRANCH:-main})..HEAD` via Bash. Format each line as `  - <hash> <subject>`. If the command fails or returns empty output, use: `(no commits yet)`.
-   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.plan_fix`; else → `/specflow.impl`. Fallback: `/specflow.plan_fix`.
+   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.fix_design`; else → `/specflow.apply`. Fallback: `/specflow.fix_design`.
 4. **Malformed/missing ledger recovery** (if the ledger read in step 1 fails):
    - First: attempt partial recovery — extract any readable top-level fields from the file.
    - Second: supplement missing fields with in-memory data from the just-completed Codex review (findings, decision).
@@ -194,14 +194,14 @@ Report: `current-phase.md generated`
 
 After the ledger update, present the Codex review findings:
 ```
-Codex Plan/Tasks Review
+Codex Design/Tasks Review
 
 **Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
 **Summary:** <summary>
 
 | # | Severity | File | Category | Title | Detail |
 |---|----------|------|----------|-------|--------|
-| P1 | high | plan.md | completeness | ... | ... |
+| P1 | high | design.md | completeness | ... | ... |
 | P2 | medium | tasks.md | ordering | ... | ... |
 ```
 
@@ -221,13 +221,13 @@ Report the review results.
    - フォーマット: `"CRITICAL: N, HIGH: M, ..."` （件数が 1 以上の severity のみ）
 4. `actionable_count` = actionable findings の総件数を記録する。
 
-**注意**: review-ledger-plan.json の `status` フィールド（`has_open_high`）は accepted_risk/ignored を含むためレポート目的のみ。auto-fix 確認の分岐は `actionable_count` で判定する。
+**注意**: review-ledger-design.json の `status` フィールド（`has_open_high`）は accepted_risk/ignored を含むためレポート目的のみ。auto-fix 確認の分岐は `actionable_count` で判定する。
 
 ### 分岐: actionable_count による判定
 
 - **actionable_count == 0** → 「Step: 承認フローへ直接遷移」に進む
 - **actionable_count > 0** → 「Step: Auto-fix 確認プロンプト表示」に進む
-- **review-ledger-plan.json が存在しない / 読み込み失敗** → 「Step: エラー時の処理」に進む
+- **review-ledger-design.json が存在しない / 読み込み失敗** → 「Step: エラー時の処理」に進む
 
 ### Step: 承認フローへ直接遷移
 
@@ -243,7 +243,7 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
-- 「実装に進む」 → `Skill(skill: "specflow.impl")`
+- 「実装に進む」 → `Skill(skill: "specflow.apply")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
 ### Step: Auto-fix 確認プロンプト表示
@@ -256,29 +256,29 @@ AskUserQuestion:
   options:
     - label: "Auto-fix 実行"
       description: "自動修正を実行し、再レビューする"
-    - label: "手動修正 (/specflow.plan_fix)"
+    - label: "手動修正 (/specflow.fix_design)"
       description: "手動で修正した後に再レビューする"
 ```
 
 ユーザーの選択に応じて分岐:
 - 「Auto-fix 実行」 → 以下の Round 0 Baseline Snapshot に進む（auto-fix loop 開始）
-- 「手動修正 (/specflow.plan_fix)」 → 手動修正誘導メッセージを表示し、`Skill(skill: "specflow.plan_fix")` を実行する
-- **スキップ/dismiss/タイムアウト時**: 「手動修正 (/specflow.plan_fix)」を選択したものとして扱い、手動修正誘導メッセージを表示する
+- 「手動修正 (/specflow.fix_design)」 → 手動修正誘導メッセージを表示し、`Skill(skill: "specflow.fix_design")` を実行する
+- **スキップ/dismiss/タイムアウト時**: 「手動修正 (/specflow.fix_design)」を選択したものとして扱い、手動修正誘導メッセージを表示する
 
 **手動修正誘導メッセージ**:
 ```
-手動修正モードに進みます。/specflow.plan_fix で指摘を修正し、再レビューしてください。
+手動修正モードに進みます。/specflow.fix_design で指摘を修正し、再レビューしてください。
 ```
 
 ### Step: エラー時の処理
 
-review-ledger-plan.json が存在しない、読み込みに失敗した、または JSON パースに失敗した場合、エラーメッセージを表示しワークフローを **停止** する:
+review-ledger-design.json が存在しない、読み込みに失敗した、または JSON パースに失敗した場合、エラーメッセージを表示しワークフローを **停止** する:
 
 ```
-❌ review-ledger-plan.json の読み込みに失敗しました。ワークフローを停止します。
+❌ review-ledger-design.json の読み込みに失敗しました。ワークフローを停止します。
 原因: {ファイルが存在しない | 読み込みエラー | JSON パースエラー}
 
-review-ledger-plan.json を確認し、再度 /specflow.plan_review を実行してください。
+review-ledger-design.json を確認し、再度 /specflow.review_design を実行してください。
 ```
 
 → **STOP**（ワークフロー終了。AskUserQuestion は表示しない）。
@@ -295,10 +295,10 @@ review-ledger-plan.json を確認し、再度 /specflow.plan_review を実行し
 
 #### Round 0 Baseline Snapshot
 
-ループ開始前に、現在の review-ledger-plan.json を読み、以下の baseline 値を記録する:
+ループ開始前に、現在の review-ledger-design.json を読み、以下の baseline 値を記録する:
 
 1. **baseline_score**: 全 unresolved findings（`status ∉ {"resolved"}`）の severity 重み付けスコア合計（high=3, medium=2, low=1）
-2. **baseline_new_high_count**: 0（plan review 直後はまだ auto-fix ラウンドが未実行のため、new high の比較基準は 0 とする。ラウンド 1 終了時に実際の new high count が記録され、ラウンド 2 以降で比較に使用される）
+2. **baseline_new_high_count**: 0（design review 直後はまだ auto-fix ラウンドが未実行のため、new high の比較基準は 0 とする。ラウンド 1 終了時に実際の new high count が記録され、ラウンド 2 以降で比較に使用される）
 3. **baseline_resolved_high_titles**: `findings[]` 内の `status == "resolved"` かつ `severity == "high"` の `title` 一覧
 4. **baseline_all_high_titles**: `findings[]` 内の `severity == "high"` の全 `title` 一覧（resolved 含む）
 
@@ -328,13 +328,13 @@ WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT divergence_detected AND NOT loo
 
 2. ラウンドヘッダーを表示:
    ```
-   Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}: Starting plan fix...
+   Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}: Starting design fix...
    ```
 
-3. `Skill(skill: "specflow.plan_fix", args: "autofix")` を呼び出す。`autofix` 引数により specflow.plan_fix はハンドオフをスキップし、fix → re-review → ledger 更新のみ実行して制御を返す。
+3. `Skill(skill: "specflow.fix_design", args: "autofix")` を呼び出す。`autofix` 引数により specflow.fix_design はハンドオフをスキップし、fix → re-review → ledger 更新のみ実行して制御を返す。
    - もし Skill 呼び出しが失敗した場合: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
 
-4. 更新された `FEATURE_DIR/review-ledger-plan.json` を Read する。
+4. 更新された `FEATURE_DIR/review-ledger-design.json` を Read する。
    - もし読み込み失敗: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
 
 5. **停止条件チェック**（優先順位順に実行、最初にトリガーされた条件で停止）:
@@ -398,7 +398,7 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
-- 「実装に進む」 → `Skill(skill: "specflow.impl")`
+- 「実装に進む」 → `Skill(skill: "specflow.apply")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
 **停止時**（unresolved findings > 0）:
@@ -409,7 +409,7 @@ AskUserQuestion:
 AskUserQuestion:
   question: "Auto-fix loop 停止（{reason}）。残存指摘: {severity_summary}\n次のアクションを選択してください"
   options:
-    - label: "手動修正 (/specflow.plan_fix)"
+    - label: "手動修正 (/specflow.fix_design)"
       description: "残りの指摘を手動で修正して再レビュー"
     - label: "実装に進む"
       description: "現状で実装に進む"
@@ -417,8 +417,8 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
-- 「手動修正 (/specflow.plan_fix)」 → `Skill(skill: "specflow.plan_fix")`
-- 「実装に進む」 → `Skill(skill: "specflow.impl")`
+- 「手動修正 (/specflow.fix_design)」 → `Skill(skill: "specflow.fix_design")`
+- 「実装に進む」 → `Skill(skill: "specflow.apply")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
 **IMPORTANT:** Do NOT present next-action choices as text. 必ず `AskUserQuestion` のボタン UI を使うこと。
@@ -426,8 +426,8 @@ AskUserQuestion:
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
-- All artifacts (proposal, plan, tasks, review-ledger-plan, current-phase) are managed in `openspec/changes/<change id>/`.
+- All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<change id>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
-- Ledger file is `FEATURE_DIR/review-ledger-plan.json` (NOT `review-ledger.json`).
-- Phase is `"plan"` in ledger JSON.
-- Auto-fix calls `Skill(skill: "specflow.plan_fix", args: "autofix")` (NOT `specflow.impl_fix`).
+- Ledger file is `FEATURE_DIR/review-ledger-design.json` (NOT `review-ledger.json`).
+- Phase is `"design"` in ledger JSON.
+- Auto-fix calls `Skill(skill: "specflow.fix_design", args: "autofix")` (NOT `specflow.fix_apply`).

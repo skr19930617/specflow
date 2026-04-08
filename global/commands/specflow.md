@@ -1,5 +1,5 @@
 ---
-description: GitHub issue URL またはインライン仕様記述から spec 作成 → clarify → Codex spec review を実行
+description: GitHub issue URL またはインライン仕様記述から proposal 作成 → clarify → Codex proposal review を実行
 ---
 
 ## User Input
@@ -73,20 +73,47 @@ Author: <author> | State: <state> | Labels: <labels>
 
 Show a brief summary of the issue body.
 
-## Step 3: Create Spec via specflow
+## Step 3: Create Change + Proposal via OpenSpec
 
 **Feature description input depends on MODE:**
 - **`MODE = issue_url`**: Use the issue title and body (fetched in Step 2) as the feature description input.
 - **`MODE = inline_spec`**: Use `INPUT_TEXT` (the user's inline specification text) directly as the feature description input.
 
-Using the feature description, create a spec via the following workflow:
-1. Create a feature branch from the current base branch (the branch name determines the change id).
-2. Generate a proposal file at `openspec/changes/<change-id>/proposal.md` using the spec template.
-3. Run quality validation on the generated spec.
+### 3a. Create the change directory
 
-Set `CHANGE_ID` to the branch name (or the change id output by specflow). All subsequent steps use `openspec/changes/<CHANGE_ID>/` as the artifact directory.
+Derive a kebab-case change name from the feature description (e.g., "ユーザー認証機能を追加" → `add-user-auth`).
 
-Report: `Step 3 complete — Spec created`
+```bash
+openspec new change "<name>"
+```
+
+This creates `openspec/changes/<name>/` with `.openspec.yaml`.
+
+### 3b. Create a feature branch
+
+Create a feature branch from the current base branch using the change name:
+```bash
+git checkout -b <name>
+```
+
+### 3c. Get proposal instructions and generate
+
+```bash
+openspec instructions proposal --change "<name>" --json
+```
+
+Parse the JSON to get:
+- `template`: The structure to use for the proposal file
+- `instruction`: Schema-specific guidance for the proposal artifact type
+- `outputPath`: Where to write the artifact
+- `context`: Project background (constraints — do NOT include in output)
+- `rules`: Artifact-specific rules (constraints — do NOT include in output)
+
+Create the proposal file at `outputPath` using `template` as the structure. Apply `context` and `rules` as constraints, but do NOT copy them into the file. Use the feature description (from MODE) as the primary input.
+
+Set `CHANGE_ID` to the change name. All subsequent steps use `openspec/changes/<CHANGE_ID>/` as the artifact directory.
+
+Report: `Step 3 complete — Change created, proposal generated`
 
 ## Step 4: Complexity Check
 
@@ -171,19 +198,35 @@ This will:
 
 Report: `Step 5 complete — Clarify done`
 
-## Step 6: Codex Spec Review
+## Step 6: Validate
 
-Read the file `global/specflow.spec_review.md` and follow its complete workflow.
+Run structural validation on the change:
 
-This will:
-- Read the review prompt and spec file
-- Call Codex MCP to review the spec
-- Present the review results
-- Show handoff options (Plan に進む / Spec を修正 / 中止)
+```bash
+openspec validate --change "<CHANGE_ID>" --json
+```
+
+Parse the JSON response:
+- If `valid: true`: Report `Step 6 complete — Validation passed`
+- If `valid: false`: Display the issues table:
+  ```
+  | Level | Path | Message |
+  |-------|------|---------|
+  | ERROR | ... | ... |
+  ```
+  Use `AskUserQuestion` to let the user decide:
+  - **"修正して続行"** — Fix the issues in proposal.md and re-run validation
+  - **"このまま続行"** — Proceed despite validation errors
+  - **"中止"** — Stop the workflow
+
+After validation, present handoff options via `AskUserQuestion`:
+- **"Design に進む"** — Proceed to `/specflow.design`
+- **"Proposal を修正"** — Edit proposal.md manually
+- **"中止"** — Stop
 
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
-- All artifacts (proposal, plan, tasks) are managed in `openspec/changes/<change-id>/`.
+- All artifacts (proposal, specs, design, tasks) are managed in `openspec/changes/<change-id>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - When reading specflow command files, follow their instructions faithfully.

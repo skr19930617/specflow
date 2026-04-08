@@ -17,7 +17,7 @@ $ARGUMENTS
 
      次のステップで初期化してください:
      1. `openspec/config.yaml` を作成
-     2. `/specflow.impl_fix` を再度実行
+     2. `/specflow.fix_apply` を再度実行
      ```
      → **STOP**.
 
@@ -51,13 +51,13 @@ specflow-filter-diff -- . ':(exclude)*/review-ledger.json' ':(exclude)*/review-l
 
 Read `/tmp/specflow-filter-summary.json` and parse the JSON.
 
-**Filter Summary Display**: If `excluded_count > 0`, display the filter summary (same format as specflow.impl_review.md). If `excluded_count == 0`, skip.
+**Filter Summary Display**: If `excluded_count > 0`, display the filter summary (same format as specflow.review_apply.md). If `excluded_count == 0`, skip.
 
 If there are `warnings` in the JSON (non-empty array), display each warning.
 
 Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
-Read the spec file for acceptance criteria context.
+Read the proposal file for acceptance criteria context.
 
 Based on the review findings from the previous step (the user has just seen them), apply fixes to address all findings:
 - Correctness issues
@@ -73,8 +73,8 @@ Report what was fixed.
 
 Attempt to Read `openspec/changes/<CHANGE_ID>/review-ledger.json` to determine which review prompt to use:
 
-- **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_impl_prompt.md`), unchanged behavior. Set `REREVIEW_MODE = false`.
-- **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_impl_rereview_prompt.md`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
+- **Branch A: No ledger file** — file does not exist → use initial review prompt (`review_apply_prompt.md`), unchanged behavior. Set `REREVIEW_MODE = false`.
+- **Branch B: Valid ledger** — file exists, JSON parses successfully, `findings` array present → use re-review prompt (`review_apply_rereview_prompt.md`). Set `REREVIEW_MODE = true`. Extract `PREVIOUS_FINDINGS` from ledger `findings` array (only findings where status is NOT "resolved" — i.e., status in ["open", "new", "accepted_risk", "ignored"]). Extract `MAX_FINDING_ID` from ledger (if present), or derive from `max(findings.map(f => extractNumber(f.id)))`, or 0 if empty.
 - **Branch C: Empty findings** — file exists, JSON valid, but `findings` array is empty → use re-review prompt with empty `PREVIOUS_FINDINGS` array, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`.
 - **Branch D: Corrupt/malformed ledger** — file exists but JSON parse fails or required fields missing → use re-review prompt with empty `PREVIOUS_FINDINGS`, `MAX_FINDING_ID = 0`. Set `REREVIEW_MODE = true`, `LEDGER_ERROR = true`. Display: `"⚠ review-ledger.json が破損しています。空の前回 findings で re-review を実行します。"`.
 - **Branch E: Missing max_finding_id** — file exists, JSON valid, findings present, but `max_finding_id` field absent → derive from findings. Log: `"⚠ max_finding_id が見つかりません。findings から導出しました。"`. Proceed as Branch B.
@@ -115,24 +115,24 @@ Read the filtered diff from `/tmp/specflow-filtered-diff.txt`.
 
 **If `REREVIEW_MODE = false`** (no ledger, initial review prompt):
 
-Read `~/.config/specflow/global/prompts/review_impl_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_impl_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/prompts/review_apply_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_apply_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
-<review_impl_prompt.md の内容>
+<review_apply_prompt.md の内容>
 
 CURRENT GIT DIFF:
 <filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
-SPEC CONTENT:
+PROPOSAL CONTENT:
 <openspec/changes/<CHANGE_ID>/proposal.md の内容>
 ```
 
 **If `REREVIEW_MODE = true`** (ledger exists, re-review prompt):
 
-Read `~/.config/specflow/global/prompts/review_impl_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_impl_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
+Read `~/.config/specflow/global/prompts/review_apply_rereview_prompt.md`. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_apply_rereview_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**. Call the `codex` MCP server tool with:
 
 ```
-<review_impl_rereview_prompt.md の内容>
+<review_apply_rereview_prompt.md の内容>
 
 PREVIOUS_FINDINGS:
 <PREVIOUS_FINDINGS の JSON 配列>
@@ -143,7 +143,7 @@ MAX_FINDING_ID:
 CURRENT GIT DIFF:
 <filtered diff の内容（/tmp/specflow-filtered-diff.txt）>
 
-SPEC CONTENT:
+PROPOSAL CONTENT:
 <openspec/changes/<CHANGE_ID>/proposal.md の内容>
 ```
 
@@ -197,13 +197,13 @@ If `REREVIEW_MODE = true`, display the classified results before the standard fi
 2. Attempt to Read `openspec/changes/<CHANGE_ID>/review-ledger.json`.
 
    **Auto-fix mode fail-fast** (`$ARGUMENTS` に `autofix` が含まれる場合):
-   - **If file does not exist**: `"⚠ autofix mode: review-ledger.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.impl auto-fix loop に戻り、Case C でエラーハンドオフされる）。
+   - **If file does not exist**: `"⚠ autofix mode: review-ledger.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.apply auto-fix loop に戻り、Case C でエラーハンドオフされる）。
    - **If file exists but JSON parse fails**: `"⚠ autofix mode: review-ledger.json が破損しています。ループを停止します。"` と表示し、**即座に処理を終了**する（バックアップ復旧や AskUserQuestion は行わない）。
    - **If file exists and valid JSON**: 通常通り使用する。
 
    **通常モード** (`$ARGUMENTS` に `autofix` が含まれない場合):
-   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`
-   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "impl", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
+   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "apply", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }`
+   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<CHANGE_ID>", "phase": "apply", "current_round": 0, "status": "all_resolved", "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
    - **If file exists and valid JSON**: Use it. This is a "clean read" — backup will be created from this content before writing.
 
 ### Ledger Validation
@@ -317,7 +317,7 @@ The Codex response already classifies findings into resolved/still_open/new. Use
    - **Open High Findings**: Filter `findings[]` where `severity == "high"` AND `status in ["new", "open"]`. Format: `<count> 件 — "<title1>", "<title2>"`. If none: `0 件`. Fallback: `0 件`.
    - **Accepted Risks**: Filter `findings[]` where `status in ["accepted_risk", "ignored"]`. Format each as `<title> (<status>, notes: "<notes>")`. If none: `none`. Fallback: `none`.
    - **Latest Changes**: Run `git log --oneline -5 $(git merge-base HEAD ${BASE_BRANCH:-main})..HEAD` via Bash. Format each line as `  - <hash> <subject>`. If the command fails or returns empty output, use: `(no commits yet)`.
-   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.impl_fix`; else → `/specflow.approve`. Fallback: `/specflow.impl_fix`.
+   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.fix_apply`; else → `/specflow.approve`. Fallback: `/specflow.fix_apply`.
 4. **Malformed/missing ledger recovery** (if the ledger read in step 1 fails):
    - First: attempt partial recovery — extract any readable top-level fields from the file.
    - Second: supplement missing fields with in-memory data from the just-completed Codex review (findings, decision).
@@ -371,7 +371,7 @@ Report the review results.
 
 次のアクションを選択してください（テキスト入力またはボタンで回答）:
 - **Approve & Commit** → `/specflow.approve`
-- **Fix All** → `/specflow.impl_fix`
+- **Fix All** → `/specflow.fix_apply`
 - **Reject** → `/specflow.reject`
 ```
 
@@ -392,7 +392,7 @@ AskUserQuestion:
 
 ユーザーの選択に応じて、`Skill` ツールで次のコマンドを実行する:
 - 「Approve & Commit」 → `Skill(skill: "specflow.approve")`
-- 「Fix All」 → `Skill(skill: "specflow.impl_fix")`
+- 「Fix All」 → `Skill(skill: "specflow.fix_apply")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
 **IMPORTANT:** テキストプロンプトと AskUserQuestion の両方を必ず表示すること（Dual-Display）。
