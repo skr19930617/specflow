@@ -169,9 +169,9 @@ If `REREVIEW_MODE = true`, display the classified results before the standard fi
 1. Determine `FEATURE_DIR` from `FEATURE_PROPOSAL` (its parent directory).
 2. Attempt to Read `FEATURE_DIR/review-ledger-design.json`.
 
-   **Auto-fix mode fail-fast** (`AUTOFIX_MODE = true`):
-   - **If file does not exist**: `"⚠ autofix mode: review-ledger-design.json が見つかりません。ループを停止します。"` と表示し、**即座に処理を終了**する（ここで return — 制御は呼び出し元の specflow.review_design auto-fix loop に戻る）。
-   - **If file exists but JSON parse fails**: `"⚠ autofix mode: review-ledger-design.json が破損しています。ループを停止します。"` と表示し、**即座に処理を終了**する（バックアップ復旧や AskUserQuestion は行わない）。
+   **Auto-fix mode ledger recovery** (`AUTOFIX_MODE = true`):
+   - **If file does not exist**: `"⚠ autofix mode: review-ledger-design.json が見つかりません。新規作成して継続します。"` と表示し、空の ledger を新規作成して継続する: `{ "feature_id": "<change id>", "phase": "design", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }`。これは "clean read" ではない — この空 ledger からバックアップを作成しない。
+   - **If file exists but JSON parse fails**: 破損ファイルを `review-ledger-design.json.corrupt` にリネーム（`mv`）。`"⚠ autofix mode: review-ledger-design.json が破損していました。新規作成して継続します。（破損ファイルは .corrupt に退避）"` と表示し、空の ledger を新規作成して継続する: `{ "feature_id": "<change id>", "phase": "design", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }`。これは "clean read" ではない。
    - **If file exists and valid JSON**: 通常通り使用する。
 
    **通常モード** (`AUTOFIX_MODE = false`):

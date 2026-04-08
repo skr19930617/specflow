@@ -1,0 +1,52 @@
+{
+  "feature_id": "fix-autofix-early-stop",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "global/commands/specflow.review_apply.md",
+      "title": "Final autofix round is skipped from score history on terminating exits",
+      "detail": "The new round_scores.push(...) happens only after step 5, but step 5 is an early-stop check.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "global/commands/specflow.review_apply.md",
+      "title": "No regression coverage for the new autofix control flow",
+      "detail": "This diff changes core loop behavior and ledger recovery semantics but has no accompanying test or scenario coverage.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 0,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
