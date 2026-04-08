@@ -13,6 +13,7 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 | コマンド | 役割 |
 |----------|------|
 | `/specflow <issue-url>` | issue → proposal → clarify → validate（OpenSpec CLI 連携） |
+| `/specflow.spec` | 既存コードベースを解析し、openspec/specs/ にベースライン spec を一括生成 |
 | `/specflow.explore` | OpenSpec explore ベースの自由対話 → GitHub issue 起票 |
 | `/specflow.design` | design → tasks → Codex design review（OpenSpec CLI 連携） |
 | `/specflow.review_design` | Codex design/tasks review を単独実行 |
@@ -29,6 +30,7 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 | `/specflow.readme` | プロジェクト解析に基づいて OSS 風 README を生成・更新 |
 
 フロー: `/specflow` → `/specflow.design` → `/specflow.apply` → `/specflow.approve`
+初期セットアップ: `/specflow.spec`（既存プロジェクトでベースライン spec が未作成の場合）
 修正ループ: design → `/specflow.fix_design` / apply → `/specflow.fix_apply`
 単独レビュー: `/specflow.review_design` / `/specflow.review_apply`
 

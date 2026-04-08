@@ -73,6 +73,28 @@ Author: <author> | State: <state> | Labels: <labels>
 
 Show a brief summary of the issue body.
 
+## Step 2.5: Baseline Spec 存在チェック
+
+Glob ツールで `openspec/specs/*/spec.md` パターンに一致するファイルを検索する。
+
+- **1つ以上のファイルが見つかった場合**: Report `Step 2.5: <N> baseline spec(s) found` → Step 3 に進む。
+- **ファイルが見つからない場合**（ディレクトリのみ存在・空ディレクトリ・`openspec/specs/` 自体が欠落のいずれでも）:
+
+  `AskUserQuestion` で誘導する:
+
+  ```
+  AskUserQuestion:
+    question: "⚠️ openspec/specs/ にベースライン spec が見つかりません。\n既存プロジェクトに specflow を導入する場合、先に `/specflow.spec` でベースライン spec を生成することを推奨します。"
+    options:
+      - label: "specflow.spec を実行 (Recommended)"
+        description: "コードベースを解析してベースライン spec を生成する"
+      - label: "スキップして続行"
+        description: "spec なしで proposal 作成に進む（後で spec delta エラーが発生する可能性あり）"
+  ```
+
+  - 「specflow.spec を実行」 → `global/commands/specflow.spec.md` を読み込み、その完全なワークフローに従って実行する → **STOP**（spec 生成後にユーザーが `/specflow` を再実行する）。
+  - 「スキップして続行」 → Step 3 に進む。
+
 ## Step 3: Create Change + Proposal via OpenSpec
 
 **Feature description input depends on MODE:**

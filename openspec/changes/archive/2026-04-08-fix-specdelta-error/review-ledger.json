@@ -1,0 +1,94 @@
+{
+  "feature_id": "fix-specdelta-error",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 5,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "title": "Recommended no-spec handoff does not actually invoke the bootstrap workflow",
+      "detail": "In Step 2.5, selecting \"specflow.spec を実行\" only says to run `/specflow.spec` and stop. Unlike the existing `/specflow.decompose` handoff in the same file, there is no explicit instruction to read `global/commands/specflow.spec.md` and follow that workflow.",
+      "file": "global/commands/specflow.md",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "correctness",
+      "title": "Baseline spec validation command does not target the generated spec",
+      "detail": "Step 4d runs `openspec validate --type spec --json`, but validate requires a positional item name. Validate each generated spec explicitly.",
+      "file": "global/commands/specflow.spec.md",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "high",
+      "category": "completeness",
+      "title": "CLI-first spec generation required by the spec is still unimplemented",
+      "detail": "Acceptance criterion 4 requires using OpenSpec CLI instructions/templates when they exist. The current Step 4 always writes a hardcoded canonical template.",
+      "file": "global/commands/specflow.spec.md",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Empty-project flow does not satisfy the manual capability entry requirement",
+      "detail": "No dedicated N=0 branch for when no capabilities are auto-detected. The command must prompt the user to define capabilities manually.",
+      "file": "global/commands/specflow.spec.md",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F05",
+      "severity": "medium",
+      "category": "testing",
+      "title": "No regression coverage for the new bootstrap and no-spec branches",
+      "detail": "No automated coverage or scripted verification for the no-spec prompt, skip path, bootstrap execution, zero-capability handling, or validation failures.",
+      "file": "global/commands/specflow.md",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 0,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 3, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
