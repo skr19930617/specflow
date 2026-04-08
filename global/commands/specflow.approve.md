@@ -1,5 +1,5 @@
 ---
-description: 実装を承認し、コミット → Push → PR 作成
+description: 実装を承認し、Archive → コミット → Push → PR 作成
 ---
 
 ## User Input
@@ -256,6 +256,26 @@ If the user chooses "中止": display `"Approve を中止しました。"` and *
 
 The Commit section uses `git add -A` which stages all files including `openspec/changes/<feature>/approval-summary.md`. No additional git add is needed.
 
+## Archive
+
+After the Approval Summary is generated, archive the change:
+
+```bash
+openspec archive "<CHANGE_ID>"
+```
+
+If the archive command succeeds:
+- Set `ARCHIVE_SUCCESS = true`
+- Report: `Change archived: openspec/changes/archive/<date>-<CHANGE_ID>/`
+
+If the archive command fails (non-zero exit code):
+- Set `ARCHIVE_SUCCESS = false`
+- Display the error as a warning and continue with the Commit → Push → PR flow:
+  ```
+  ⚠️ Archive に失敗しました: <error details>
+  コミット・PR 作成は続行します。後で手動で `openspec archive` を実行してください。
+  ```
+
 ## Commit
 
 1. `git status` で変更ファイルを確認し一覧をユーザーに表示する。
@@ -316,16 +336,8 @@ The Commit section uses `git add -A` which stages all files including `openspec/
 
 6. PR 作成後、PR の URL をユーザーに表示する。
 
-## Archive
+If `ARCHIVE_SUCCESS = true`:
+  Report: "Implementation approved, committed, PR created: `<PR-URL>`, change archived." → **END**.
 
-After the PR is created, archive the change:
-
-```bash
-openspec archive "<CHANGE_ID>"
-```
-
-If the archive command fails, display the error but do not fail the overall approve flow (the PR was already created).
-
-Report: `Change archived: openspec/changes/archive/<date>-<CHANGE_ID>/`
-
-Report: "Implementation approved, committed, PR created: `<PR-URL>`, change archived." → **END**.
+If `ARCHIVE_SUCCESS = false`:
+  Report: "Implementation approved, committed, PR created: `<PR-URL>`. ⚠️ Archive failed — run `openspec archive` manually." → **END**.
