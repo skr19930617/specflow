@@ -12,7 +12,7 @@ $ARGUMENTS
 
 Before starting, verify the project is initialized:
 
-1. Run `ls openspec/config.yaml` via Bash to confirm OpenSpec is initialized.
+1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
      ```
      ❌ OpenSpec が初期化されていません。

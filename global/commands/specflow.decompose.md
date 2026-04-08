@@ -10,20 +10,20 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls openspec/config.yaml` via Bash to confirm OpenSpec is initialized.
+1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
      ```
-     ❌ `openspec/config.yaml` が見つかりません。
+     ❌ `openspec/` ディレクトリが見つかりません。
 
      次のステップで初期化してください:
      1. `openspec/config.yaml` を作成
      2. `/specflow.decompose` を再度実行
      ```
      → **STOP**.
-2. Run `ls openspec/config.yaml` via Bash to confirm OpenSpec is initialized.
+2. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
      ```
-     ❌ `openspec/config.yaml` が見つかりません。
+     ❌ `openspec/` ディレクトリが見つかりません。
 
      次のステップで初期化してください:
      1. `specflow-init` を実行

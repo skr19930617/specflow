@@ -6,7 +6,7 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 
 ### Prerequisites
 
-- **OpenSpec CLI** (`openspec/config.yaml`) — `/specflow` は OpenSpec CLI によるアーティファクト管理を前提とする
+- **OpenSpec CLI** — `npm install -g openspec` でインストール済みであること
 - **Codex CLI** — `codex` コマンドがインストール済みであること（`npm install -g @openai/codex`）
 
 ### specflow Slash Commands

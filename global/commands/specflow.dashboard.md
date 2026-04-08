@@ -10,8 +10,8 @@ $ARGUMENTS
 
 ## Prerequisites
 
-1. Run `ls openspec/config.yaml` via Bash to confirm OpenSpec is initialized.
-   - If missing: `"❌ openspec/config.yaml が見つかりません。"` → **STOP**.
+1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
+   - If missing: `"❌ openspec/ ディレクトリが見つかりません。"` → **STOP**.
 
 ## Step 1: Discover Features
 

@@ -145,35 +145,6 @@ check_not_subdirectory() {
   fi
 }
 
-inject_config_name() {
-  local name=$1
-  local config_file="openspec/config.yaml"
-
-  # Validate project name: alphanumeric, hyphens, underscores, dots only
-  if [[ ! "$name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-    echo "Error: project name contains invalid characters: $name"
-    echo "Allowed: letters, numbers, hyphens, underscores, dots"
-    exit 1
-  fi
-
-  if [[ ! -f "$config_file" ]]; then
-    echo "Warning: $config_file not found, skipping name injection"
-    return
-  fi
-
-  # Use a temp file approach instead of sed to avoid escaping issues
-  local tmpfile
-  tmpfile="$(mktemp)"
-  if grep -q "^name:" "$config_file" 2>/dev/null; then
-    awk -v newname="$name" '/^name:/{print "name: " newname; next}{print}' "$config_file" > "$tmpfile"
-  else
-    echo "name: $name" > "$tmpfile"
-    cat "$config_file" >> "$tmpfile"
-  fi
-  mv "$tmpfile" "$config_file"
-  echo "Set project name: $name"
-}
-
 # -------------------------------------------------------
 # 1.1: Argument parsing
 # -------------------------------------------------------
@@ -305,11 +276,6 @@ if [[ "$UPDATE_MODE" == true ]]; then
     fi
   fi
 
-  # --- openspec directories ---
-  if [[ -d "openspec" ]]; then
-    mkdir -p openspec/specs openspec/changes
-  fi
-
   echo
   echo "Done. All templates updated."
   exit 0
@@ -318,12 +284,6 @@ fi
 # -------------------------------------------------------
 # 1.2: Preflight validation (before any file writes)
 # -------------------------------------------------------
-
-if ! command -v openspec &>/dev/null; then
-  echo "Error: openspec CLI is not installed."
-  echo "Run 'npm install -g openspec' first."
-  exit 1
-fi
 
 if [[ ! -d "$CONFIG_DIR/template" ]]; then
   echo "Error: specflow is not installed."
@@ -367,8 +327,8 @@ if [[ "$FLOW" == "dir" ]]; then
 fi
 
 # Already initialized check (if target exists)
-if [[ -d "$TARGET_PATH" ]] && [[ -f "$TARGET_PATH/openspec/config.yaml" ]]; then
-  echo "openspec/ already initialized in $TARGET_PATH"
+if [[ -d "$TARGET_PATH" ]] && [[ -f "$TARGET_PATH/.specflow/config.env" ]]; then
+  echo "specflow already initialized in $TARGET_PATH"
   echo "Use --update to refresh slash commands only."
   exit 1
 fi
@@ -426,8 +386,6 @@ REVIEW_AGENT="$(select_agent "$REVIEW_AGENTS_STR" "$REVIEW_AGENT_DEFAULT" "revie
 echo "  → review agent: $REVIEW_AGENT"
 echo
 
-TOOLS_ARG="${MAIN_AGENT},${REVIEW_AGENT}"
-
 # -------------------------------------------------------
 # 2.4: .claude/ git tracking preference
 # -------------------------------------------------------
@@ -438,24 +396,34 @@ echo "  → track .claude/: $TRACK_CLAUDE_DIR"
 echo
 
 # -------------------------------------------------------
-# 3.1: openspec init
+# 2.5: openspec init (create openspec/ directory structure)
 # -------------------------------------------------------
 
-echo "Running: openspec init . --tools $TOOLS_ARG"
-if ! openspec init . --tools "$TOOLS_ARG"; then
-  echo "Error: openspec init failed."
-  exit 1
+TOOLS_ARG="${MAIN_AGENT},${REVIEW_AGENT}"
+
+if command -v openspec &>/dev/null; then
+  if openspec init . --tools "$TOOLS_ARG" --force; then
+    echo "Initialized openspec/ with tools: $TOOLS_ARG"
+  else
+    echo "Warning: openspec init failed (exit code $?), continuing without openspec"
+  fi
+
+  # Inject project name into openspec/config.yaml context field
+  if [[ -f "openspec/config.yaml" ]]; then
+    SAFE_NAME="$(printf '%s' "$PROJECT_NAME" | sed 's/["\]/\\&/g')"
+    _tmpfile="$(mktemp)"
+    sed "1 a\\
+context: \"Project: ${SAFE_NAME}\"
+" openspec/config.yaml > "$_tmpfile" && mv "$_tmpfile" openspec/config.yaml
+    echo "Added project name to openspec/config.yaml context"
+  fi
+else
+  echo "Warning: openspec CLI not found. Skipping openspec init."
+  echo "  Install with: npm install -g @fission-ai/openspec"
 fi
-echo
 
 # -------------------------------------------------------
-# 3.2: Inject project name into config.yaml
-# -------------------------------------------------------
-
-inject_config_name "$PROJECT_NAME"
-
-# -------------------------------------------------------
-# 4.1: .specflow/config.env generation
+# 3.1: .specflow/config.env generation
 # -------------------------------------------------------
 
 mkdir -p .specflow
@@ -550,12 +518,11 @@ fi
 # -------------------------------------------------------
 
 echo
-echo "Initialized specflow + OpenSpec project: $PROJECT_NAME"
+echo "Initialized specflow project: $PROJECT_NAME"
 echo "  Location: $ROOT"
 echo "  Main agent: $MAIN_AGENT"
 echo "  Review agent: $REVIEW_AGENT"
 echo
 echo "Next steps:"
 echo "  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style"
-echo "  2. Edit openspec/config.yaml if needed"
-echo "  3. Run '/specflow <issue-url>' to start your first feature"
+echo "  2. Run '/specflow <issue-url>' to start your first feature"
