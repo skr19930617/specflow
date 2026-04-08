@@ -1,0 +1,18 @@
+{
+  "feature_id": "workflow-state-machine",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 5,
+  "findings": [
+    {"id": "R1-F01", "severity": "high", "status": "resolved", "origin_round": 1, "latest_round": 2},
+    {"id": "R1-F02", "severity": "high", "status": "resolved", "origin_round": 1, "latest_round": 2},
+    {"id": "R1-F03", "severity": "medium", "status": "resolved", "origin_round": 1, "latest_round": 2},
+    {"id": "F4", "severity": "high", "status": "new", "origin_round": 2, "latest_round": 2},
+    {"id": "F5", "severity": "medium", "status": "new", "origin_round": 2, "latest_round": 2}
+  ],
+  "round_summaries": [
+    {"round": 1, "total": 3, "open": 0, "new": 3, "resolved": 0, "overridden": 0},
+    {"round": 2, "total": 5, "open": 0, "new": 2, "resolved": 3, "overridden": 0}
+  ]
+}
