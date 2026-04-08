@@ -1,0 +1,121 @@
+{
+  "feature_id": "workflow-state-machine",
+  "phase": "design",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 6,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "design.md",
+      "title": "Transition/event model does not satisfy the required acceptance flow",
+      "detail": "The design declares `design_complete`, `apply_complete`, and `approve` in `events`, but the transition table and task sequence never use them. Instead, the design advances via `accept_design` and `accept_apply`, and task 4.1 tests that reduced path. This leaves required events unreachable and conflicts with the acceptance scenarios that explicitly reference `design_complete` in the forward path. Reconcile the event model before implementation: define the full transition table for every required event, then update allowed-events expectations and lifecycle tasks/tests to match that single model.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "feasibility",
+      "file": "design.md",
+      "title": "Issue metadata population is underspecified",
+      "detail": "The spec requires `specflow-run start --issue-url` to populate `issue.url`, `number`, `title`, and `repo`, but the design/tasks only mention an optional flag and do not define how metadata is resolved. `title` cannot be derived from the URL alone. Add an explicit lookup mechanism (for example `gh issue view` or an existing helper), plus defined failure behavior for invalid URLs or lookup failures, and include an implementation task for it.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "tasks.md",
+      "title": "CLI I/O and error-path requirements are not fully captured in the tasks",
+      "detail": "The spec requires successful subcommands to emit JSON on stdout, failures to write human-readable errors to stderr, invalid-transition errors to list allowed events, and `advance` on a nonexistent run to fail cleanly. The current tasks only cover part of that contract and do not explicitly require stdout/stderr behavior for `start` and `advance`. Add implementation and verification tasks for the command output contract and the missing `advance nonexistent-run` error case so the CLI cannot satisfy the task list while still failing acceptance.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "F4",
+      "severity": "medium",
+      "category": "feasibility",
+      "file": "openspec/changes/workflow-state-machine/design.md",
+      "title": "The chosen issue lookup helper does not actually satisfy the required issue contract",
+      "detail": "The design says `specflow-run start --issue-url` can populate `issue.url`, `number`, `title`, and `repo` by extracting fields from `specflow-fetch-issue`, but the existing helper only returns `number,title,body,url,labels,assignees,author,state` and not `repo`. Its invalid-URL branch also prints the error message to stdout, which conflicts with the `specflow-run` stderr-on-failure contract. Update the design and tasks to either extend `specflow-fetch-issue` to emit `repo` or specify explicit repo derivation and error redirection inside `specflow-run`, then add tests that assert the `repo` field and the stderr path.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 2,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "F5",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/changes/workflow-state-machine/design.md",
+      "title": "Run IDs are not constrained to real OpenSpec change names",
+      "detail": "The proposal and run-state spec treat `run_id` as the OpenSpec change name, but the design exposes `specflow-run start <run_id>` without any rule for validating that `openspec/changes/<run_id>` actually exists. That leaves the core invariant unenforced and allows orphan run directories that do not correspond to a change record. Specify whether the command derives the ID from the current change context or rejects unknown change names, and add an implementation and failure-path test for that behavior.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 2,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "F6",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/changes/workflow-state-machine/tasks.md",
+      "title": "The run-state update contract is not fully carried into the task plan",
+      "detail": "The run-state specs require `advance` to recompute `allowed_events`, refresh `updated_at`, and append a history entry containing `from`, `to`, `event`, and `timestamp` while preserving earlier history entries. The current tasks only say to update `run.json` atomically and append a history entry, with one revise test. That leaves several required post-transition invariants easy to miss. Add explicit implementation and verification tasks for `allowed_events` recomputation, `updated_at` refresh, history entry shape, and append-only history behavior across multiple transitions.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 2,
+      "latest_round": 2,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 6,
+      "open": 0,
+      "new": 3,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 1, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 2, "new": 3, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}

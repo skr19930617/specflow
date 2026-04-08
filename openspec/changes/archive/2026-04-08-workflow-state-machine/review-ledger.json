@@ -1,0 +1,134 @@
+{
+  "feature_id": "workflow-state-machine",
+  "phase": "impl",
+  "current_round": 3,
+  "status": "in_progress",
+  "max_finding_id": 6,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "bin/specflow-run",
+      "title": "The command resolves state paths relative to the script checkout instead of the initialized project",
+      "detail": "STATE_MACHINE and RUNS_DIR are derived from SCRIPT_DIR/..",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "error_handling",
+      "file": "bin/specflow-run",
+      "title": "run_id is used as a raw filesystem path segment with no validation",
+      "detail": "run_dir/run_file interpolate the CLI-provided run_id directly into paths.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "testing",
+      "file": "bin/specflow-run",
+      "title": "The new transition core ships with no checked-in test coverage",
+      "detail": "This diff adds non-trivial workflow logic but contains no executable tests.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 1,
+      "latest_round": 2,
+      "notes": ""
+    },
+    {
+      "id": "F4",
+      "severity": "high",
+      "category": "correctness",
+      "file": "bin/specflow-run",
+      "title": "Installed config takes precedence over the checked-in state machine",
+      "detail": "The script prefers ~/.config/specflow/ over PROJECT_ROOT/global/workflow/.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 2,
+      "latest_round": 3,
+      "notes": ""
+    },
+    {
+      "id": "F5",
+      "severity": "medium",
+      "category": "testing",
+      "file": "tests/test-specflow-run.sh",
+      "title": "Test suite depends on live GitHub access and gh authentication",
+      "detail": "The --issue-url test uses a real GitHub issue URL via specflow-fetch-issue/gh.",
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 2,
+      "latest_round": 3,
+      "notes": ""
+    },
+    {
+      "id": "F6",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "bin/specflow-run",
+      "title": "Missing-run scenarios now fail as missing change IDs instead of missing run state",
+      "detail": "cmd_advance and cmd_status call validate_run_id before ensure_run_exists. nonexistent-run fails with 'no OpenSpec change found' rather than 'run not found'.",
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "origin_round": 3,
+      "latest_round": 3,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 0,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 0, "new": 2, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 0, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 0,
+      "new": 2,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 2, "new": 1, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 1, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    },
+    {
+      "round": 3,
+      "total": 6,
+      "open": 0,
+      "new": 1,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "high": { "open": 0, "resolved": 3, "new": 0, "overridden": 0 },
+        "medium": { "open": 0, "resolved": 2, "new": 1, "overridden": 0 },
+        "low": { "open": 0, "resolved": 0, "new": 0, "overridden": 0 }
+      }
+    }
+  ]
+}
