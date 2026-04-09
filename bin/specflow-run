@@ -342,6 +342,21 @@ cmd_update_field() {
   echo "$updated" | jq .
 }
 
+cmd_get_field() {
+  local run_id="${1:-}"
+  local field="${2:-}"
+
+  [[ -n "$run_id" && -n "$field" ]] || die "Usage: specflow-run get-field <run_id> <field>"
+
+  validate_run_id "$run_id"
+  ensure_run_exists "$run_id"
+
+  local rf
+  rf="$(run_file "$run_id")"
+
+  jq -e ".$field" "$rf" || die "Error: field '$field' not found in run state"
+}
+
 # ── Main dispatch ──────────────────────────────────────────────────────
 
 subcmd="${1:-}"
@@ -352,6 +367,7 @@ case "$subcmd" in
   advance)      cmd_advance "$@" ;;
   status)       cmd_status "$@" ;;
   update-field) cmd_update_field "$@" ;;
-  "")           die "Usage: specflow-run <start|advance|status|update-field> [args...]" ;;
-  *)            die "Error: unknown subcommand '${subcmd}'. Use: start, advance, status, update-field" ;;
+  get-field)    cmd_get_field "$@" ;;
+  "")           die "Usage: specflow-run <start|advance|status|update-field|get-field> [args...]" ;;
+  *)            die "Error: unknown subcommand '${subcmd}'. Use: start, advance, status, update-field, get-field" ;;
 esac
