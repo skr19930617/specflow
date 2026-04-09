@@ -7,11 +7,24 @@ set -euo pipefail
 # All functions operate on JSON via stdin/stdout or file paths.
 # ────────────────────────────────────────────────────────────────────────
 
-# ── Constants ───────────────────────────────────────────────────────────
+# ── Constants (defaults — overridable via ledger_init) ─────────────────
 
-readonly LEDGER_FILENAME="review-ledger.json"
-readonly LEDGER_BAK_FILENAME="review-ledger.json.bak"
-readonly LEDGER_CORRUPT_SUFFIX=".corrupt"
+LEDGER_FILENAME="review-ledger.json"
+LEDGER_BAK_FILENAME="review-ledger.json.bak"
+LEDGER_CORRUPT_SUFFIX=".corrupt"
+LEDGER_DEFAULT_PHASE="impl"
+
+# ── ledger_init ────────────────────────────────────────────────────────
+# Call before any ledger operations to configure the ledger filename.
+# $1 = ledger filename (required, e.g. "review-ledger-design.json")
+# $2 = default phase (optional, e.g. "design"; defaults to "impl")
+
+ledger_init() {
+  local filename="$1"
+  LEDGER_FILENAME="$filename"
+  LEDGER_BAK_FILENAME="${filename}.bak"
+  LEDGER_DEFAULT_PHASE="${2:-impl}"
+}
 
 # ── Internal helpers ────────────────────────────────────────────────────
 
@@ -31,9 +44,10 @@ _empty_ledger() {
   local feature_id="$1"
   jq -n \
     --arg fid "$feature_id" \
+    --arg phase "$LEDGER_DEFAULT_PHASE" \
     '{
       feature_id: $fid,
-      phase: "impl",
+      phase: $phase,
       current_round: 0,
       status: "all_resolved",
       max_finding_id: 0,

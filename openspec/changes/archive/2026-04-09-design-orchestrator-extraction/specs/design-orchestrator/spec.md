@@ -1,48 +1,41 @@
-# apply-orchestrator Specification
+## ADDED Requirements
 
-## Purpose
-TBD - created by archiving change bash-orchestrator-extraction. Update Purpose after archive.
-## Requirements
 ### Requirement: Orchestrator script entry point
-The system SHALL provide `bin/specflow-review-apply` as a Bash script with three subcommands: `review`, `fix-review`, and `autofix-loop`. The script SHALL exit with code 0 on success and non-zero on error, outputting result JSON to stdout and log messages to stderr.
+The system SHALL provide `bin/specflow-review-design` as a Bash script with three subcommands: `review`, `fix-review`, and `autofix-loop`. The script SHALL exit with code 0 on success and non-zero on error, outputting result JSON to stdout and log messages to stderr.
 
 #### Scenario: Review subcommand invocation
-- **WHEN** `specflow-review-apply review <CHANGE_ID>` is executed
-- **THEN** the script SHALL run the full review pipeline (diff → codex → ledger → score) and output result JSON to stdout
+- **WHEN** `specflow-review-design review <CHANGE_ID>` is executed
+- **THEN** the script SHALL run the full design review pipeline (read artifacts → codex → ledger → score → current-phase.md) and output result JSON to stdout
 
 #### Scenario: Fix-review subcommand invocation
-- **WHEN** `specflow-review-apply fix-review <CHANGE_ID>` is executed
-- **THEN** the script SHALL run the fix-review pipeline (diff → codex re-review → ledger → score) and output result JSON to stdout
+- **WHEN** `specflow-review-design fix-review <CHANGE_ID>` is executed
+- **THEN** the script SHALL run the re-review pipeline (codex re-review → ledger → score) and output result JSON to stdout
 
 #### Scenario: Autofix-loop subcommand invocation
-- **WHEN** `specflow-review-apply autofix-loop <CHANGE_ID> --max-rounds 4` is executed
+- **WHEN** `specflow-review-design autofix-loop <CHANGE_ID> --max-rounds 4` is executed
 - **THEN** the script SHALL run the auto-fix loop up to the specified max rounds and output result JSON to stdout
 
 #### Scenario: Missing CHANGE_ID argument
-- **WHEN** `specflow-review-apply review` is executed without a CHANGE_ID
+- **WHEN** `specflow-review-design review` is executed without a CHANGE_ID
 - **THEN** the script SHALL exit with code 1 and print usage to stderr
 
 #### Scenario: Invalid subcommand
-- **WHEN** `specflow-review-apply invalid-cmd` is executed
+- **WHEN** `specflow-review-design invalid-cmd` is executed
 - **THEN** the script SHALL exit with code 1 and print available subcommands to stderr
 
-### Requirement: Diff filtering pipeline
-The orchestrator SHALL invoke `specflow-filter-diff` to produce a filtered diff and parse the summary JSON. The orchestrator SHALL detect empty diffs and line count threshold exceedance.
+### Requirement: Artifact file reading pipeline
+The orchestrator SHALL read artifact files (proposal.md, design.md, tasks.md, and spec files under specs/) from the change directory and pass their contents directly to Codex. No diff filtering SHALL be applied.
 
-#### Scenario: Normal diff filtering
-- **WHEN** the review subcommand runs and `specflow-filter-diff` produces a non-empty diff
-- **THEN** the result JSON SHALL contain `diff_summary` with `excluded_count`, `included_count`, and `total_lines`
+#### Scenario: Normal artifact reading
+- **WHEN** the review subcommand runs and all required artifact files exist in the change directory
+- **THEN** the prompt SHALL contain the full contents of proposal.md, design.md, tasks.md, and any spec.md files under specs/
 
-#### Scenario: Empty diff detection
-- **WHEN** `specflow-filter-diff` produces an empty diff (0 bytes)
-- **THEN** the orchestrator SHALL exit with code 0 and set `status: "error"` with `error: "no_changes"` in the result JSON
+#### Scenario: Missing artifact detection
+- **WHEN** a required artifact file (design.md or tasks.md) is missing from the change directory
+- **THEN** the orchestrator SHALL exit with code 1 and set `status: "error"` with `error: "missing_artifacts"` in the result JSON
 
-#### Scenario: Line count threshold exceedance
-- **WHEN** the filtered diff `total_lines` exceeds the configured `diff_warn_threshold`
-- **THEN** the result JSON SHALL contain `diff_warning: true` and `diff_total_lines` so the slash command can prompt the user
-
-### Requirement: Codex CLI invocation
-The orchestrator SHALL invoke `codex --approval-mode full-auto -q` with the review prompt and parse the JSON response. The orchestrator SHALL handle parse failures gracefully.
+### Requirement: Codex CLI invocation for design review
+The orchestrator SHALL invoke `codex --approval-mode full-auto -q` with the design review prompt and parse the JSON response. The orchestrator SHALL handle parse failures gracefully.
 
 #### Scenario: Successful Codex invocation
 - **WHEN** codex CLI returns valid JSON
@@ -53,26 +46,40 @@ The orchestrator SHALL invoke `codex --approval-mode full-auto -q` with the revi
 - **THEN** the result JSON SHALL contain `review.parse_error: true` and `review.raw_response` with the raw output
 - **THEN** ledger update SHALL be skipped
 
-#### Scenario: Review prompt selection
-- **WHEN** the subcommand is `review` (initial)
-- **THEN** the orchestrator SHALL use `review_apply_prompt.md`
-- **WHEN** the subcommand is `fix-review` (re-review)
-- **THEN** the orchestrator SHALL use `review_apply_rereview_prompt.md`
+#### Scenario: Review prompt selection for initial review
+- **WHEN** the subcommand is `review`
+- **THEN** the orchestrator SHALL use `review_design_prompt.md`
 
-### Requirement: Ledger lifecycle management
-The orchestrator SHALL manage the full ledger lifecycle: read (with corruption recovery), validate, increment round, match findings, compute summary, compute status, backup, and write. The ledger filename SHALL be configurable via the `ledger_init` function in `lib/specflow-ledger.sh`.
+#### Scenario: Review prompt selection for re-review
+- **WHEN** the subcommand is `fix-review`
+- **THEN** the orchestrator SHALL use `review_design_rereview_prompt.md`
+
+### Requirement: Design ledger lifecycle management
+The orchestrator SHALL manage the full design ledger lifecycle using `review-ledger-design.json`: read (with corruption recovery), validate, increment round, match findings, compute summary, compute status, backup, and write. The orchestrator SHALL call `ledger_init "review-ledger-design.json"` before any ledger operations.
 
 #### Scenario: Ledger creation on first review
-- **WHEN** the ledger file (as configured by `ledger_init` or default `review-ledger.json`) does not exist and `review` subcommand runs
-- **THEN** the orchestrator SHALL create a new ledger with `current_round: 0`, empty `findings`, and empty `round_summaries`
+- **WHEN** `review-ledger-design.json` does not exist and `review` subcommand runs
+- **THEN** the orchestrator SHALL create a new ledger with `phase: "design"`, `current_round: 0`, empty `findings`, and empty `round_summaries`
 
 #### Scenario: Ledger corruption recovery from backup
-- **WHEN** the ledger file exists but JSON parse fails and the corresponding `.bak` file exists and is valid
+- **WHEN** `review-ledger-design.json` exists but JSON parse fails and `review-ledger-design.json.bak` exists and is valid
 - **THEN** the orchestrator SHALL rename the corrupt file to `.corrupt`, use the backup, and log a warning to stderr
 
 #### Scenario: Ledger corruption with no backup
-- **WHEN** the ledger file is corrupt and no valid backup exists
+- **WHEN** `review-ledger-design.json` is corrupt and no valid backup exists
 - **THEN** the result JSON SHALL contain `ledger_recovery: "prompt_user"` so the slash command can ask the user whether to create a new ledger or abort
+
+#### Scenario: Ledger reset via --reset-ledger flag
+- **WHEN** `specflow-review-design review <CHANGE_ID> --reset-ledger` is executed
+- **THEN** the orchestrator SHALL create a fresh empty ledger (overwriting any existing file) before proceeding with the normal review pipeline
+
+#### Scenario: Autofix-loop auto-reinitialization on missing ledger
+- **WHEN** `autofix-loop` runs and `review-ledger-design.json` does not exist
+- **THEN** the orchestrator SHALL create a fresh empty ledger with a warning to stderr and continue the loop (no user prompt)
+
+#### Scenario: Autofix-loop auto-reinitialization on corrupt ledger
+- **WHEN** `autofix-loop` runs and `review-ledger-design.json` is corrupt with no valid backup
+- **THEN** the orchestrator SHALL create a fresh empty ledger with a warning to stderr and continue the loop (no user prompt)
 
 #### Scenario: High-severity override notes validation
 - **WHEN** a high-severity finding has status `accepted_risk` or `ignored` with empty notes
@@ -83,7 +90,7 @@ The orchestrator SHALL manage the full ledger lifecycle: read (with corruption r
 - **THEN** `current_round` SHALL be incremented by 1
 
 ### Requirement: Finding matching algorithm (initial review)
-For initial reviews (no re-review mode), the orchestrator SHALL use a 3-stage matching algorithm: same match, reframed match, remaining.
+For initial reviews, the orchestrator SHALL use the same 3-stage matching algorithm as the apply-side: same match, reframed match, remaining.
 
 #### Scenario: Same match (file + category + severity)
 - **WHEN** a Codex finding matches an existing ledger finding by file, category, and severity
@@ -121,6 +128,14 @@ For re-reviews, the orchestrator SHALL apply the Codex-provided classification (
 - **WHEN** a finding ID in the Codex response does not exist in prior findings
 - **THEN** the orchestrator SHALL exclude it from ledger update and log a warning
 
+#### Scenario: Severity re-evaluation for still_open findings
+- **WHEN** a still_open finding has a different severity in the Codex re-review response
+- **THEN** the orchestrator SHALL update the finding's severity in the ledger to the re-evaluated value
+
+#### Scenario: ledger_error true handling
+- **WHEN** the Codex re-review response contains `ledger_error: true`
+- **THEN** the orchestrator SHALL clear all existing findings and use only `new_findings` from the response, setting `max_finding_id` from new_findings only
+
 ### Requirement: Zero-findings edge case
 The orchestrator SHALL handle the case where Codex returns zero findings.
 
@@ -153,7 +168,7 @@ The orchestrator SHALL create a backup before writing and use atomic writes.
 
 #### Scenario: Backup creation on clean read
 - **WHEN** the ledger was read successfully (not recovered from backup)
-- **THEN** the pre-update content SHALL be written to `review-ledger.json.bak` before the updated ledger is written
+- **THEN** the pre-update content SHALL be written to `review-ledger-design.json.bak` before the updated ledger is written
 
 #### Scenario: No backup on recovery
 - **WHEN** the ledger was recovered from backup or newly created
@@ -175,7 +190,11 @@ The orchestrator SHALL maintain `max_finding_id` in the ledger to prevent ID col
 - **THEN** `max_finding_id` SHALL be 0
 
 ### Requirement: Auto-fix loop orchestration
-The orchestrator `autofix-loop` subcommand SHALL manage the full auto-fix cycle with baseline snapshot, round iteration, and stop conditions.
+The orchestrator `autofix-loop` subcommand SHALL manage the full auto-fix cycle with baseline snapshot, round iteration, and stop conditions. Each round SHALL use the `codex` CLI to both fix design.md/tasks.md (via `fix_design_prompt.md`) AND re-review them. The slash command is NOT invoked during the loop.
+
+#### Scenario: Round fix step via codex CLI
+- **WHEN** an auto-fix round begins
+- **THEN** the orchestrator SHALL build a fix prompt containing current findings and artifact contents, invoke `codex --approval-mode full-auto -q` to modify design.md/tasks.md, then proceed to re-review
 
 #### Scenario: Baseline snapshot before loop
 - **WHEN** autofix-loop starts
@@ -201,6 +220,26 @@ The orchestrator `autofix-loop` subcommand SHALL manage the full auto-fix cycle 
 - **WHEN** `current_new_high_count > previous_new_high_count` in round 2 or later
 - **THEN** the orchestrator SHALL record a divergence warning of type `new_high_increase`
 
+#### Scenario: Fix prompt file fallback
+- **WHEN** `fix_design_prompt.md` is not found at `~/.config/specflow/global/prompts/`
+- **THEN** the orchestrator SHALL use a generic fix instruction as fallback
+
+#### Scenario: Codex fix step failure in autofix round
+- **WHEN** the codex fix invocation fails (non-zero exit or empty output) during a round
+- **THEN** the orchestrator SHALL log a warning, skip the round, and continue to the next round
+
+#### Scenario: Re-review parse failure in autofix round
+- **WHEN** the codex re-review returns invalid JSON during a round
+- **THEN** the orchestrator SHALL log a warning, skip ledger update for this round, and continue
+
+#### Scenario: No-progress stop condition
+- **WHEN** 2 consecutive autofix rounds produce no effective artifact changes
+- **THEN** the loop SHALL terminate with `result: "no_progress"`
+
+#### Scenario: Fatal error stop condition
+- **WHEN** a fatal error occurs during autofix (ledger write failure, etc.)
+- **THEN** the loop SHALL terminate with `result: "error"`
+
 ### Requirement: Handoff state determination
 The orchestrator SHALL determine the handoff state based on actionable findings count and include it in the result JSON.
 
@@ -225,14 +264,20 @@ The orchestrator SHALL generate `current-phase.md` after ledger update with phas
 
 #### Scenario: current-phase.md content after initial review
 - **WHEN** the review completes at round 1
-- **THEN** `current-phase.md` SHALL contain `Phase: impl-review`, `Round: 1`, and the computed status
+- **THEN** `current-phase.md` SHALL contain `Phase: design-review`, `Round: 1`, and the computed status
 
 #### Scenario: current-phase.md content after fix review
 - **WHEN** the fix-review completes at round > 1
-- **THEN** `current-phase.md` SHALL contain `Phase: fix-review` and the current round number
+- **THEN** `current-phase.md` SHALL contain `Phase: design-fix-review` and the current round number
+
+#### Scenario: Next recommended action derivation
+- **WHEN** open high findings exist
+- **THEN** next action SHALL be `/specflow.fix_design`
+- **WHEN** no open high findings exist
+- **THEN** next action SHALL be `/specflow.apply`
 
 ### Requirement: Result JSON schema
-All subcommands SHALL output a unified result JSON schema to stdout containing status, action, review results, ledger state, autofix state (if applicable), handoff state, and error information.
+All subcommands SHALL output a unified result JSON schema to stdout matching the apply-side schema, containing status, action, review results, ledger state, autofix state (if applicable), handoff state, and error information.
 
 #### Scenario: Successful review result JSON
 - **WHEN** the review pipeline completes successfully
@@ -242,22 +287,6 @@ All subcommands SHALL output a unified result JSON schema to stdout containing s
 - **WHEN** any pipeline step fails fatally
 - **THEN** the result JSON SHALL contain `status: "error"` and `error` with a description
 
-### Requirement: Ledger library filename parameterization
-The `lib/specflow-ledger.sh` library SHALL provide a `ledger_init` function that allows callers to configure the ledger filename and backup filename. If `ledger_init` is not called, the default filenames (`review-ledger.json` and `review-ledger.json.bak`) SHALL be used for backward compatibility.
-
-#### Scenario: Default filename without ledger_init
-- **WHEN** `ledger_read` is called without a prior `ledger_init` call
-- **THEN** the library SHALL use `review-ledger.json` as the ledger filename and `review-ledger.json.bak` as the backup filename
-
-#### Scenario: Custom filename via ledger_init
-- **WHEN** `ledger_init "review-ledger-design.json"` is called before `ledger_read`
-- **THEN** the library SHALL use `review-ledger-design.json` as the ledger filename and `review-ledger-design.json.bak` as the backup filename
-
-#### Scenario: ledger_init with phase parameter
-- **WHEN** `ledger_init "review-ledger-design.json" "design"` is called
-- **THEN** the library SHALL use the specified filename AND set the default phase to `"design"` for newly created ledgers (via `_empty_ledger`)
-
-#### Scenario: Multiple ledger_init calls
-- **WHEN** `ledger_init` is called multiple times
-- **THEN** the most recent call's values SHALL take effect
-
+#### Scenario: Fix-review result includes re-review classification
+- **WHEN** the `fix-review` pipeline completes successfully
+- **THEN** the result JSON SHALL include a `rereview_classification` object with `resolved`, `still_open`, and `new_findings` arrays containing finding IDs, enabling the slash command to display the classification table

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# specflow-review-apply — Apply-side orchestrator for review/fix/autofix loop
+# specflow-review-design — Design-side orchestrator for review/fix/autofix loop
 #
 # Subcommands:
-#   review <CHANGE_ID>                        Initial implementation review
-#   fix-review <CHANGE_ID> [--autofix]        Fix + re-review
+#   review <CHANGE_ID> [--reset-ledger]      Initial design review
+#   fix-review <CHANGE_ID> [--reset-ledger]  Re-review after fixes
 #   autofix-loop <CHANGE_ID> [--max-rounds N] Auto-fix loop
 #
 # Outputs unified result JSON to stdout. Logs/progress to stderr.
@@ -35,6 +35,9 @@ PROMPTS_DIR="${HOME}/.config/specflow/global/prompts"
 # shellcheck source=../lib/specflow-ledger.sh
 source "${LIB_DIR}/specflow-ledger.sh"
 
+# Initialize ledger for design-side
+ledger_init "review-ledger-design.json" "design"
+
 # ── Helpers ────────────────────────────────────────────────────────────
 
 die() { echo "$1" >&2; exit 1; }
@@ -42,16 +45,6 @@ die() { echo "$1" >&2; exit 1; }
 log() { echo "$1" >&2; }
 
 now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
-
-atomic_write() {
-  local target="$1"
-  local dir
-  dir="$(dirname "$target")"
-  local tmp
-  tmp="$(mktemp "${dir}/.tmp.XXXXXX")"
-  cat > "$tmp"
-  mv "$tmp" "$target"
-}
 
 error_json() {
   local action="$1" change_id="$2" error_msg="$3"
@@ -62,16 +55,11 @@ error_json() {
 read_config() {
   local config="${PROJECT_ROOT}/openspec/config.yaml"
   if [[ -f "$config" ]]; then
-    # Extract diff_warn_threshold (default 1000)
-    DIFF_WARN_THRESHOLD="$(grep -E '^\s*diff_warn_threshold:' "$config" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '[:space:]')"
-    [[ "$DIFF_WARN_THRESHOLD" =~ ^[0-9]+$ ]] || DIFF_WARN_THRESHOLD=1000
-    # Extract max_autofix_rounds (default 4)
     MAX_AUTOFIX_ROUNDS="$(grep -E '^\s*max_autofix_rounds:' "$config" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '[:space:]')"
     if [[ ! "$MAX_AUTOFIX_ROUNDS" =~ ^[0-9]+$ ]] || (( MAX_AUTOFIX_ROUNDS < 1 || MAX_AUTOFIX_ROUNDS > 10 )); then
       MAX_AUTOFIX_ROUNDS=4
     fi
   else
-    DIFF_WARN_THRESHOLD=1000
     MAX_AUTOFIX_ROUNDS=4
   fi
 }
@@ -84,62 +72,76 @@ validate_change() {
   echo "$change_dir"
 }
 
-# ── Diff Filtering ─────────────────────────────────────────────────────
+# ── Artifact Reading ──────────────────────────────────────────────────
 
-run_diff_filter() {
-  local diff_file="$1" summary_file="$2"
+read_artifacts() {
+  local change_dir="$1"
+  local proposal_content="" design_content="" tasks_content="" specs_content=""
 
-  "${SCRIPT_DIR}/specflow-filter-diff" \
-    -- . ':(exclude)*/review-ledger.json' ':(exclude)*/review-ledger.json.bak' \
-    ':(exclude)*/review-ledger.json.corrupt' ':(exclude)*/current-phase.md' \
-    > "$diff_file" 2>"$summary_file" || true
+  # Read proposal
+  [[ -f "${change_dir}/proposal.md" ]] && proposal_content="$(cat "${change_dir}/proposal.md")"
 
-  # Parse summary JSON (last line of stderr)
-  local summary_json
-  summary_json="$(tail -1 "$summary_file" 2>/dev/null)" || summary_json='{}'
-  echo "$summary_json" | jq empty 2>/dev/null || summary_json='{}'
-
-  # Check empty diff
-  if [[ ! -s "$diff_file" ]]; then
-    echo "empty"
-    return
+  # Read design
+  if [[ -f "${change_dir}/design.md" ]]; then
+    design_content="$(cat "${change_dir}/design.md")"
+  else
+    log "Warning: design.md not found"
   fi
 
-  # Extract stats
-  local total_lines excluded_count included_count
-  total_lines="$(echo "$summary_json" | jq -r '.total_lines // 0')"
-  excluded_count="$(echo "$summary_json" | jq -r '.excluded_count // 0')"
-  included_count="$(echo "$summary_json" | jq -r '.included_count // 0')"
+  # Read tasks
+  if [[ -f "${change_dir}/tasks.md" ]]; then
+    tasks_content="$(cat "${change_dir}/tasks.md")"
+  else
+    log "Warning: tasks.md not found"
+  fi
 
-  # Build diff_summary object
-  jq -n --argjson tl "$total_lines" --argjson ec "$excluded_count" \
-    --argjson ic "$included_count" --argjson thresh "$DIFF_WARN_THRESHOLD" \
-    '{total_lines:$tl,excluded_count:$ec,included_count:$ic,
-      diff_warning:($tl > $thresh)}'
+  # Read spec files
+  local spec_files
+  spec_files="$(find "${change_dir}/specs" -name "spec.md" 2>/dev/null || true)"
+  if [[ -n "$spec_files" ]]; then
+    while IFS= read -r spec_file; do
+      local rel_path="${spec_file#${change_dir}/}"
+      specs_content+="--- ${rel_path} ---"$'\n'"$(cat "$spec_file")"$'\n\n'
+    done <<< "$spec_files"
+  fi
+
+  # Check required artifacts
+  if [[ -z "$design_content" || -z "$tasks_content" ]]; then
+    return 1
+  fi
+
+  # Export for caller
+  ARTIFACT_PROPOSAL="$proposal_content"
+  ARTIFACT_DESIGN="$design_content"
+  ARTIFACT_TASKS="$tasks_content"
+  ARTIFACT_SPECS="$specs_content"
+  return 0
 }
 
 # ── Codex CLI ──────────────────────────────────────────────────────────
 
 build_review_prompt() {
-  local change_dir="$1" diff_file="$2"
-  local prompt_file="${PROMPTS_DIR}/review_apply_prompt.md"
+  local change_dir="$1"
+  local prompt_file="${PROMPTS_DIR}/review_design_prompt.md"
   [[ -f "$prompt_file" ]] || die "Error: review prompt not found: ${prompt_file}"
 
   local tmp
   tmp="$(mktemp /tmp/specflow-codex-prompt-XXXXX.md)"
 
   cat "$prompt_file" > "$tmp"
-  printf '\n\nCURRENT GIT DIFF:\n' >> "$tmp"
-  cat "$diff_file" >> "$tmp"
-  printf '\n\nPROPOSAL CONTENT:\n' >> "$tmp"
-  cat "${change_dir}/proposal.md" >> "$tmp"
+  printf '\n\nPROPOSAL CONTENT:\n%s' "$ARTIFACT_PROPOSAL" >> "$tmp"
+  if [[ -n "$ARTIFACT_SPECS" ]]; then
+    printf '\n\nSPEC FILES:\n%s' "$ARTIFACT_SPECS" >> "$tmp"
+  fi
+  printf '\n\nDESIGN CONTENT:\n%s' "$ARTIFACT_DESIGN" >> "$tmp"
+  printf '\n\nTASKS CONTENT:\n%s' "$ARTIFACT_TASKS" >> "$tmp"
 
   echo "$tmp"
 }
 
 build_rereview_prompt() {
-  local change_dir="$1" diff_file="$2" prev_findings="$3" max_fid="$4"
-  local prompt_file="${PROMPTS_DIR}/review_apply_rereview_prompt.md"
+  local change_dir="$1" prev_findings="$2" max_fid="$3"
+  local prompt_file="${PROMPTS_DIR}/review_design_rereview_prompt.md"
   [[ -f "$prompt_file" ]] || die "Error: re-review prompt not found: ${prompt_file}"
 
   local tmp
@@ -148,35 +150,36 @@ build_rereview_prompt() {
   cat "$prompt_file" > "$tmp"
   printf '\n\nPREVIOUS_FINDINGS:\n%s\n' "$prev_findings" >> "$tmp"
   printf '\nMAX_FINDING_ID:\n%s\n' "$max_fid" >> "$tmp"
-  printf '\nCURRENT GIT DIFF:\n' >> "$tmp"
-  cat "$diff_file" >> "$tmp"
-  printf '\n\nPROPOSAL CONTENT:\n' >> "$tmp"
-  cat "${change_dir}/proposal.md" >> "$tmp"
+  printf '\n\nPROPOSAL CONTENT:\n%s' "$ARTIFACT_PROPOSAL" >> "$tmp"
+  if [[ -n "$ARTIFACT_SPECS" ]]; then
+    printf '\n\nSPEC FILES:\n%s' "$ARTIFACT_SPECS" >> "$tmp"
+  fi
+  printf '\n\nDESIGN CONTENT:\n%s' "$ARTIFACT_DESIGN" >> "$tmp"
+  printf '\n\nTASKS CONTENT:\n%s' "$ARTIFACT_TASKS" >> "$tmp"
 
   echo "$tmp"
 }
 
 build_fix_prompt() {
-  local change_dir="$1" diff_file="$2" findings_json="$3"
-  local prompt_file="${PROMPTS_DIR}/fix_apply_prompt.md"
-  # Fall back to a generic fix instruction if prompt doesn't exist
-  if [[ ! -f "$prompt_file" ]]; then
-    prompt_file="${PROMPTS_DIR}/review_apply_prompt.md"
-  fi
-
+  local change_dir="$1" findings_json="$2"
+  local prompt_file="${PROMPTS_DIR}/fix_design_prompt.md"
+  # Fallback to generic fix instruction if prompt doesn't exist
   local tmp
   tmp="$(mktemp /tmp/specflow-codex-prompt-XXXXX.md)"
 
-  cat > "$tmp" <<'FIXEOF'
-You are a code fixer. Based on the review findings below, fix all issues in the codebase.
-Apply fixes for all findings. Do not skip any.
+  if [[ -f "$prompt_file" ]]; then
+    cat "$prompt_file" > "$tmp"
+  else
+    cat > "$tmp" <<'FIXEOF'
+You are a design and tasks fixer. Based on the review findings below, fix all issues in the design and task documents.
+Apply fixes for all findings. Do not skip any. Modify design.md and tasks.md as needed.
 FIXEOF
+  fi
 
   printf '\n\nREVIEW FINDINGS:\n%s\n' "$findings_json" >> "$tmp"
-  printf '\nCURRENT GIT DIFF:\n' >> "$tmp"
-  cat "$diff_file" >> "$tmp"
-  printf '\n\nPROPOSAL CONTENT:\n' >> "$tmp"
-  cat "${change_dir}/proposal.md" >> "$tmp"
+  printf '\n\nPROPOSAL CONTENT:\n%s' "$ARTIFACT_PROPOSAL" >> "$tmp"
+  printf '\n\nDESIGN CONTENT:\n%s' "$ARTIFACT_DESIGN" >> "$tmp"
+  printf '\n\nTASKS CONTENT:\n%s' "$ARTIFACT_TASKS" >> "$tmp"
 
   echo "$tmp"
 }
@@ -210,13 +213,12 @@ call_codex() {
       echo "$extracted"
       return 0
     fi
-    # Return raw with marker
     echo "__CODEX_PARSE_FAIL__${output}"
     return 1
   fi
 }
 
-# ── Current Phase Generation ───────────────────────────────────────────
+# ── Current Phase Generation ──────────────────────────────────────────
 
 generate_current_phase() {
   local change_dir="$1" ledger_json="$2"
@@ -227,7 +229,7 @@ generate_current_phase() {
   status="$(echo "$ledger_json" | jq -r '.status // "in_progress"')"
 
   local phase
-  if (( current_round <= 1 )); then phase="impl-review"; else phase="fix-review"; fi
+  if (( current_round <= 1 )); then phase="design-review"; else phase="design-fix-review"; fi
 
   local open_high_count open_high_titles
   open_high_count="$(echo "$ledger_json" | jq '[.findings[] | select(.severity == "high" and (.status == "new" or .status == "open"))] | length')"
@@ -248,7 +250,7 @@ generate_current_phase() {
   [[ -n "$latest_changes" ]] || latest_changes="  - (no commits yet)"
 
   local next_action
-  if (( open_high_count > 0 )); then next_action="/specflow.fix_apply"; else next_action="/specflow.approve"; fi
+  if (( open_high_count > 0 )); then next_action="/specflow.fix_design"; else next_action="/specflow.apply"; fi
 
   cat > "${change_dir}/current-phase.md" <<EOF
 # Current Phase: ${feature_id}
@@ -266,87 +268,34 @@ EOF
   log "current-phase.md updated"
 }
 
-# ── Review Pipeline ────────────────────────────────────────────────────
+# ── Review Pipeline ───────────────────────────────────────────────────
 
 run_review_pipeline() {
   local change_dir="$1" action="$2" change_id="$3" rereview_mode="$4" autofix_flag="$5"
 
-  local diff_file summary_file
-  diff_file="$(mktemp /tmp/specflow-diff-XXXXX.txt)"
-  summary_file="$(mktemp /tmp/specflow-summary-XXXXX.json)"
-
-  # Step 1: Diff filtering
-  log "Running diff filter..."
-  local diff_result
-  diff_result="$(run_diff_filter "$diff_file" "$summary_file")"
-
-  if [[ "$diff_result" == "empty" ]]; then
-    rm -f "$diff_file" "$summary_file"
-    jq -n --arg a "$action" --arg c "$change_id" \
-      '{"status":"error","action":$a,"change_id":$c,"error":"no_changes",
-        "review":null,"ledger":null,"autofix":null,"handoff":null}'
+  # Step 1: Read artifacts (no diff filtering for design)
+  log "Reading artifacts..."
+  if ! read_artifacts "$change_dir"; then
+    error_json "$action" "$change_id" "missing_artifacts"
     return
-  fi
-
-  local diff_summary
-  diff_summary="$diff_result"
-  local diff_warning
-  diff_warning="$(echo "$diff_summary" | jq -r '.diff_warning // false')"
-
-  # Early return for diff warning — let slash command gate this before Codex call
-  if [[ "$diff_warning" == "true" ]]; then
-    local total_lines
-    total_lines="$(echo "$diff_summary" | jq -r '.total_lines // 0')"
-    rm -f "$diff_file" "$summary_file"
-    jq -n --arg a "$action" --arg c "$change_id" \
-      --argjson ds "$diff_summary" --argjson tl "$total_lines" \
-      '{"status":"warning","action":$a,"change_id":$c,
-        "warning":"diff_threshold_exceeded","diff_summary":$ds,
-        "diff_total_lines":$tl,
-        "review":null,"ledger":null,"autofix":null,"handoff":null,"error":null}'
-    return
-  fi
-
-  # Step 1.5: Apply fixes (fix-review mode only)
-  if [[ "$rereview_mode" == "true" ]]; then
-    log "Applying fixes via Codex..."
-    local fix_ledger_json fix_findings fix_prompt_file fix_output
-    fix_ledger_json="$(ledger_read "$change_dir" 3>/dev/null)" || fix_ledger_json='{}'
-    fix_findings="$(echo "$fix_ledger_json" | jq -c '[.findings[] | select(.status == "new" or .status == "open")]')"
-    fix_prompt_file="$(build_fix_prompt "$change_dir" "$diff_file" "$fix_findings")"
-    fix_output="$(call_codex "$fix_prompt_file" 2>/dev/null)" || {
-      log "Warning: fix step failed, proceeding to re-review anyway"
-    }
-    # Re-run diff filter after fixes are applied
-    run_diff_filter "$diff_file" "$summary_file" >/dev/null || true
-    if [[ ! -s "$diff_file" ]]; then
-      rm -f "$diff_file" "$summary_file"
-      jq -n --arg a "$action" --arg c "$change_id" \
-        '{"status":"error","action":$a,"change_id":$c,"error":"no_changes",
-          "review":null,"ledger":null,"autofix":null,"handoff":null}'
-      return
-    fi
   fi
 
   # Step 2: Codex invocation
-  log "Calling Codex for review..."
+  log "Calling Codex for design review..."
   local prompt_file codex_output codex_ok=true
 
   if [[ "$rereview_mode" == "true" ]]; then
-    # Get previous findings from ledger
     local ledger_for_prev
     ledger_for_prev="$(ledger_read "$change_dir" 3>/dev/null)" || ledger_for_prev='{}'
     local prev_findings max_fid
     prev_findings="$(echo "$ledger_for_prev" | jq -c '[.findings[] | select(.status != "resolved")]')"
     max_fid="$(echo "$ledger_for_prev" | jq -r '.max_finding_id // 0')"
-    prompt_file="$(build_rereview_prompt "$change_dir" "$diff_file" "$prev_findings" "$max_fid")"
+    prompt_file="$(build_rereview_prompt "$change_dir" "$prev_findings" "$max_fid")"
   else
-    prompt_file="$(build_review_prompt "$change_dir" "$diff_file")"
+    prompt_file="$(build_review_prompt "$change_dir")"
   fi
 
   codex_output="$(call_codex "$prompt_file")" || codex_ok=false
-
-  rm -f "$diff_file" "$summary_file"
 
   # Handle Codex failures
   local review_json parse_error=false raw_response=""
@@ -355,9 +304,7 @@ run_review_pipeline() {
     if [[ "$codex_output" == __CODEX_EXIT_* ]]; then
       local exit_code="${codex_output#__CODEX_EXIT_}"
       exit_code="${exit_code%__}"
-      jq -n --arg a "$action" --arg c "$change_id" --arg e "codex_exit_${exit_code}" \
-        '{"status":"error","action":$a,"change_id":$c,"error":$e,
-          "review":null,"ledger":null,"autofix":null,"handoff":null}'
+      error_json "$action" "$change_id" "codex_exit_${exit_code}"
       return
     elif [[ "$codex_output" == "__CODEX_EMPTY__" ]]; then
       raw_response=""
@@ -370,7 +317,6 @@ run_review_pipeline() {
   fi
 
   # Step 3: Ledger update (skip if parse error)
-  # Read ledger exactly once, capturing both JSON (stdout) and status (fd 3)
   local ledger_json read_status="new"
   ledger_json="$(ledger_read "$change_dir" 3>/tmp/specflow-ledger-status-$$.txt)" || true
   read_status="$(cat /tmp/specflow-ledger-status-$$.txt 2>/dev/null)" || read_status="new"
@@ -398,8 +344,39 @@ run_review_pipeline() {
     current_round="$(echo "$ledger_json" | jq -r '.current_round')"
 
     # Match findings
+    local rereview_classification=""
     if [[ "$rereview_mode" == "true" ]]; then
+      # Check for ledger_error
+      local ledger_error
+      ledger_error="$(echo "$review_json" | jq -r '.ledger_error // false')"
+      if [[ "$ledger_error" == "true" ]]; then
+        # Clear findings, use new_findings only
+        ledger_json="$(echo "$ledger_json" | jq '.findings = []')"
+      fi
+
       ledger_json="$(echo "$ledger_json" | ledger_match_rereview "$review_json" "$current_round")"
+
+      # Severity re-evaluation for still_open findings
+      local still_open_list
+      still_open_list="$(echo "$review_json" | jq -c '.still_open_previous_findings // []')"
+      ledger_json="$(echo "$ledger_json" | jq -c --argjson so "$still_open_list" '
+        .findings = [.findings[] |
+          . as $f |
+          ($so | map(select(
+            (if type == "object" then .id else tostring end) == $f.id
+          )) | .[0] // null) as $match |
+          if $match != null and ($match | type == "object") and ($match.severity // null) != null then
+            .severity = $match.severity
+          else . end
+        ]
+      ')"
+
+      # Build rereview_classification for result JSON
+      rereview_classification="$(echo "$review_json" | jq -c '{
+        resolved: [(.resolved_previous_findings // [])[] | if type == "object" then .id else tostring end],
+        still_open: [(.still_open_previous_findings // [])[] | if type == "object" then .id else tostring end],
+        new_findings: [(.new_findings // [])[] | .id]
+      }')"
     else
       local codex_findings
       codex_findings="$(echo "$review_json" | jq -c '.findings // []')"
@@ -451,6 +428,11 @@ run_review_pipeline() {
   ')"
   ledger_round_summaries="$(echo "$ledger_json" | jq -c '.round_summaries // []')"
 
+  local rereview_class_arg="null"
+  if [[ -n "$rereview_classification" ]]; then
+    rereview_class_arg="$rereview_classification"
+  fi
+
   jq -n \
     --arg status "success" \
     --arg action "$action" \
@@ -471,7 +453,7 @@ run_review_pipeline() {
     --arg handoff_state "$handoff_state" \
     --argjson actionable_count "$actionable_count" \
     --arg severity_summary "$severity_summary" \
-    --argjson diff_summary "$diff_summary" \
+    --argjson rereview_classification "$rereview_class_arg" \
     '{
       status: $status,
       action: $action,
@@ -490,19 +472,36 @@ run_review_pipeline() {
         actionable_count: $actionable_count,
         severity_summary: $severity_summary
       },
-      diff_summary: $diff_summary,
+      rereview_classification: $rereview_classification,
       error: null
     }'
 }
 
-# ── Autofix Loop ───────────────────────────────────────────────────────
+# ── Autofix Loop ──────────────────────────────────────────────────────
 
 run_autofix_loop() {
   local change_dir="$1" change_id="$2" max_rounds="$3"
 
+  # Read artifacts for fix prompts
+  if ! read_artifacts "$change_dir"; then
+    error_json "autofix_loop" "$change_id" "missing_artifacts"
+    return
+  fi
+
+  # Auto-reinitialize ledger if missing/corrupt (non-interactive)
+  local ledger_json read_status="new"
+  ledger_json="$(ledger_read "$change_dir" 3>/tmp/specflow-ledger-status-$$.txt)" || true
+  read_status="$(cat /tmp/specflow-ledger-status-$$.txt 2>/dev/null)" || read_status="new"
+  rm -f "/tmp/specflow-ledger-status-$$.txt"
+
+  if [[ "$read_status" == "prompt_user" ]]; then
+    log "Warning: corrupt ledger, auto-reinitializing for autofix mode"
+    local feature_id
+    feature_id="$(_feature_id_from_dir "$change_dir")"
+    ledger_json="$(_empty_ledger "$feature_id")"
+  fi
+
   # Baseline snapshot
-  local ledger_json
-  ledger_json="$(ledger_read "$change_dir" 3>/dev/null)" || ledger_json='{}'
   local baseline_score
   baseline_score="$(echo "$ledger_json" | ledger_compute_score)"
   local baseline_all_high_titles
@@ -515,6 +514,7 @@ run_autofix_loop() {
   local previous_new_high_count=0
   local previous_all_high_titles="$baseline_all_high_titles"
   local previous_resolved_high_titles="$baseline_resolved_high_titles"
+  local consecutive_no_change=0
   local consecutive_failures=0
   local loop_success=false
   local loop_result="max_rounds_reached"
@@ -523,38 +523,52 @@ run_autofix_loop() {
 
   while (( autofix_round < max_rounds )) && [[ "$loop_success" == "false" ]]; do
     autofix_round=$((autofix_round + 1))
-    log "Auto-fix Round ${autofix_round}/${max_rounds}: Starting fix..."
+    log "Auto-fix Round ${autofix_round}/${max_rounds}: Starting design fix..."
 
-    # Step 1: Run fix via Codex
-    local diff_file
-    diff_file="$(mktemp /tmp/specflow-diff-XXXXX.txt)"
-    local summary_file
-    summary_file="$(mktemp /tmp/specflow-summary-XXXXX.json)"
-    run_diff_filter "$diff_file" "$summary_file" >/dev/null
-
+    # Step 1: Fix via Codex
     local fix_findings
     fix_findings="$(echo "$ledger_json" | jq -c '[.findings[] | select(.status == "new" or .status == "open")]')"
 
+    # Re-read artifacts (may have been modified by previous round)
+    read_artifacts "$change_dir" || true
+
     local fix_prompt
-    fix_prompt="$(build_fix_prompt "$change_dir" "$diff_file" "$fix_findings")"
+    fix_prompt="$(build_fix_prompt "$change_dir" "$fix_findings")"
+
+    # Record pre-fix checksums for no-change detection
+    local pre_fix_hash
+    pre_fix_hash="$(cat "${change_dir}/design.md" "${change_dir}/tasks.md" 2>/dev/null | shasum -a 256 | cut -d' ' -f1)"
+
     local fix_output
     fix_output="$(call_codex "$fix_prompt" 2>/dev/null)" || {
       consecutive_failures=$((consecutive_failures + 1))
-      log "Warning: fix step failed (consecutive: ${consecutive_failures})"
-      rm -f "$diff_file" "$summary_file"
+      log "Warning: fix step failed (consecutive failures: ${consecutive_failures})"
       if (( consecutive_failures >= 3 )); then
         loop_result="consecutive_failures"
         break
       fi
       continue
     }
-    rm -f "$diff_file" "$summary_file"
 
-    # Step 2: Run re-review
+    # Check for no-change
+    local post_fix_hash
+    post_fix_hash="$(cat "${change_dir}/design.md" "${change_dir}/tasks.md" 2>/dev/null | shasum -a 256 | cut -d' ' -f1)"
+    if [[ "$pre_fix_hash" == "$post_fix_hash" ]]; then
+      consecutive_no_change=$((consecutive_no_change + 1))
+      log "Warning: no artifact changes detected (consecutive: ${consecutive_no_change})"
+      if (( consecutive_no_change >= 2 )); then
+        loop_result="no_progress"
+        break
+      fi
+    else
+      consecutive_no_change=0
+    fi
+
+    # Step 2: Re-review
     local review_result
     review_result="$(run_review_pipeline "$change_dir" "fix_review" "$change_id" "true" "true")" || {
       consecutive_failures=$((consecutive_failures + 1))
-      log "Warning: re-review step failed (consecutive: ${consecutive_failures})"
+      log "Warning: re-review step failed (consecutive failures: ${consecutive_failures})"
       if (( consecutive_failures >= 3 )); then
         loop_result="consecutive_failures"
         break
@@ -562,14 +576,13 @@ run_autofix_loop() {
       continue
     }
 
-    # Check for parse errors or error status in result JSON
     local result_status result_parse_error
     result_status="$(echo "$review_result" | jq -r '.status // "success"' 2>/dev/null)" || result_status="error"
     result_parse_error="$(echo "$review_result" | jq -r '.review.parse_error // false' 2>/dev/null)" || result_parse_error="false"
 
     if [[ "$result_status" == "error" || "$result_parse_error" == "true" ]]; then
       consecutive_failures=$((consecutive_failures + 1))
-      log "Warning: re-review returned error/parse_error (consecutive: ${consecutive_failures})"
+      log "Warning: re-review returned error/parse_error (consecutive failures: ${consecutive_failures})"
       if (( consecutive_failures >= 3 )); then
         loop_result="consecutive_failures"
         break
@@ -577,7 +590,7 @@ run_autofix_loop() {
       continue
     fi
 
-    # Reset consecutive failures on success
+    # Reset failures on success
     consecutive_failures=0
 
     # Step 3: Read updated ledger
@@ -598,8 +611,7 @@ run_autofix_loop() {
       --argjson uh "$unresolved_high_count" --argjson nh "$current_new_high_count" \
       '. + [{"round":$r,"score":$s,"unresolved_high":$uh,"new_high":$nh}]')"
 
-    # Step 5: Stop condition checks (priority order)
-    # 5a: Success
+    # Step 5: Stop condition checks
     if (( unresolved_high_count == 0 )); then
       loop_success=true
       loop_result="success"
@@ -607,41 +619,32 @@ run_autofix_loop() {
       break
     fi
 
-    # 5b: Divergence warnings (non-stopping)
-    # Quality gate degradation
+    # Divergence warnings
     if (( current_score > previous_score )); then
       local delta=$((current_score - previous_score))
       divergence_warnings="$(echo "$divergence_warnings" | jq --argjson r "$autofix_round" --arg d "+${delta}" \
         '. + [{"round":$r,"type":"quality_gate_degradation","detail":$d}]')"
-      log "Warning: quality gate degradation +${delta}"
     fi
 
-    # Finding re-emergence
     local current_resolved_high_titles
     current_resolved_high_titles="$(echo "$ledger_json" | jq -c '[.findings[] | select(.severity == "high" and .status == "resolved") | .title]')"
     local newly_resolved
     newly_resolved="$(echo "$current_resolved_high_titles" | jq --argjson prev "$previous_resolved_high_titles" '[.[] | select(. as $t | $prev | index($t) | not)]')"
     local unresolved_high_titles
     unresolved_high_titles="$(echo "$ledger_json" | jq -c '[.findings[] | select(.severity == "high" and (.status == "new" or .status == "open")) | .title]')"
-
     local re_emerged
     re_emerged="$(echo "$newly_resolved" | jq --argjson uht "$unresolved_high_titles" '[.[] | . as $nr | $uht[] | select(ascii_downcase | contains($nr | ascii_downcase)) | $nr] | unique')"
-    local re_emerged_count
-    re_emerged_count="$(echo "$re_emerged" | jq 'length')"
-    if (( re_emerged_count > 0 )); then
+    if (( $(echo "$re_emerged" | jq 'length') > 0 )); then
       local re_detail
       re_detail="$(echo "$re_emerged" | jq -r '.[0]')"
       divergence_warnings="$(echo "$divergence_warnings" | jq --argjson r "$autofix_round" --arg d "$re_detail" \
         '. + [{"round":$r,"type":"finding_re_emergence","detail":$d}]')"
-      log "Warning: finding re-emergence: ${re_detail}"
     fi
 
-    # New high increase (round >= 2 only)
     if (( autofix_round >= 2 && current_new_high_count > previous_new_high_count )); then
       local nh_delta=$((current_new_high_count - previous_new_high_count))
       divergence_warnings="$(echo "$divergence_warnings" | jq --argjson r "$autofix_round" --arg d "+${nh_delta}" \
         '. + [{"round":$r,"type":"new_high_increase","detail":$d}]')"
-      log "Warning: new high increase +${nh_delta}"
     fi
 
     # Update tracking vars
@@ -653,7 +656,7 @@ run_autofix_loop() {
     log "Auto-fix Round ${autofix_round}/${max_rounds}: unresolved_high=${unresolved_high_count}, score=${current_score}"
   done
 
-  # Compute final handoff
+  # Final handoff
   local final_actionable
   final_actionable="$(echo "$ledger_json" | ledger_actionable_count)"
   local final_severity_summary
@@ -665,7 +668,6 @@ run_autofix_loop() {
     final_handoff_state="loop_with_findings"
   fi
 
-  # Get latest review info from ledger
   local ledger_round ledger_status ledger_counts ledger_by_severity ledger_round_summaries
   ledger_round="$(echo "$ledger_json" | jq '.current_round // 0')"
   ledger_status="$(echo "$ledger_json" | jq -r '.status // "in_progress"')"
@@ -687,7 +689,6 @@ run_autofix_loop() {
   ')"
   ledger_round_summaries="$(echo "$ledger_json" | jq -c '.round_summaries // []')"
 
-  # Build result JSON
   jq -n \
     --arg status "success" \
     --arg action "autofix_loop" \
@@ -731,89 +732,123 @@ run_autofix_loop() {
     }'
 }
 
-# ── Subcommand: review ─────────────────────────────────────────────────
+# ── Subcommand: review ────────────────────────────────────────────────
 
 cmd_review() {
   local change_id="${1:-}"
-  [[ -n "$change_id" ]] || die "Usage: specflow-review-apply review <CHANGE_ID>"
+  local reset_ledger=false
+  shift || true
+
+  [[ -n "$change_id" ]] || die "Usage: specflow-review-design review <CHANGE_ID> [--reset-ledger]"
+
+  # Parse flags
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --reset-ledger) reset_ledger=true; shift ;;
+      *) shift ;;
+    esac
+  done
 
   local change_dir
   change_dir="$(validate_change "$change_id")"
   read_config
+
+  # Reset ledger if requested
+  if [[ "$reset_ledger" == "true" ]]; then
+    local feature_id
+    feature_id="$(_feature_id_from_dir "$change_dir")"
+    local fresh_ledger
+    fresh_ledger="$(_empty_ledger "$feature_id")"
+    echo "$fresh_ledger" | jq . > "${change_dir}/${LEDGER_FILENAME}"
+    log "Ledger reset to empty"
+  fi
 
   run_review_pipeline "$change_dir" "review" "$change_id" "false" "false"
 }
 
-# ── Subcommand: fix-review ─────────────────────────────────────────────
+# ── Subcommand: fix-review ────────────────────────────────────────────
 
 cmd_fix_review() {
-  local change_id="" autofix_flag="false"
+  local change_id="${1:-}"
+  local reset_ledger=false
+  local autofix=false
+  shift || true
+
+  [[ -n "$change_id" ]] || die "Usage: specflow-review-design fix-review <CHANGE_ID> [--reset-ledger] [--autofix]"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --autofix) autofix_flag="true"; shift ;;
-      -*) die "Error: unknown option '${1}'" ;;
-      *)
-        if [[ -z "$change_id" ]]; then change_id="$1"; shift
-        else die "Error: unexpected argument '${1}'"
-        fi ;;
+      --reset-ledger) reset_ledger=true; shift ;;
+      --autofix) autofix=true; shift ;;
+      *) shift ;;
     esac
   done
-
-  [[ -n "$change_id" ]] || die "Usage: specflow-review-apply fix-review <CHANGE_ID> [--autofix]"
 
   local change_dir
   change_dir="$(validate_change "$change_id")"
   read_config
 
-  run_review_pipeline "$change_dir" "fix_review" "$change_id" "true" "$autofix_flag"
+  if [[ "$reset_ledger" == "true" ]]; then
+    local feature_id
+    feature_id="$(_feature_id_from_dir "$change_dir")"
+    local fresh_ledger
+    fresh_ledger="$(_empty_ledger "$feature_id")"
+    echo "$fresh_ledger" | jq . > "${change_dir}/${LEDGER_FILENAME}"
+    log "Ledger reset to empty"
+  fi
+
+  run_review_pipeline "$change_dir" "fix_review" "$change_id" "true" "$autofix"
 }
 
-# ── Subcommand: autofix-loop ──────────────────────────────────────────
+# ── Subcommand: autofix-loop ─────────────────────────────────────────
 
 cmd_autofix_loop() {
-  local change_id="" max_rounds=""
+  local change_id="${1:-}"
+  local max_rounds=""
+  shift || true
+
+  [[ -n "$change_id" ]] || die "Usage: specflow-review-design autofix-loop <CHANGE_ID> [--max-rounds N]"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --max-rounds)
-        [[ $# -ge 2 ]] || die "Error: --max-rounds requires a value"
         max_rounds="$2"; shift 2 ;;
-      -*) die "Error: unknown option '${1}'" ;;
-      *)
-        if [[ -z "$change_id" ]]; then change_id="$1"; shift
-        else die "Error: unexpected argument '${1}'"
-        fi ;;
+      *) shift ;;
     esac
   done
-
-  [[ -n "$change_id" ]] || die "Usage: specflow-review-apply autofix-loop <CHANGE_ID> [--max-rounds N]"
 
   local change_dir
   change_dir="$(validate_change "$change_id")"
   read_config
 
-  # Override max_rounds if provided
-  if [[ -n "$max_rounds" ]]; then
-    if [[ "$max_rounds" =~ ^[0-9]+$ ]] && (( max_rounds >= 1 && max_rounds <= 10 )); then
-      MAX_AUTOFIX_ROUNDS="$max_rounds"
-    else
-      die "Error: --max-rounds must be a number between 1 and 10"
-    fi
-  fi
+  [[ -n "$max_rounds" ]] || max_rounds="$MAX_AUTOFIX_ROUNDS"
 
-  run_autofix_loop "$change_dir" "$change_id" "$MAX_AUTOFIX_ROUNDS"
+  run_autofix_loop "$change_dir" "$change_id" "$max_rounds"
 }
 
-# ── Main dispatch ──────────────────────────────────────────────────────
+# ── Main dispatch ─────────────────────────────────────────────────────
 
-subcmd="${1:-}"
-shift || true
+[[ $# -ge 1 ]] || {
+  cat >&2 <<EOF
+Usage: specflow-review-design <subcommand> <CHANGE_ID> [options]
 
-case "$subcmd" in
-  review)        cmd_review "$@" ;;
-  fix-review)    cmd_fix_review "$@" ;;
-  autofix-loop)  cmd_autofix_loop "$@" ;;
-  "")            die "Usage: specflow-review-apply <review|fix-review|autofix-loop> <CHANGE_ID> [options]" ;;
-  *)             die "Error: unknown subcommand '${subcmd}'. Use: review, fix-review, autofix-loop" ;;
+Subcommands:
+  review        Initial design review
+  fix-review    Re-review after fixes
+  autofix-loop  Auto-fix loop
+
+EOF
+  exit 1
+}
+
+SUBCMD="$1"; shift
+
+case "$SUBCMD" in
+  review)      cmd_review "$@" ;;
+  fix-review)  cmd_fix_review "$@" ;;
+  autofix-loop) cmd_autofix_loop "$@" ;;
+  *)
+    echo "Error: unknown subcommand '$SUBCMD'. Available: review, fix-review, autofix-loop" >&2
+    exit 1
+    ;;
 esac
