@@ -10,8 +10,19 @@
 
 set -euo pipefail
 
+# ── Resolve symlinks (needed when invoked via ~/bin symlink) ──────────
+resolve_symlink() {
+  local src="$1"
+  while [[ -L "$src" ]]; do
+    local dir="$(cd "$(dirname "$src")" && pwd)"
+    src="$(readlink "$src")"
+    [[ "$src" != /* ]] && src="$dir/$src"
+  done
+  echo "$src"
+}
+
 # ── Paths ──────────────────────────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(resolve_symlink "$0")")" && pwd)"
 LIB_DIR="$(cd "${SCRIPT_DIR}/../lib" && pwd)"
 
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
