@@ -1,7 +1,6 @@
 ---
 description: プロジェクト解析に基づいて OSS 風 README を生成・更新
 ---
-
 ## User Input
 
 ```text

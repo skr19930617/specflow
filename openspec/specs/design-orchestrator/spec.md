@@ -4,7 +4,7 @@
 TBD - created by archiving change design-orchestrator-extraction. Update Purpose after archive.
 ## Requirements
 ### Requirement: Orchestrator script entry point
-The system SHALL provide `bin/specflow-review-design` as a Bash script with three subcommands: `review`, `fix-review`, and `autofix-loop`. The script SHALL exit with code 0 on success and non-zero on error, outputting result JSON to stdout and log messages to stderr.
+The system SHALL provide `bin/specflow-review-design` as a Node-based CLI entrypoint with three subcommands: `review`, `fix-review`, and `autofix-loop`. The command SHALL exit with code 0 on success and non-zero on error, outputting result JSON to stdout and log messages to stderr.
 
 #### Scenario: Review subcommand invocation
 - **WHEN** `specflow-review-design review <CHANGE_ID>` is executed
@@ -38,7 +38,7 @@ The orchestrator SHALL read artifact files (proposal.md, design.md, tasks.md, an
 - **THEN** the orchestrator SHALL exit with code 1 and set `status: "error"` with `error: "missing_artifacts"` in the result JSON
 
 ### Requirement: Codex CLI invocation for design review
-The orchestrator SHALL invoke `codex --approval-mode full-auto -q` with the design review prompt and parse the JSON response. The orchestrator SHALL handle parse failures gracefully.
+The orchestrator SHALL invoke `codex exec --full-auto --ephemeral -o <output-file>` with the design review prompt and parse the JSON response. The orchestrator SHALL handle parse failures gracefully.
 
 #### Scenario: Successful Codex invocation
 - **WHEN** codex CLI returns valid JSON
@@ -197,7 +197,7 @@ The orchestrator `autofix-loop` subcommand SHALL manage the full auto-fix cycle 
 
 #### Scenario: Round fix step via codex CLI
 - **WHEN** an auto-fix round begins
-- **THEN** the orchestrator SHALL build a fix prompt containing current findings and artifact contents, invoke `codex --approval-mode full-auto -q` to modify design.md/tasks.md, then proceed to re-review
+- **THEN** the orchestrator SHALL build a fix prompt containing current findings and artifact contents, invoke `codex exec --full-auto --ephemeral -o <output-file>` to modify design.md/tasks.md, then proceed to re-review
 
 #### Scenario: Baseline snapshot before loop
 - **WHEN** autofix-loop starts
@@ -293,4 +293,3 @@ All subcommands SHALL output a unified result JSON schema to stdout matching the
 #### Scenario: Fix-review result includes re-review classification
 - **WHEN** the `fix-review` pipeline completes successfully
 - **THEN** the result JSON SHALL include a `rereview_classification` object with `resolved`, `still_open`, and `new_findings` arrays containing finding IDs, enabling the slash command to display the classification table
-

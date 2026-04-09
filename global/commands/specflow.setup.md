@@ -1,7 +1,6 @@
 ---
 description: CLAUDE.md をインタラクティブに設定（Tech Stack, Commands, Code Style）
 ---
-
 ## Overview
 
 プロジェクトの CLAUDE.md をインタラクティブに設定する。

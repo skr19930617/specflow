@@ -1,7 +1,6 @@
 ---
 description: specflow で実装を適用し、Codex で実装レビュー
 ---
-
 ## User Input
 
 ```text
@@ -94,3 +93,16 @@ This will:
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - All artifacts (proposal, design, tasks, current-phase, review-ledger) are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
+
+## Run State Hooks
+
+### Design Acceptance
+
+Advance the run into apply before implementation work begins.
+
+```bash
+CURRENT_PHASE="$(specflow-run get-field "<CHANGE_ID>" current_phase 2>/dev/null || true)"
+if [[ "$CURRENT_PHASE" == "design" ]]; then
+  specflow-run advance "<CHANGE_ID>" accept_design
+fi
+```

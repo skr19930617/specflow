@@ -1,7 +1,6 @@
 ---
 description: 全featureのレビュー台帳を集計し、ダッシュボードとして表示・保存
 ---
-
 ## User Input
 
 ```text

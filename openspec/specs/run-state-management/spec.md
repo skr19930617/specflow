@@ -97,3 +97,14 @@ The `specflow-run` CLI SHALL support a `get-field <run_id> <field>` subcommand t
 - **WHEN** `specflow-run get-field` is executed
 - **THEN** the readable fields SHALL include all top-level fields in run.json (no whitelist restriction for reads)
 
+### Requirement: Update-field subcommand
+The `specflow-run` CLI SHALL support an `update-field <run_id> <field> <value>` subcommand for controlled mutation of mutable run-state fields.
+
+#### Scenario: Update-field writes last_summary_path
+- **WHEN** `specflow-run update-field <run_id> last_summary_path "openspec/changes/<run_id>/approval-summary.md"` is executed
+- **THEN** `last_summary_path` SHALL be updated to the provided path
+- **THEN** `updated_at` SHALL be updated to the current timestamp
+
+#### Scenario: Update-field rejects non-mutable fields
+- **WHEN** `specflow-run update-field <run_id> current_phase hacked` is executed
+- **THEN** the script SHALL exit with code 1 and print an error to stderr

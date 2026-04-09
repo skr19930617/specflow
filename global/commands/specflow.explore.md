@@ -1,7 +1,6 @@
 ---
 description: openspec explore ベースの自由対話 → GitHub issue 起票
 ---
-
 ## User Input
 
 ```text
@@ -148,3 +147,17 @@ Step 2 に戻り、対話を継続する。次の収束ポイントで再度 Ste
 - This command is read-only — never write application code or modify existing implementation.
 - OpenSpec artifacts (proposals, designs) may be created if the user explicitly requests.
 - The convergence check (Step 3) is a suggestion, not a gate. The user controls when to stop.
+
+## Run State Hooks
+
+### Explore Branch
+
+Optionally capture explore branch transitions when using a synthetic run id.
+
+```bash
+SYNTHETIC_RUN_ID="_explore_$(date +%Y%m%d-%H%M%S)"
+specflow-run start "$SYNTHETIC_RUN_ID"
+specflow-run advance "$SYNTHETIC_RUN_ID" explore_start
+# ... exploration ...
+specflow-run advance "$SYNTHETIC_RUN_ID" explore_complete
+```

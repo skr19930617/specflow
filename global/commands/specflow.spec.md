@@ -1,7 +1,6 @@
 ---
 description: 既存コードベースを解析し、openspec/specs/ にベースライン spec を一括生成
 ---
-
 ## User Input
 
 ```text
@@ -251,3 +250,17 @@ AskUserQuestion:
 - `openspec new spec` コマンドは現在サポートされていないため、`mkdir -p` で直接ディレクトリを作成する。
 - spec のフォーマットは既存の `openspec/specs/*/spec.md` と互換性を保つこと。
 - If any tool call fails, report the error and ask the user how to proceed.
+
+## Run State Hooks
+
+### Spec Bootstrap Branch
+
+Optionally capture spec bootstrap transitions when using a synthetic run id.
+
+```bash
+SYNTHETIC_RUN_ID="_spec_$(date +%Y%m%d-%H%M%S)"
+specflow-run start "$SYNTHETIC_RUN_ID"
+specflow-run advance "$SYNTHETIC_RUN_ID" spec_bootstrap_start
+# ... baseline spec generation ...
+specflow-run advance "$SYNTHETIC_RUN_ID" spec_bootstrap_complete
+```

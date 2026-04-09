@@ -1,7 +1,6 @@
 ---
 description: GitHub issue URL またはインライン仕様記述から proposal 作成 → clarify → Codex proposal review を実行
 ---
-
 ## User Input
 
 ```text
@@ -252,3 +251,18 @@ After validation, present handoff options via `AskUserQuestion`:
 - All artifacts (proposal, specs, design, tasks) are managed in `openspec/changes/<change-id>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - When reading specflow command files, follow their instructions faithfully.
+
+## Run State Hooks
+
+### Run Initialization
+
+After the change directory is created, initialize and enter the workflow state machine.
+
+```bash
+if specflow-run status "<CHANGE_ID>" >/dev/null 2>&1; then
+  echo "Run already exists for <CHANGE_ID>; keep current state"
+else
+  specflow-run start "<CHANGE_ID>" [--issue-url "<ISSUE_URL>"]
+fi
+specflow-run advance "<CHANGE_ID>" propose
+```

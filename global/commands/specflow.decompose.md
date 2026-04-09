@@ -1,7 +1,6 @@
 ---
 description: specの複雑さを分析し、issue-linked specはGitHub sub-issueに分解、inline specは警告を表示
 ---
-
 ## User Input
 
 ```text

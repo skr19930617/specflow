@@ -1,0 +1,150 @@
+---
+description: openspec explore ベースの自由対話 → GitHub issue 起票
+---
+
+## User Input
+
+```text
+$ARGUMENTS
+```
+
+## Prerequisites
+
+1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
+   - If missing:
+     ```
+     OpenSpec が初期化されていません。
+
+     次のステップで初期化してください:
+     1. `specflow-init` を実行
+     2. `/specflow.explore` を再度実行
+     ```
+     → **STOP**.
+
+## Step 1: Context Check
+
+Run via Bash:
+```bash
+openspec list --json
+```
+
+Parse the JSON to understand existing changes:
+- Active changes and their status
+- What the user might be working on
+
+Display a brief summary:
+```
+Active changes:
+- <name> (<status>)
+...
+```
+
+If no changes exist, display: `"現在アクティブな change はありません。"`
+
+## Step 2: Enter Explore Mode
+
+**This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You are a thinking partner helping the user explore.
+
+### The Stance
+
+- **Curious, not prescriptive** — Ask questions that emerge naturally, don't follow a script
+- **Open threads, not interrogations** — Surface multiple interesting directions and let the user follow what resonates
+- **Visual** — Use ASCII diagrams liberally when they'd help clarify thinking
+- **Adaptive** — Follow interesting threads, pivot when new information emerges
+- **Patient** — Don't rush to conclusions, let the shape of the problem emerge
+- **Grounded** — Explore the actual codebase when relevant, don't just theorize
+
+### Initial Prompt
+
+If `$ARGUMENTS` is non-empty, use it as the starting topic for exploration.
+
+If `$ARGUMENTS` is empty, use `AskUserQuestion` (open-ended, no preset options) to ask:
+> "何について探索しますか？アイデア、課題、技術的な調査など、自由に記述してください。"
+
+### What You Might Do
+
+Depending on what the user brings:
+
+- **Explore the problem space** — Ask clarifying questions, challenge assumptions, reframe the problem, find analogies
+- **Investigate the codebase** — Map existing architecture, find integration points, identify patterns, surface hidden complexity
+- **Compare options** — Brainstorm approaches, build comparison tables, sketch tradeoffs
+- **Surface risks and unknowns** — Identify what could go wrong, find gaps in understanding
+
+### OpenSpec Awareness
+
+If a change exists and is relevant to the discussion:
+1. Read existing artifacts (`openspec/changes/<name>/proposal.md`, `design.md`, `tasks.md` etc.)
+2. Reference them naturally in conversation
+3. Offer to capture decisions when they are made — but don't auto-capture
+
+### Guardrails
+
+- **Don't implement** — Never write application code. Creating OpenSpec artifacts (proposals, designs) is fine.
+- **Don't fake understanding** — If something is unclear, dig deeper
+- **Don't rush** — Exploration is thinking time, not task time
+- **Don't auto-capture** — Offer to save insights, don't just do it
+
+## Step 3: Convergence Check
+
+When the discussion appears to be converging (a clear problem definition, approach, or scope has emerged), **proactively suggest wrapping up** — but don't force it.
+
+Use `AskUserQuestion` with the following options:
+
+**Question text:**
+```
+議論がまとまってきました。次のアクションを選択してください。
+```
+
+**Options:**
+- **"Issue として起票する"** — GitHub issue を作成して `/specflow` フローに繋げる
+- **"探索を続ける"** — 対話を継続
+- **"終了する"** — 探索を終了
+
+### If "Issue として起票する":
+
+1. Explore の議論内容から issue のタイトルと本文を生成する:
+   - **タイトル**: 簡潔な要約 (70文字以内)
+   - **本文**: 背景、目的、スコープ、受け入れ条件を含む構造化された記述
+
+2. 生成した issue 内容をユーザーに表示し、`AskUserQuestion` で確認:
+   - **"起票する"** — `gh issue create` を実行
+   - **"修正する"** — ユーザーが修正内容を入力 → 反映後に再確認
+   - **"やめる"** — 探索に戻る
+
+3. Issue 作成:
+   ```bash
+   gh issue create --title "<title>" --body "<body>"
+   ```
+
+4. 作成された issue の URL を表示:
+   ```
+   Issue を作成しました: <issue-url>
+
+   `/specflow <issue-url>` で proposal 作成フローに進めます。
+   ```
+   → **STOP**.
+
+### If "探索を続ける":
+
+Step 2 に戻り、対話を継続する。次の収束ポイントで再度 Step 3 を提示する。
+
+### If "終了する":
+
+探索の要約を表示する:
+```
+## 探索のまとめ
+
+**テーマ**: <what was explored>
+
+**わかったこと**: <key insights>
+
+**未解決の問題**: <open questions, if any>
+```
+→ **STOP**.
+
+## Important Rules
+
+- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
+- This command is read-only — never write application code or modify existing implementation.
+- OpenSpec artifacts (proposals, designs) may be created if the user explicitly requests.
+- The convergence check (Step 3) is a suggestion, not a gate. The user controls when to stop.

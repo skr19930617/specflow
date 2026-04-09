@@ -79,7 +79,7 @@ The workflow definition SHALL provide a way to derive which events are valid for
 
 #### Scenario: Query allowed events for a state
 - **WHEN** a consumer queries transitions where `from` equals `design`
-- **THEN** the result SHALL include events `accept_design`, `reject`, and `revise`
+- **THEN** the result SHALL include events `accept_design`, `reject`, and `revise_design`
 - **THEN** the result SHALL NOT include events belonging to other phases such as `propose` or `approve`
 
 ### Requirement: Workflow definition version
@@ -88,4 +88,3 @@ The workflow definition SHALL include a `version` field. The version SHALL be `"
 #### Scenario: Version is 2.0
 - **WHEN** the `version` field in `state-machine.json` is inspected
 - **THEN** it SHALL be `"2.0"`
-

@@ -1,7 +1,6 @@
 ---
 description: Design/Tasks のレビュー指摘を修正し、再度 Codex review を実行
 ---
-
 ## User Input
 
 ```text
@@ -210,3 +209,13 @@ AskUserQuestion:
 - All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - ALL control flow logic (Codex invocation, ledger detection/CRUD, finding matching, current-phase generation) is handled by the `specflow-review-design fix-review` orchestrator. This slash command applies fixes (LLM), then calls the orchestrator for re-review, parses its JSON output, and displays UI.
+
+## Run State Hooks
+
+### Design Revision Loop
+
+Record the design self-transition before re-reviewing.
+
+```bash
+specflow-run advance "<CHANGE_ID>" revise_design
+```

@@ -99,3 +99,15 @@ All `specflow-run` subcommands SHALL output JSON to stdout for success responses
 - **THEN** stderr SHALL contain a human-readable error message
 - **THEN** the exit code SHALL be non-zero
 
+### Requirement: specflow-run update-field command
+The system SHALL provide a `specflow-run update-field <run_id> <field> <value>` command that updates the allowed mutable run-state fields without bypassing schema validation.
+
+#### Scenario: Update summary path
+- **WHEN** `specflow-run update-field my-change last_summary_path "openspec/changes/my-change/approval-summary.md"` is executed
+- **THEN** the run state SHALL update `last_summary_path`
+- **THEN** `updated_at` SHALL be refreshed
+
+#### Scenario: Reject disallowed field mutation
+- **WHEN** `specflow-run update-field my-change current_phase hacked` is executed
+- **THEN** the command SHALL exit with code 1
+- **THEN** stderr SHALL explain that `current_phase` is not updatable

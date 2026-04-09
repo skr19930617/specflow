@@ -1,7 +1,6 @@
 ---
 description: レビュー指摘を修正し、再度 Codex review を実行
 ---
-
 ## User Input
 
 ```text
@@ -192,3 +191,13 @@ AskUserQuestion:
 - All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - ALL control flow logic (fix application, diff filtering, Codex invocation, ledger detection/update, finding matching, current-phase generation) is handled by the `specflow-review-apply fix-review` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.
+
+## Run State Hooks
+
+### Apply Revision Loop
+
+Record the apply self-transition before re-reviewing.
+
+```bash
+specflow-run advance "<CHANGE_ID>" revise_apply
+```

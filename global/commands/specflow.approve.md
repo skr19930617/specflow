@@ -1,7 +1,6 @@
 ---
 description: 実装を承認し、Archive → コミット → Push → PR 作成
 ---
-
 ## User Input
 
 ```text
@@ -349,3 +348,14 @@ If `ARCHIVE_SUCCESS = true`:
 
 If `ARCHIVE_SUCCESS = false`:
   Report: "Implementation approved, committed, PR created: `<PR-URL>`. ⚠️ Archive failed — run `openspec archive` manually." → **END**.
+
+## Run State Hooks
+
+### Apply Acceptance
+
+When approve completes successfully, advance the run to approved and store the summary path.
+
+```bash
+specflow-run update-field "<CHANGE_ID>" last_summary_path "<FEATURE_DIR>/approval-summary.md"
+specflow-run advance "<CHANGE_ID>" accept_apply
+```

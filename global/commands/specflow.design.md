@@ -1,7 +1,6 @@
 ---
 description: specflow で Design artifacts を生成し、Codex でレビュー
 ---
-
 ## User Input
 
 ```text
@@ -127,3 +126,16 @@ This will:
 - If any tool call fails, report the error and ask the user how to proceed.
 - Artifact generation (Step 2) is driven by calling `specflow-design-artifacts next` in a loop. The LLM generates artifact content; the orchestrator manages the dependency graph and readiness.
 - Validation (Step 4) uses `openspec validate "<CHANGE_ID>" --type change --json`.
+
+## Run State Hooks
+
+### Proposal Acceptance
+
+Before generating design artifacts, advance the run from proposal to design if it is still in proposal state.
+
+```bash
+CURRENT_PHASE="$(specflow-run get-field "<CHANGE_ID>" current_phase 2>/dev/null || true)"
+if [[ "$CURRENT_PHASE" == "proposal" ]]; then
+  specflow-run advance "<CHANGE_ID>" accept_proposal
+fi
+```

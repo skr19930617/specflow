@@ -1,7 +1,6 @@
 ---
 description: プロジェクト解析に基づいてライセンスファイルを生成
 ---
-
 ## User Input
 
 ```text

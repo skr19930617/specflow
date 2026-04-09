@@ -4,7 +4,7 @@
 TBD - created by archiving change bash-orchestrator-extraction. Update Purpose after archive.
 ## Requirements
 ### Requirement: Orchestrator script entry point
-The system SHALL provide `bin/specflow-review-apply` as a Bash script with three subcommands: `review`, `fix-review`, and `autofix-loop`. The script SHALL exit with code 0 on success and non-zero on error, outputting result JSON to stdout and log messages to stderr.
+The system SHALL provide `bin/specflow-review-apply` as a Node-based CLI entrypoint with three subcommands: `review`, `fix-review`, and `autofix-loop`. The command SHALL exit with code 0 on success and non-zero on error, outputting result JSON to stdout and log messages to stderr.
 
 #### Scenario: Review subcommand invocation
 - **WHEN** `specflow-review-apply review <CHANGE_ID>` is executed
@@ -42,7 +42,7 @@ The orchestrator SHALL invoke `specflow-filter-diff` to produce a filtered diff 
 - **THEN** the result JSON SHALL contain `diff_warning: true` and `diff_total_lines` so the slash command can prompt the user
 
 ### Requirement: Codex CLI invocation
-The orchestrator SHALL invoke `codex --approval-mode full-auto -q` with the review prompt and parse the JSON response. The orchestrator SHALL handle parse failures gracefully.
+The orchestrator SHALL invoke `codex exec --full-auto --ephemeral -o <output-file>` with the review prompt and parse the JSON response. The orchestrator SHALL handle parse failures gracefully.
 
 #### Scenario: Successful Codex invocation
 - **WHEN** codex CLI returns valid JSON
@@ -260,4 +260,3 @@ The `lib/specflow-ledger.sh` library SHALL provide a `ledger_init` function that
 #### Scenario: Multiple ledger_init calls
 - **WHEN** `ledger_init` is called multiple times
 - **THEN** the most recent call's values SHALL take effect
-

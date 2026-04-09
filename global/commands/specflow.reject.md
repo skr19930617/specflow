@@ -1,7 +1,6 @@
 ---
 description: 実装を破棄し、全変更をリセットする
 ---
-
 ## User Input
 
 ```text

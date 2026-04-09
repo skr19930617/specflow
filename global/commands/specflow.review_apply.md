@@ -1,7 +1,6 @@
 ---
 description: Codex impl review を実行し、ledger 更新・auto-fix loop・handoff を管理
 ---
-
 ## User Input
 
 ```text
