@@ -24,180 +24,67 @@ $ARGUMENTS
 
 ## Setup
 
-Resolve `FEATURE_DIR` from the current change id:
-- If `$ARGUMENTS` contains a change id, set `FEATURE_DIR=openspec/changes/<id>`.
-- Otherwise, detect the active change from the current branch name or prompt the user.
+Determine `CHANGE_ID`:
+- If `$ARGUMENTS` contains a change id, use it.
+- Otherwise, derive from the current branch name or prompt the user.
 
-Verify `FEATURE_DIR` exists via Bash (`ls <FEATURE_DIR>/proposal.md`). If missing → **STOP** with error.
+Verify `openspec/changes/<CHANGE_ID>/proposal.md` exists via Bash. If missing → **STOP** with error.
 
-Set `FEATURE_PROPOSAL` to `<FEATURE_DIR>/specs/*/spec.md` (glob for the first match) or `<FEATURE_DIR>/proposal.md` as fallback.
+Verify that `openspec/changes/<CHANGE_ID>/design.md` and `openspec/changes/<CHANGE_ID>/tasks.md` exist (via Read tool). If either file does not exist, display an error: `"design.md または tasks.md が見つかりません。先に /specflow.design を実行してください。"` → **STOP**.
 
-Derive the design and tasks file paths:
-```
-DESIGN_FILE = FEATURE_DIR/design.md
-TASKS_FILE = FEATURE_DIR/tasks.md
-```
+## Step 1: Run Orchestrator
 
-Verify that `DESIGN_FILE` and `TASKS_FILE` exist (via Read tool). If either file does not exist, display an error: `"design.md または tasks.md が見つかりません。先に /specflow.design を実行してください。"` → **STOP**.
-
-Read all three files: `FEATURE_PROPOSAL`, `DESIGN_FILE`, `TASKS_FILE`.
-
-## Step 1: Codex Design/Tasks Review
-
-Read `~/.config/specflow/global/prompts/review_design_prompt.md` for the review prompt. If the file does not exist, display: `"❌ review prompt が見つかりません（~/.config/specflow/global/prompts/review_design_prompt.md）。specflow を再インストールしてください: specflow-install"` → **STOP**.
-
-Call the `codex` MCP server tool to review the design and tasks. Pass the following as the prompt:
-
-```
-<review_design_prompt.md の内容>
-
-PROPOSAL CONTENT:
-<FEATURE_PROPOSAL の内容>
-
-DESIGN CONTENT:
-<DESIGN_FILE の内容>
-
-TASKS CONTENT:
-<TASKS_FILE の内容>
+Run the Bash orchestrator:
+```bash
+specflow-review-design review <CHANGE_ID>
 ```
 
-Parse the response as JSON. If the JSON parse fails (Codex returned invalid JSON), display an error: `"⚠ Codex review の JSON パースに失敗しました。ledger 更新をスキップします。"` and skip the ledger update step entirely. Present whatever raw response was received and proceed to the handoff.
+Capture stdout as `RESULT_JSON`. If the command fails (non-zero exit), display the error and **STOP**.
 
-## Step 1.5: Update Review Ledger
+Parse `RESULT_JSON` as JSON. If parse fails, display raw output and **STOP**.
 
-**This step runs BEFORE presenting findings to the user.** Only execute if Codex returned valid JSON.
+## Step 2: Handle Ledger Recovery
 
-### Ledger Read / Create
+If `RESULT_JSON.ledger_recovery == "prompt_user"`:
 
-1. Use `FEATURE_DIR` resolved in Setup.
-2. Attempt to Read `FEATURE_DIR/review-ledger-design.json`.
-   - **If file does not exist**: Create a new ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "design", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }` (Note: the change id is the directory name of `FEATURE_DIR`, e.g. `openspec/changes/my-change` → `my-change`)
-   - **If file exists but JSON parse fails**: Rename the corrupt file to `review-ledger-design.json.corrupt` via Bash (`mv`). Attempt to Read `review-ledger-design.json.bak`. If bak succeeds, use it and display: `"⚠ review-ledger-design.json が破損していました。バックアップから復旧しました（破損ファイルは .corrupt に退避）"`. If bak also fails, use `AskUserQuestion` to ask `"新規 ledger を作成しますか？ (既存データは失われます)"` with options "新規作成" / "中止". On "中止", stop the workflow. On "新規作成", create a fresh empty ledger: `{ "feature_id": "<change id from FEATURE_DIR>", "phase": "design", "current_round": 0, "status": "all_resolved", "max_finding_id": 0, "findings": [], "round_summaries": [] }` and continue normal processing. This is NOT a "clean read" — do not create a backup from this empty ledger.
-   - **If file exists and valid JSON**: Use it. This is a "clean read" — backup will be created from this content before writing.
+The ledger was corrupt and no backup was available. Use `AskUserQuestion` to ask the user:
 
-### Ledger Validation
-
-3. Check all high-severity findings with `accepted_risk` or `ignored` status: if `notes` field is empty or whitespace-only, auto-revert to `status: "open"` and display `"⚠ high severity finding の override には notes が必須です: {id}"`.
-
-### Round Pre-processing
-
-4. Increment `current_round` by 1. Initialize a sequence counter `seq = 0` for this round's new finding IDs.
-
-### Finding Matching (Unified Pool)
-
-5. Build the **candidate pool**: all existing findings where `status` ≠ `resolved`.
-
-6. **Step 1 — Same match** (`file` + `category` + `severity` exact):
-   - For each Codex finding, search candidates with matching `file`, `category`, `severity`.
-   - 1:1 → same. N:M → normalize titles (lowercase + whitespace collapse + trim) and match exact. Remaining → pair by index order.余った Codex findings → Step 2.
-   - **Matched active (open/new)**: set `status` = `"open"`, `relation` = `"same"`, `latest_round` = current_round.
-   - **Matched override (accepted_risk/ignored)**: preserve `status`, set `relation` = `"same"`, `latest_round` = current_round.
-
-7. **Step 2 — Reframed match** (`file` + `category` match, `severity` differs):
-   - For unmatched Codex findings, search unmatched candidates with matching `file` + `category` but different `severity`. 1:1 index-order pairing.
-   - **Old finding** (active or override): set `status` = `"resolved"`, `relation` = `"reframed"` (keep original severity).
-   - **New finding**: `seq++`, `id` = `R{current_round}-F{seq (zero-padded 2 digits)}`, `origin_round` = current_round, `latest_round` = current_round, `status` = `"open"`, `relation` = `"reframed"`, `supersedes` = old finding's id. Copy severity/category/file/title/detail from Codex finding. `notes` = `""`.
-
-8. **Step 3 — Remaining**:
-   - Unmatched Codex findings → new: `seq++`, `id` = `R{current_round}-F{seq zero-padded to 2 digits, e.g. 01, 02, 10}`, `origin_round` = current_round, `latest_round` = current_round, `status` = `"new"`, `relation` = `"new"`, `supersedes` = null, `notes` = `""`.
-   - Unmatched active candidates (open/new) → `status` = `"resolved"` (keep `relation` as previous value, do NOT update `latest_round`).
-   - Unmatched override candidates → preserve status unchanged.
-
-### Zero-Findings Edge Case
-
-9. If Codex returned 0 findings: skip matching. Set all active (open/new) findings to `status` = `"resolved"`. Override findings are preserved.
-
-### Round Summary (Snapshot)
-
-10. Compute end-of-round snapshot counts from the full `findings[]`:
-    - `total`: count of all findings
-    - `open`: count where status = "open"
-    - `new`: count where status = "new"
-    - `resolved`: count where status = "resolved"
-    - `overridden`: count where status in ["accepted_risk", "ignored"]
-    - `by_severity`: for each of high/medium/low: { open, resolved, new, overridden }
-    Append `{ "round": current_round, "total": ..., "open": ..., "new": ..., "resolved": ..., "overridden": ..., "by_severity": ... }` to `round_summaries[]`.
-
-### Top-Level Status Derivation
-
-11. Compute `status`:
-    - `"has_open_high"`: if ANY high-severity finding has status in ["open", "new", "accepted_risk", "ignored"]
-    - `"all_resolved"`: if ALL findings have status = "resolved", OR findings is empty
-    - `"in_progress"`: otherwise
-
-### Override Warnings
-
-12. For each high-severity finding with status `accepted_risk` or `ignored` (with valid notes): display `"⚠ high severity finding が override されています: {id}"`.
-
-### Persist max_finding_id
-
-13. Compute `max_finding_id` from the current findings array: `max(findings.map(f => extractNumber(f.id)))` where `extractNumber("R1-F03") = 3`. If findings is empty, set to 0. Write this value as `"max_finding_id"` in the ledger JSON. This field MUST be present in every ledger file from initialization onward.
-
-### Backup and Write
-
-14. If the ledger was a "clean read" (not recovered from backup): Write the pre-update ledger content to `review-ledger-design.json.bak` via Write tool.
-15. Write the updated ledger JSON (including `max_finding_id`) to `review-ledger-design.json` via Write tool.
-
-### Ledger Summary Display
-
-16. Display before the findings table:
-    ```
-    Review Ledger (Plan): Round {current_round} | Status: {status} | Findings: {new} new, {open} open, {resolved} resolved
-    ```
-    If `round_summaries` has more than 1 entry, show a compact progress table:
-    ```
-    | Round | Total | Open | New | Resolved | Overridden |
-    |-------|-------|------|-----|----------|------------|
-    | 1     | 5     | 0    | 0   | 3        | 2          |
-    | 2     | 7     | 2    | 2   | 3        | 2          |
-    ```
-    Then show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`
-
-## Step 1.6: Generate current-phase.md
-
-**This step runs after the review-ledger has been fully updated, backed up, and persisted to disk.**
-
-1. Read the just-written `FEATURE_DIR/review-ledger-design.json`.
-2. Extract: `feature_id` (or derive from directory name), `current_round`, `status`, `findings[]`.
-3. Compute each field:
-   - **Phase**: `design-review`.
-   - **Round**: `current_round`. Fallback: `1`.
-   - **Status**: Direct read from `status`. Fallback: `in_progress`.
-   - **Open High Findings**: Filter `findings[]` where `severity == "high"` AND `status in ["new", "open"]`. Format: `<count> 件 — "<title1>", "<title2>"`. If none: `0 件`. Fallback: `0 件`.
-   - **Accepted Risks**: Filter `findings[]` where `status in ["accepted_risk", "ignored"]`. Format each as `<title> (<status>, notes: "<notes>")`. If none: `none`. Fallback: `none`.
-   - **Latest Changes**: Run `git log --oneline -5 $(git merge-base HEAD ${BASE_BRANCH:-main})..HEAD` via Bash. Format each line as `  - <hash> <subject>`. If the command fails or returns empty output, use: `(no commits yet)`.
-   - **Next Recommended Action**: If Open High Findings count > 0 → `/specflow.fix_design`; else → `/specflow.apply`. Fallback: `/specflow.fix_design`.
-4. **Malformed/missing ledger recovery** (if the ledger read in step 1 fails):
-   - First: attempt partial recovery — extract any readable top-level fields from the file.
-   - Second: supplement missing fields with in-memory data from the just-completed Codex review (findings, decision).
-   - Third: use spec-defined fallback values listed above.
-   - If `findings[]` is missing from both sources: set `0 件 (ledger findings unavailable)` and `none (ledger findings unavailable)`.
-   - Append parenthetical note to any fallback value (e.g., `in_progress (ledger parse error)`).
-5. Write `FEATURE_DIR/current-phase.md` using the Write tool (complete overwrite):
-
-```markdown
-# Current Phase: <feature_id>
-
-- Phase: <phase>
-- Round: <round>
-- Status: <status>
-- Open High Findings: <open_high_findings>
-- Accepted Risks: <accepted_risks>
-- Latest Changes:
-<latest_changes lines, each prefixed with "  - ">
-- Next Recommended Action: <next_action>
+```
+AskUserQuestion:
+  question: "review-ledger-design.json が破損しており、バックアップもありません。新規 ledger を作成しますか？ (既存データは失われます)"
+  options:
+    - label: "新規作成"
+      description: "空の ledger を作成してレビューを再実行"
+    - label: "中止"
+      description: "ワークフローを停止"
 ```
 
-Report: `current-phase.md generated`
+- 「新規作成」 → Re-run the orchestrator with `--reset-ledger`:
+  ```bash
+  specflow-review-design review <CHANGE_ID> --reset-ledger
+  ```
+  Capture and parse again as `RESULT_JSON`, then continue from Step 3.
+- 「中止」 → **STOP**.
 
-## Step 2: Present Review Results
+## Step 3: Handle Error Results
 
-After the ledger update, present the Codex review findings:
+If `RESULT_JSON.status == "error"`:
+- Display `RESULT_JSON.error` → **STOP**.
+
+## Step 4: Display Review Results
+
+### Review Findings
+
+Present the Codex review from `RESULT_JSON.review`:
+
+If `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.
+
+Otherwise display:
 ```
 Codex Design/Tasks Review
 
-**Decision:** <APPROVE | REQUEST_CHANGES | BLOCK>
-**Summary:** <summary>
+**Decision:** <RESULT_JSON.review.decision>
+**Summary:** <RESULT_JSON.review.summary>
 
 | # | Severity | File | Category | Title | Detail |
 |---|----------|------|----------|-------|--------|
@@ -205,34 +92,71 @@ Codex Design/Tasks Review
 | P2 | medium | tasks.md | ordering | ... | ... |
 ```
 
-Report the review results.
+### Ledger Summary Display
 
-## Auto-fix 確認: AskUserQuestion 直接表示
+Use `RESULT_JSON.ledger` to display:
+```
+Review Ledger (Plan): Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved
+```
 
-レビュー結果を表示した後、以下のロジックで auto-fix 確認を行う。
+If `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:
+```
+| Round | Total | Open | New | Resolved | Overridden |
+|-------|-------|------|-----|----------|------------|
+| 1     | 5     | 0    | 0   | 3        | 2          |
+| 2     | 7     | 2    | 2   | 3        | 2          |
+```
+Then show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`
+
+## Step 5: Handoff (based on RESULT_JSON.handoff.state)
+
+### Actionable Findings 定義
+
+**Actionable findings**: `status ∈ {"new", "open"}` の finding。`"resolved"`, `"accepted_risk"`, `"ignored"` は non-actionable。
 
 ### Severity 集計
 
-1. `findings[]` 内の actionable findings（`status ∈ {"new", "open"}`）を収集する。
-2. severity 別にグループ化し件数をカウントする。
-3. 表示用の `severity_summary` を生成する:
-   - 表示順: CRITICAL → HIGH → MEDIUM → LOW
-   - 0 件の severity は除外する
-   - フォーマット: `"CRITICAL: N, HIGH: M, ..."` （件数が 1 以上の severity のみ）
-4. `actionable_count` = actionable findings の総件数を記録する。
+Use `RESULT_JSON.handoff.actionable_count` and `RESULT_JSON.handoff.severity_summary`.
 
-**注意**: review-ledger-design.json の `status` フィールド（`has_open_high`）は accepted_risk/ignored を含むためレポート目的のみ。auto-fix 確認の分岐は `actionable_count` で判定する。
+The `severity_summary` format: CRITICAL → HIGH → MEDIUM → LOW order, 0 件の severity は除外。
 
-### 分岐: actionable_count による判定
+### `accepted_risk`/`ignored` の扱い
 
-- **actionable_count == 0** → 「Step: 承認フローへ直接遷移」に進む
-- **actionable_count > 0** → 「Step: Auto-fix 確認プロンプト表示」に進む
-- **review-ledger-design.json が存在しない / 読み込み失敗** → 「Step: エラー時の処理」に進む
+- `accepted_risk` や `ignored` ステータスの high finding は、ユーザーが明示的に受容/無視した判断であり、auto-fix loop の**修正対象外**とする。
+- **ループ開始判定**: actionable findings（`new`/`open`、全 severity）が 0 件の場合は実装フローへ直接遷移する。
+- **Quality gate スコア計算**: `accepted_risk`/`ignored` の finding は unresolved として**カウントに含める**。
 
-### Step: 承認フローへ直接遷移
+### State-to-Option Mapping
 
-actionable findings が 0 件の場合（全て resolved、または全て accepted_risk/ignored のみ）、auto-fix 確認を表示せずに実装フローへ遷移する。
+| State | Condition | Options (label → command) |
+|-------|-----------|--------------------------|
+| `review_with_findings` | `actionable_count > 0` after review | "Auto-fix 実行" → auto-fix loop, "手動修正" → `/specflow.fix_design` |
+| `review_no_findings` | `actionable_count == 0` after review | "実装に進む" → `/specflow.apply`, "Reject" → `/specflow.reject` |
+| `loop_no_findings` | `actionable_count == 0` after loop | "実装に進む" → `/specflow.apply`, "Reject" → `/specflow.reject` |
+| `loop_with_findings` | `actionable_count > 0` after loop | "手動修正" → `/specflow.fix_design`, "実装に進む" → `/specflow.apply`, "Reject" → `/specflow.reject` |
 
+### Dual-Display Fallback Pattern
+
+全ハンドオフポイントに以下のパターンを適用する:
+
+1. **テキストプロンプト表示**: 1行ステータスメッセージ + 選択肢リスト（label → command 形式）を表示
+2. **AskUserQuestion 呼び出し**: 同じ選択肢をボタンとして表示
+3. **入力受理ルール**: 最初に受理された有効入力（ボタンまたはテキスト）のみを採用する
+4. **テキスト入力検証**: exact label または exact slash command のみ受理（label は case-insensitive）。部分一致は不可
+5. **無効入力時**: テキストプロンプトを再表示し、再度入力を待つ。自動選択や無入力での進行は禁止
+
+### `review_no_findings` (actionable_count == 0)
+
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+✅ Review complete — all findings resolved
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **実装に進む** → `/specflow.apply`
+- **Reject** → `/specflow.reject`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
 ```
 AskUserQuestion:
   question: "指摘事項はすべて解決済みです。次のアクションを選択してください"
@@ -243,13 +167,23 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
 - 「実装に進む」 → `Skill(skill: "specflow.apply")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
-### Step: Auto-fix 確認プロンプト表示
+### `review_with_findings` (actionable_count > 0)
 
-actionable findings が 1 件以上ある場合、AskUserQuestion で auto-fix 確認を直接表示する。
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+⚠ Review complete — {RESULT_JSON.handoff.actionable_count} actionable finding(s): {RESULT_JSON.handoff.severity_summary}
 
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **Auto-fix 実行** → auto-fix loop
+- **手動修正** → `/specflow.fix_design`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
 ```
 AskUserQuestion:
   question: "レビュー指摘: {severity_summary}\nauto-fix を実行しますか？"
@@ -260,8 +194,10 @@ AskUserQuestion:
       description: "手動で修正した後に再レビューする"
 ```
 
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
 ユーザーの選択に応じて分岐:
-- 「Auto-fix 実行」 → 以下の Round 0 Baseline Snapshot に進む（auto-fix loop 開始）
+- 「Auto-fix 実行」 → Step 6: Auto-fix Loop に進む
 - 「手動修正 (/specflow.fix_design)」 → 手動修正誘導メッセージを表示し、`Skill(skill: "specflow.fix_design")` を実行する
 - **スキップ/dismiss/タイムアウト時**: 「手動修正 (/specflow.fix_design)」を選択したものとして扱い、手動修正誘導メッセージを表示する
 
@@ -270,127 +206,31 @@ AskUserQuestion:
 手動修正モードに進みます。/specflow.fix_design で指摘を修正し、再レビューしてください。
 ```
 
-### Step: エラー時の処理
+## Step 6: Auto-fix Loop
 
-review-ledger-design.json が存在しない、読み込みに失敗した、または JSON パースに失敗した場合、エラーメッセージを表示しワークフローを **停止** する:
+ユーザーが「Auto-fix 実行」を選択した場合、Bash orchestrator で auto-fix loop を実行する。
 
-```
-❌ review-ledger-design.json の読み込みに失敗しました。ワークフローを停止します。
-原因: {ファイルが存在しない | 読み込みエラー | JSON パースエラー}
+### Run Orchestrator
 
-review-ledger-design.json を確認し、再度 /specflow.review_design を実行してください。
-```
-
-→ **STOP**（ワークフロー終了。AskUserQuestion は表示しない）。
-
-**注意**: この処理は Step 1.5 の Ledger Read / Create とは独立したタイミングで実行される。Step 1.5 で ledger が正常に読み込めた場合のみ Severity 集計に進む。Step 1.5 自体がエラーを報告した場合は、このステップに到達しない。
-
-### `accepted_risk`/`ignored` の扱い
-
-- `accepted_risk` や `ignored` ステータスの high finding は、ユーザーが明示的に受容/無視した判断であり、auto-fix loop の**修正対象外**とする。
-- **ループ開始判定**: actionable findings（`new`/`open`、全 severity）が 0 件の場合は実装フローへ直接遷移する。
-- **ループ成功判定**: `new`/`open` の high が 0 件になればループ成功とする。`accepted_risk`/`ignored` は成功判定をブロックしない。
-- **Quality gate スコア計算**: `accepted_risk`/`ignored` の finding は unresolved として**カウントに含める**（`status ∉ {"resolved"}` に該当するため）。これにより、ユーザーが override した finding の severity も品質指標に反映される。
-- **理由**: auto-fix loop はマシンが自動修正可能な finding（`new`/`open`）を対象とする。ユーザーが意図的に受容した finding を自動修正しようとするのは不適切。
-
-#### Round 0 Baseline Snapshot
-
-ループ開始前に、現在の review-ledger-design.json を読み、以下の baseline 値を記録する:
-
-1. **baseline_score**: 全 unresolved findings（`status ∉ {"resolved"}`）の severity 重み付けスコア合計（high=3, medium=2, low=1）
-2. **baseline_new_high_count**: 0（design review 直後はまだ auto-fix ラウンドが未実行のため、new high の比較基準は 0 とする。ラウンド 1 終了時に実際の new high count が記録され、ラウンド 2 以降で比較に使用される）
-3. **baseline_resolved_high_titles**: `findings[]` 内の `status == "resolved"` かつ `severity == "high"` の `title` 一覧
-4. **baseline_all_high_titles**: `findings[]` 内の `severity == "high"` の全 `title` 一覧（resolved 含む）
-
-#### ループ変数の初期化
-
-```
-autofix_round = 0
-previous_score = baseline_score
-previous_new_high_count = baseline_new_high_count
-previous_resolved_high_titles = baseline_resolved_high_titles
-previous_all_resolved_high_titles = baseline_resolved_high_titles
-previous_all_high_titles = baseline_all_high_titles
-divergence_warnings = []
-round_scores = []
-loop_success = false
+```bash
+specflow-review-design autofix-loop <CHANGE_ID> --max-rounds <MAX_AUTOFIX_ROUNDS>
 ```
 
-#### ループ本体
+Capture stdout as `LOOP_JSON`. If the command fails (non-zero exit), display the error and **STOP**.
 
-以下を `MAX_AUTOFIX_ROUNDS` 回まで繰り返す:
+Parse `LOOP_JSON` as JSON. If parse fails, display raw output and **STOP**.
 
-```
-WHILE autofix_round < MAX_AUTOFIX_ROUNDS AND NOT loop_success:
-```
-
-1. `autofix_round` をインクリメント
-
-2. ラウンドヘッダーを表示:
-   ```
-   Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}: Starting design fix...
-   ```
-
-3. `Skill(skill: "specflow.fix_design", args: "autofix")` を呼び出す。`autofix` 引数により specflow.fix_design はハンドオフをスキップし、fix → re-review → ledger 更新のみ実行して制御を返す。
-   - もし Skill 呼び出しが失敗した場合: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
-
-4. 更新された `FEATURE_DIR/review-ledger-design.json` を Read する。
-   - もし読み込み失敗: エラーを報告し、ループを停止して「Step: エラー時の処理」に進む
-
-5. **スコア計算**（停止条件チェックの前に実行し、全終了パスでスコアが記録されるようにする）:
-   - `current_score = Σ weight(f.severity) for f in findings where f.status ∉ {"resolved"}`（high=3, medium=2, low=1）
-   - `previous_all_high_titles` に存在しなかった title の件数 = `current_new_high_count`
-   - `unresolved_high_count` = `findings[]` 内の `severity == "high"` かつ `status ∈ {"new", "open"}` の件数
-
-6. **スコア記録**（全終了パスで確実に記録される）:
-   - `round_scores.push({ round: autofix_round, score: current_score, unresolved_high: unresolved_high_count, new_high: current_new_high_count })`
-
-7. **停止条件チェック**（優先順位順に実行、最初にトリガーされた条件で停止）:
-
-   **7a. Success check（最優先）**:
-   - `unresolved_high_count == 0` の場合: `loop_success = true` → ループ終了
-
-   **7b. 同種 high 再発チェック**（警告のみ、停止しない）:
-   - 現ラウンドの ledger で `status == "resolved"` かつ `severity == "high"` の `title` 一覧を取得し、`previous_all_resolved_high_titles` になかったものを抽出 → 「直前ラウンドで新たに resolved になった high titles」
-   - 現ラウンドの unresolved high titles と case-insensitive 部分文字列比較
-   - 1 件でも一致 → `divergence_warnings.push({ round: autofix_round, type: "finding_re_emergence", detail: "<matching title>" })`
-
-   **7c. Quality gate 悪化チェック**（警告のみ、停止しない）:
-   - `current_score > previous_score` → `divergence_warnings.push({ round: autofix_round, type: "quality_gate_degradation", detail: "+<score delta>" })`
-
-   **7d. New high 増加チェック**（autofix_round >= 2 のみ、警告のみ、停止しない）:
-   - `current_new_high_count > previous_new_high_count` → `divergence_warnings.push({ round: autofix_round, type: "new_high_increase", detail: "+<count delta>" })`
-
-   **7e. Max rounds チェック**:
-   - `autofix_round >= MAX_AUTOFIX_ROUNDS` かつ unresolved_high_count > 0 → ループ終了
-
-8. **追跡変数を更新**:
-   - `previous_score = current_score`
-   - `previous_new_high_count = current_new_high_count`
-   - `previous_all_resolved_high_titles = findings[]` 内の resolved high titles
-   - `previous_all_high_titles = findings[]` 内の全 high titles
-
-9. ラウンド結果を表示:
-   ```
-   Auto-fix Round {autofix_round}/{MAX_AUTOFIX_ROUNDS}:
-     - Unresolved high: {count} ({delta} from previous)
-     - Severity score: {current_score} ({delta} from previous)
-     - New high: {current_new_high_count}
-     - Warnings: {divergence_warnings for this round, or "none"}
-     - Status: continuing
-   ```
-
-#### ループ完了サマリー
+### Display Loop Summary
 
 ```
 Auto-fix Loop Complete (Plan):
-  - Total rounds: {autofix_round}
-  - Result: {loop_success ? "success" : "max rounds reached"}
-  - Reason: {loop_success ? "unresolved high = 0" : "max rounds reached"}
-  - Remaining unresolved high: {count}
+  - Total rounds: {LOOP_JSON.autofix.total_rounds}
+  - Result: {LOOP_JSON.autofix.result}
+  - Reason: {LOOP_JSON.autofix.result == "success" ? "unresolved high = 0" : LOOP_JSON.autofix.result}
+  - Remaining actionable: {LOOP_JSON.handoff.actionable_count} ({LOOP_JSON.handoff.severity_summary})
 ```
 
-**スコア推移テーブル**（`round_scores` が 1 件以上の場合に表示）:
+**スコア推移テーブル**（`LOOP_JSON.autofix.round_scores` が 1 件以上の場合に表示）:
 ```
 | Round | Score | Unresolved High | New High |
 |-------|-------|-----------------|----------|
@@ -398,7 +238,7 @@ Auto-fix Loop Complete (Plan):
 | 2     | 9     | 2               | 0        |
 ```
 
-**Divergence 警告履歴**（`divergence_warnings` が 1 件以上の場合に表示）:
+**Divergence 警告履歴**（`LOOP_JSON.autofix.divergence_warnings` が 1 件以上の場合に表示）:
 ```
 Divergence Warnings:
   - Round {round}: {type} ({detail})
@@ -406,17 +246,28 @@ Divergence Warnings:
 ```
 `divergence_warnings` が空の場合、この警告履歴セクションは表示しない。
 
-#### ループ後のハンドオフ状態判定
+### Ledger Summary Display (Loop)
 
-ループ完了後、`actionable_count` を再計算する（`findings[]` 内の `status ∈ {"new", "open"}` の総件数）。
+Use `LOOP_JSON.ledger` to display the same ledger summary format as Step 4:
+```
+Review Ledger (Plan): Round {round} | Status: {status} | Findings: {new} new, {open} open, {resolved} resolved
+```
+If `round_summaries` has more than 1 entry, show the compact progress table and round-over-round diff.
 
-- **`actionable_count == 0`** → `loop_no_findings` 状態（成功）
-- **`actionable_count > 0`** → `loop_with_findings` 状態（停止）
+### Loop Handoff (based on LOOP_JSON.handoff.state)
 
-#### ループ後の Auto-fix 確認
+#### `loop_no_findings` (actionable_count == 0)
 
-**`loop_no_findings`**（`actionable_count == 0`）:
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+✅ Auto-fix complete — all findings resolved
 
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **実装に進む** → `/specflow.apply`
+- **Reject** → `/specflow.reject`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
 ```
 AskUserQuestion:
   question: "Auto-fix loop 完了（成功）。次のアクションを選択してください"
@@ -427,16 +278,29 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
 - 「実装に進む」 → `Skill(skill: "specflow.apply")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
-**`loop_with_findings`**（`actionable_count > 0`）:
+#### `loop_with_findings` (actionable_count > 0)
 
-残存する actionable findings の severity_summary を再集計し（表示順: CRITICAL → HIGH → MEDIUM → LOW、0 件除外）、AskUserQuestion で表示する。
+残存する actionable findings の severity_summary を `LOOP_JSON.handoff.severity_summary` から取得。
 
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+⚠ Auto-fix stopped — {LOOP_JSON.autofix.result == "success" ? "success (high resolved, lower-severity remaining)" : "max rounds reached"}. Remaining: {LOOP_JSON.handoff.severity_summary}
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **手動修正** → `/specflow.fix_design`
+- **実装に進む** → `/specflow.apply`
+- **Reject** → `/specflow.reject`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
 ```
 AskUserQuestion:
-  question: "Auto-fix loop 停止（{loop_success ? 'high resolved, lower-severity remaining' : 'max rounds reached'}）。残存指摘: {severity_summary}\n次のアクションを選択してください"
+  question: "Auto-fix loop 停止（{result_reason}）。残存指摘: {severity_summary}\n次のアクションを選択してください"
   options:
     - label: "手動修正 (/specflow.fix_design)"
       description: "残りの指摘を手動で修正して再レビュー"
@@ -446,17 +310,20 @@ AskUserQuestion:
       description: "全変更を破棄して終了"
 ```
 
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
 - 「手動修正 (/specflow.fix_design)」 → `Skill(skill: "specflow.fix_design")`
 - 「実装に進む」 → `Skill(skill: "specflow.apply")`
 - 「Reject」 → `Skill(skill: "specflow.reject")`
 
-**IMPORTANT:** Do NOT present next-action choices as text. 必ず `AskUserQuestion` のボタン UI を使うこと。
+**IMPORTANT:** 全ハンドオフポイントで Dual-Display Fallback Pattern を適用すること — テキストプロンプトと AskUserQuestion の両方を必ず表示する。
 
 ## Important Rules
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
-- All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<change id>/`.
+- All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - Ledger file is `FEATURE_DIR/review-ledger-design.json` (NOT `review-ledger.json`).
 - Phase is `"design"` in ledger JSON.
-- Auto-fix calls `Skill(skill: "specflow.fix_design", args: "autofix")` (NOT `specflow.fix_apply`).
+- Auto-fix loop calls `specflow-review-design autofix-loop` (NOT `specflow.fix_apply`).
+- ALL control flow logic (Codex invocation, ledger CRUD, finding matching, score computation, current-phase generation) is handled by the `specflow-review-design` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.

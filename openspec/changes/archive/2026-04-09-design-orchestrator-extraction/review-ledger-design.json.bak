@@ -1,0 +1,38 @@
+{
+  "feature_id": "design-orchestrator-extraction",
+  "phase": "design",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 1,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "feasibility",
+      "file": "design.md",
+      "title": "Autofix-loop ownership is unresolved",
+      "detail": "The design assigns autofix-loop to bin/specflow-review-design, but also says artifact fixes remain in the slash command/LLM and that slash commands retain artifact content generation. That leaves no defined component that can actually edit design.md/tasks.md inside a Bash-managed multi-round loop. Resolve by choosing one owner for the loop: either let the orchestrator perform fix generation in autofix mode via codex CLI, or keep loop control in the slash command and limit the Bash script to single-pass re-review/ledger operations.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 1,
+      "open": 0,
+      "new": 1,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 0,
+        "low": 0
+      }
+    }
+  ]
+}
