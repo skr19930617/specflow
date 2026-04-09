@@ -1,18 +1,4 @@
-# workflow-definition Specification
-
-## Purpose
-TBD - created by archiving change workflow-state-machine. Update Purpose after archive.
-## Requirements
-### Requirement: Static workflow definition file
-The system SHALL maintain a machine-readable workflow definition at `global/workflow/state-machine.json` that declares all valid states, events, and transitions for the specflow mainline flow.
-
-#### Scenario: Definition file exists and is valid JSON
-- **WHEN** the file `global/workflow/state-machine.json` is read
-- **THEN** it SHALL parse as valid JSON containing `states`, `events`, and `transitions` keys
-
-#### Scenario: Definition file is consumable by jq
-- **WHEN** the file is piped to `jq '.'`
-- **THEN** the command SHALL exit with code 0 and produce valid output
+## MODIFIED Requirements
 
 ### Requirement: Top-level phase states
 The workflow definition SHALL define the following top-level states: `start`, `proposal`, `design`, `apply`, `approved`, `rejected`, `explore`, `spec_bootstrap`.
@@ -74,13 +60,7 @@ Each transition SHALL specify a `from` state, an `event`, and a `to` state. Only
 - **WHEN** the `spec_bootstrap_complete` event is applied to `spec_bootstrap`
 - **THEN** the `to` state SHALL be `start`
 
-### Requirement: Allowed events per state
-The workflow definition SHALL provide a way to derive which events are valid for a given state by filtering transitions by `from` state.
-
-#### Scenario: Query allowed events for a state
-- **WHEN** a consumer queries transitions where `from` equals `design`
-- **THEN** the result SHALL include events `accept_design`, `reject`, and `revise`
-- **THEN** the result SHALL NOT include events belonging to other phases such as `propose` or `approve`
+## ADDED Requirements
 
 ### Requirement: Workflow definition version
 The workflow definition SHALL include a `version` field. The version SHALL be `"2.0"` to reflect the breaking change of removing the `revise` event.
@@ -88,4 +68,3 @@ The workflow definition SHALL include a `version` field. The version SHALL be `"
 #### Scenario: Version is 2.0
 - **WHEN** the `version` field in `state-machine.json` is inspected
 - **THEN** it SHALL be `"2.0"`
-

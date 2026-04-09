@@ -36,7 +36,17 @@ cleanup() {
   rm -rf "${RUNS_DIR}/workflow-state-machine"
 }
 
+ensure_test_change() {
+  # Create a dummy openspec change directory so validate_run_id passes
+  mkdir -p "${REPO_ROOT}/openspec/changes/workflow-state-machine"
+}
+
+teardown_test_change() {
+  rm -rf "${REPO_ROOT}/openspec/changes/workflow-state-machine"
+}
+
 setup_stubs
+ensure_test_change
 
 assert_eq() {
   local label="$1" expected="$2" actual="$3"
@@ -85,7 +95,7 @@ cleanup
 out="$("$BIN" start workflow-state-machine)"
 assert_json_field "start phase" "$out" ".current_phase" "start"
 assert_json_field "start status" "$out" ".status" "active"
-assert_json_field "start allowed" "$out" '.allowed_events | join(",")' "propose"
+assert_json_field "start has propose" "$out" '.allowed_events | contains(["propose"])' "true"
 
 out="$("$BIN" advance workflow-state-machine propose)"
 assert_json_field "propose phase" "$out" ".current_phase" "proposal"
@@ -108,16 +118,16 @@ assert_exit "invalid transition exits 1" "1" "$BIN" advance workflow-state-machi
 assert_stderr_contains "invalid transition lists allowed" "Allowed events" "$BIN" advance workflow-state-machine approve
 
 echo ""
-echo "=== Test 3: Revise self-transition ==="
+echo "=== Test 3: revise_design self-transition ==="
 cleanup
 "$BIN" start workflow-state-machine >/dev/null
 "$BIN" advance workflow-state-machine propose >/dev/null
 "$BIN" advance workflow-state-machine accept_proposal >/dev/null
-out="$("$BIN" advance workflow-state-machine revise)"
-assert_json_field "revise stays in design" "$out" ".current_phase" "design"
-assert_json_field "revise history from" "$out" '.history[-1].from' "design"
-assert_json_field "revise history to" "$out" '.history[-1].to' "design"
-assert_json_field "revise history event" "$out" '.history[-1].event' "revise"
+out="$("$BIN" advance workflow-state-machine revise_design)"
+assert_json_field "revise_design stays in design" "$out" ".current_phase" "design"
+assert_json_field "revise_design history from" "$out" '.history[-1].from' "design"
+assert_json_field "revise_design history to" "$out" '.history[-1].to' "design"
+assert_json_field "revise_design history event" "$out" '.history[-1].event' "revise_design"
 
 echo ""
 echo "=== Test 4: Start with --issue-url ==="
@@ -186,8 +196,110 @@ else
   ((FAIL++))
 fi
 
+echo ""
+echo "=== Test 13: Explore branch path ==="
+cleanup
+"$BIN" start workflow-state-machine >/dev/null
+out="$("$BIN" advance workflow-state-machine explore_start)"
+assert_json_field "explore_start phase" "$out" ".current_phase" "explore"
+out="$("$BIN" advance workflow-state-machine explore_complete)"
+assert_json_field "explore_complete returns to start" "$out" ".current_phase" "start"
+
+echo ""
+echo "=== Test 14: Spec bootstrap branch path ==="
+cleanup
+"$BIN" start workflow-state-machine >/dev/null
+out="$("$BIN" advance workflow-state-machine spec_bootstrap_start)"
+assert_json_field "spec_bootstrap_start phase" "$out" ".current_phase" "spec_bootstrap"
+out="$("$BIN" advance workflow-state-machine spec_bootstrap_complete)"
+assert_json_field "spec_bootstrap_complete returns to start" "$out" ".current_phase" "start"
+
+echo ""
+echo "=== Test 15: Enriched metadata in initial run state ==="
+cleanup
+expected_repo_path="$(git rev-parse --show-toplevel)"
+expected_branch="$(git rev-parse --abbrev-ref HEAD)"
+expected_project_id="$(git remote get-url origin | sed -E 's|\.git$||' | sed -E 's|^.*[:/]([^/]+/[^/]+)$|\1|')"
+out="$("$BIN" start workflow-state-machine)"
+assert_json_field "project_id matches git" "$out" '.project_id' "$expected_project_id"
+assert_json_field "repo_name equals project_id" "$out" '(.repo_name == .project_id)' "true"
+assert_json_field "repo_path matches git" "$out" '.repo_path' "$expected_repo_path"
+assert_json_field "branch_name matches git" "$out" '.branch_name' "$expected_branch"
+assert_json_field "worktree_path matches git" "$out" '.worktree_path' "$expected_repo_path"
+assert_json_field "has agents.main" "$out" '.agents.main' "claude"
+assert_json_field "has agents.review" "$out" '.agents.review' "codex"
+assert_json_field "last_summary_path is null" "$out" '.last_summary_path' "null"
+
+echo ""
+echo "=== Test 16: Metadata preserved across transitions ==="
+cleanup
+out1="$("$BIN" start workflow-state-machine)"
+pid1="$(echo "$out1" | jq -r '.project_id')"
+out2="$("$BIN" advance workflow-state-machine propose)"
+pid2="$(echo "$out2" | jq -r '.project_id')"
+assert_eq "project_id preserved" "$pid1" "$pid2"
+assert_json_field "agents preserved" "$out2" '.agents.main' "claude"
+assert_json_field "repo_path preserved" "$out2" ".repo_path" "$(echo "$out1" | jq -r '.repo_path')"
+
+echo ""
+echo "=== Test 17: --agent-main / --agent-review flags ==="
+cleanup
+out="$("$BIN" start workflow-state-machine --agent-main custom-agent --agent-review custom-rev)"
+assert_json_field "custom agent main" "$out" '.agents.main' "custom-agent"
+assert_json_field "custom agent review" "$out" '.agents.review' "custom-rev"
+
+echo ""
+echo "=== Test 18: revise_apply self-transition ==="
+cleanup
+"$BIN" start workflow-state-machine >/dev/null
+"$BIN" advance workflow-state-machine propose >/dev/null
+"$BIN" advance workflow-state-machine accept_proposal >/dev/null
+"$BIN" advance workflow-state-machine accept_design >/dev/null
+out="$("$BIN" advance workflow-state-machine revise_apply)"
+assert_json_field "revise_apply stays in apply" "$out" ".current_phase" "apply"
+assert_json_field "revise_apply history event" "$out" '.history[-1].event' "revise_apply"
+
+echo ""
+echo "=== Test 19: Branch path allowed_events ==="
+cleanup
+"$BIN" start workflow-state-machine >/dev/null
+out="$("$BIN" advance workflow-state-machine explore_start)"
+assert_json_field "explore only allows explore_complete" "$out" '.allowed_events | join(",")' "explore_complete"
+
+echo ""
+echo "=== Test 20: Removed revise event returns error ==="
+cleanup
+"$BIN" start workflow-state-machine >/dev/null
+"$BIN" advance workflow-state-machine propose >/dev/null
+"$BIN" advance workflow-state-machine accept_proposal >/dev/null
+assert_exit "revise event rejected" "1" "$BIN" advance workflow-state-machine revise
+assert_stderr_contains "revise error lists allowed" "Allowed events" "$BIN" advance workflow-state-machine revise
+
+echo ""
+echo "=== Test 21: update-field subcommand ==="
+cleanup
+"$BIN" start workflow-state-machine >/dev/null
+out="$("$BIN" update-field workflow-state-machine last_summary_path "/path/to/summary.md")"
+assert_json_field "updated last_summary_path" "$out" '.last_summary_path' "/path/to/summary.md"
+
+echo ""
+echo "=== Test 22: update-field rejects disallowed fields ==="
+cleanup
+"$BIN" start workflow-state-machine >/dev/null
+assert_exit "reject disallowed field" "1" "$BIN" update-field workflow-state-machine current_phase hacked
+assert_stderr_contains "rejects disallowed field" "not updatable" "$BIN" update-field workflow-state-machine current_phase hacked
+
+echo ""
+echo "=== Test 23: Pre-2.0 run.json fails validation ==="
+cleanup
+mkdir -p "${RUNS_DIR}/workflow-state-machine"
+echo '{"run_id":"workflow-state-machine","change_name":"workflow-state-machine","current_phase":"start","status":"active","allowed_events":["propose"],"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","history":[],"issue":null}' > "${RUNS_DIR}/workflow-state-machine/run.json"
+assert_exit "old schema fails advance" "1" "$BIN" advance workflow-state-machine propose
+assert_stderr_contains "old schema error message" "missing required fields" "$BIN" status workflow-state-machine
+
 # ── Cleanup and summary ───────────────────────────────────────────────
 cleanup
+teardown_test_change
 teardown_stubs
 echo ""
 echo "==============================="

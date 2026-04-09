@@ -231,6 +231,14 @@ Each checkpoint must be specific to this feature, not generic boilerplate.
 
 Write the assembled content (header + all 6 sections) to `FEATURE_DIR/approval-summary.md` via Write tool.
 
+After writing the summary file, update the run state if a specflow run exists for this change:
+```bash
+if specflow-run status "<CHANGE_ID>" >/dev/null 2>&1; then
+  specflow-run update-field "<CHANGE_ID>" last_summary_path "<FEATURE_DIR>/approval-summary.md"
+fi
+```
+(Only attempts the update if the run exists; real errors are surfaced.)
+
 ### 4. Terminal Summary and User Confirmation
 
 Display a concise terminal summary:
