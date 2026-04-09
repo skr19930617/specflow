@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-if [[ -n "${MOCK_CODEX_RESPONSE:-}" ]]; then
-  cat "$MOCK_CODEX_RESPONSE"
-else
-  echo '{"decision":"APPROVE","findings":[],"summary":"ok"}'
-fi

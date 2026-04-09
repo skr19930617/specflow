@@ -10,27 +10,33 @@ import {
   createInstalledHome,
   makeTempDir,
   prependPath,
+  readFixtureJson,
+  readFixtureText,
+  readJson,
   removeTempDir,
-  runLegacyCli,
   runNodeCli,
 } from "./test-helpers.js";
 
-function writeResponses(root: string, responses: unknown[]): { responsesPath: string; statePath: string } {
+function writeResponses(root: string, responses: unknown[]): {
+  SPECFLOW_TEST_CODEX_RESPONSES: string;
+  SPECFLOW_TEST_CODEX_STATE: string;
+} {
   mkdirSync(root, { recursive: true });
   const responsesPath = join(root, "codex-responses.json");
   const statePath = join(root, "codex-state.txt");
   writeFileSync(responsesPath, JSON.stringify(responses), "utf8");
   writeFileSync(statePath, "0", "utf8");
-  return { responsesPath, statePath };
+  return {
+    SPECFLOW_TEST_CODEX_RESPONSES: responsesPath,
+    SPECFLOW_TEST_CODEX_STATE: statePath,
+  };
 }
 
-test("node specflow-review-apply matches legacy review output and side effects", () => {
-  const tempRoot = makeTempDir("review-apply-parity-");
+test("specflow-review-apply matches archived output and side-effect fixtures", () => {
+  const tempRoot = makeTempDir("review-apply-fixture-");
   try {
-    const left = createFixtureRepo(join(tempRoot, "left"));
-    const right = createFixtureRepo(join(tempRoot, "right"));
-    addImplementationDiff(left.repoPath);
-    addImplementationDiff(right.repoPath);
+    const { repoPath, changeId } = createFixtureRepo(tempRoot);
+    addImplementationDiff(repoPath);
     const home = createInstalledHome(tempRoot);
     const stubDir = createCodexStub(tempRoot);
     const responses = [
@@ -43,45 +49,35 @@ test("node specflow-review-apply matches legacy review output and side effects",
         }),
       },
     ];
-    const nodeEnv = prependPath(
+    const env = prependPath(
       {
         HOME: home,
         ...writeResponses(join(tempRoot, "node"), responses),
       },
       stubDir,
     );
-    const legacyEnv = prependPath(
-      {
-        HOME: home,
-        ...writeResponses(join(tempRoot, "legacy"), responses),
-      },
-      stubDir,
-    );
 
-    const nodeResult = runNodeCli("specflow-review-apply", ["review", left.changeId], left.repoPath, nodeEnv);
-    const legacyResult = runLegacyCli("specflow-review-apply", ["review", right.changeId], right.repoPath, legacyEnv);
-    assert.equal(nodeResult.status, legacyResult.status);
-    assert.deepEqual(JSON.parse(nodeResult.stdout), JSON.parse(legacyResult.stdout));
-    assert.equal(
-      readFileSync(join(left.repoPath, "openspec/changes", left.changeId, "review-ledger.json"), "utf8"),
-      readFileSync(join(right.repoPath, "openspec/changes", right.changeId, "review-ledger.json"), "utf8"),
+    const nodeResult = runNodeCli("specflow-review-apply", ["review", changeId], repoPath, env);
+    assert.equal(nodeResult.status, 0, nodeResult.stderr);
+    assert.deepEqual(JSON.parse(nodeResult.stdout), readFixtureJson("review-apply/output.json"));
+    assert.deepEqual(
+      readJson(join(repoPath, "openspec/changes", changeId, "review-ledger.json")),
+      readFixtureJson("review-apply/ledger.json"),
     );
     assert.equal(
-      readFileSync(join(left.repoPath, "openspec/changes", left.changeId, "current-phase.md"), "utf8"),
-      readFileSync(join(right.repoPath, "openspec/changes", right.changeId, "current-phase.md"), "utf8"),
+      readFileSync(join(repoPath, "openspec/changes", changeId, "current-phase.md"), "utf8").trim(),
+      readFixtureText("review-apply/current-phase.md").trim(),
     );
   } finally {
     removeTempDir(tempRoot);
   }
 });
 
-test("node specflow-review-design matches legacy review output and side effects", () => {
-  const tempRoot = makeTempDir("review-design-parity-");
+test("specflow-review-design matches archived output and side-effect fixtures", () => {
+  const tempRoot = makeTempDir("review-design-fixture-");
   try {
-    const left = createFixtureRepo(join(tempRoot, "left"));
-    const right = createFixtureRepo(join(tempRoot, "right"));
-    addDesignArtifacts(left.repoPath, left.changeId);
-    addDesignArtifacts(right.repoPath, right.changeId);
+    const { repoPath, changeId } = createFixtureRepo(tempRoot);
+    addDesignArtifacts(repoPath, changeId);
     const home = createInstalledHome(tempRoot);
     const stubDir = createCodexStub(tempRoot);
     const responses = [
@@ -94,32 +90,24 @@ test("node specflow-review-design matches legacy review output and side effects"
         }),
       },
     ];
-    const nodeEnv = prependPath(
+    const env = prependPath(
       {
         HOME: home,
         ...writeResponses(join(tempRoot, "node"), responses),
       },
       stubDir,
     );
-    const legacyEnv = prependPath(
-      {
-        HOME: home,
-        ...writeResponses(join(tempRoot, "legacy"), responses),
-      },
-      stubDir,
-    );
 
-    const nodeResult = runNodeCli("specflow-review-design", ["review", left.changeId], left.repoPath, nodeEnv);
-    const legacyResult = runLegacyCli("specflow-review-design", ["review", right.changeId], right.repoPath, legacyEnv);
-    assert.equal(nodeResult.status, legacyResult.status);
-    assert.deepEqual(JSON.parse(nodeResult.stdout), JSON.parse(legacyResult.stdout));
-    assert.equal(
-      readFileSync(join(left.repoPath, "openspec/changes", left.changeId, "review-ledger-design.json"), "utf8"),
-      readFileSync(join(right.repoPath, "openspec/changes", right.changeId, "review-ledger-design.json"), "utf8"),
+    const nodeResult = runNodeCli("specflow-review-design", ["review", changeId], repoPath, env);
+    assert.equal(nodeResult.status, 0, nodeResult.stderr);
+    assert.deepEqual(JSON.parse(nodeResult.stdout), readFixtureJson("review-design/output.json"));
+    assert.deepEqual(
+      readJson(join(repoPath, "openspec/changes", changeId, "review-ledger-design.json")),
+      readFixtureJson("review-design/ledger.json"),
     );
     assert.equal(
-      readFileSync(join(left.repoPath, "openspec/changes", left.changeId, "current-phase.md"), "utf8"),
-      readFileSync(join(right.repoPath, "openspec/changes", right.changeId, "current-phase.md"), "utf8"),
+      readFileSync(join(repoPath, "openspec/changes", changeId, "current-phase.md"), "utf8").trim(),
+      readFixtureText("review-design/current-phase.md").trim(),
     );
   } finally {
     removeTempDir(tempRoot);

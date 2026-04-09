@@ -251,21 +251,6 @@ export function runNodeCli(
   });
 }
 
-export function runLegacyCli(
-  cliName: string,
-  args: readonly string[],
-  cwd: string,
-  extraEnv: NodeJS.ProcessEnv = {},
-  stdin?: string,
-) {
-  return spawnSync(resolve(repoRoot, "legacy/v1/bin", cliName), [...args], {
-    cwd,
-    encoding: "utf8",
-    input: stdin,
-    env: { ...process.env, ...extraEnv },
-  });
-}
-
 export function normalizeRunState(raw: string): unknown {
   const parsed = JSON.parse(raw) as Record<string, unknown>;
   delete parsed.created_at;
@@ -284,4 +269,16 @@ export function normalizeRunState(raw: string): unknown {
 
 export function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
+}
+
+export function fixturePath(relativePath: string): string {
+  return resolve(repoRoot, "src/tests/fixtures/legacy-final", relativePath);
+}
+
+export function readFixtureText(relativePath: string): string {
+  return readFileSync(fixturePath(relativePath), "utf8");
+}
+
+export function readFixtureJson<T>(relativePath: string): T {
+  return JSON.parse(readFixtureText(relativePath)) as T;
 }

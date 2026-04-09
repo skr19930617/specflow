@@ -281,6 +281,10 @@ synthetic run (`--run-kind synthetic`) では `change_name` は `null` で、追
 
 ## リポジトリアーキテクチャ
 
+### Legacy archive
+
+Bash 時代の最終スナップショットは main ブランチには残しておらず、git tag `legacy-v1-final` に固定している。現行の build、runtime、CI test は archive 内の script を実行しない。
+
 このリポジトリには 2 種類のコンテンツが含まれる:
 
 1. **配布物 (Distributable Assets)** — ユーザープロジェクトにインストールされるツール

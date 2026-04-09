@@ -6,9 +6,9 @@ import {
   createGhSubIssueStub,
   makeTempDir,
   prependPath,
+  readFixtureJson,
   readJson,
   removeTempDir,
-  runLegacyCli,
   runNodeCli,
 } from "./test-helpers.js";
 
@@ -53,11 +53,10 @@ function normalizeGhState(state: {
   };
 }
 
-test("specflow-create-sub-issues matches legacy output and side effects on success", () => {
+test("specflow-create-sub-issues matches archived success fixtures", () => {
   const tempRoot = makeTempDir("create-sub-issues-success-");
   try {
-    const nodeStub = createGhSubIssueStub(join(tempRoot, "node"));
-    const legacyStub = createGhSubIssueStub(join(tempRoot, "legacy"));
+    const nodeStub = createGhSubIssueStub(tempRoot);
     const input = payload();
 
     const nodeResult = runNodeCli(
@@ -67,30 +66,28 @@ test("specflow-create-sub-issues matches legacy output and side effects on succe
       prependPath({ SPECFLOW_TEST_GH_STATE: nodeStub.statePath }, nodeStub.stubDir),
       input,
     );
-    const legacyResult = runLegacyCli(
-      "specflow-create-sub-issues",
-      [],
-      tempRoot,
-      prependPath({ SPECFLOW_TEST_GH_STATE: legacyStub.statePath }, legacyStub.stubDir),
-      input,
-    );
-
-    assert.equal(nodeResult.status, legacyResult.status);
-    assert.deepEqual(JSON.parse(nodeResult.stdout), JSON.parse(legacyResult.stdout));
+    assert.equal(nodeResult.status, 0, nodeResult.stderr);
+    assert.deepEqual(JSON.parse(nodeResult.stdout), readFixtureJson("create-sub-issues/success-output.json"));
     assert.deepEqual(
       normalizeGhState(readJson(nodeStub.statePath)),
-      normalizeGhState(readJson(legacyStub.statePath)),
+      normalizeGhState(
+        readFixtureJson<{
+          next_issue_number: number;
+          labels: unknown[];
+          issues: unknown[];
+          comments: unknown[];
+        }>("create-sub-issues/success-state.json"),
+      ),
     );
   } finally {
     removeTempDir(tempRoot);
   }
 });
 
-test("specflow-create-sub-issues matches legacy partial failure behavior", () => {
+test("specflow-create-sub-issues matches archived partial failure fixtures", () => {
   const tempRoot = makeTempDir("create-sub-issues-partial-");
   try {
-    const nodeStub = createGhSubIssueStub(join(tempRoot, "node"));
-    const legacyStub = createGhSubIssueStub(join(tempRoot, "legacy"));
+    const nodeStub = createGhSubIssueStub(tempRoot);
     const failConfig = {
       next_issue_number: 100,
       labels: [],
@@ -100,7 +97,6 @@ test("specflow-create-sub-issues matches legacy partial failure behavior", () =>
       fail_comment: false,
     };
     writeFileSync(nodeStub.statePath, `${JSON.stringify(failConfig, null, 2)}\n`, "utf8");
-    writeFileSync(legacyStub.statePath, `${JSON.stringify(failConfig, null, 2)}\n`, "utf8");
 
     const nodeResult = runNodeCli(
       "specflow-create-sub-issues",
@@ -109,20 +105,19 @@ test("specflow-create-sub-issues matches legacy partial failure behavior", () =>
       prependPath({ SPECFLOW_TEST_GH_STATE: nodeStub.statePath }, nodeStub.stubDir),
       payload(),
     );
-    const legacyResult = runLegacyCli(
-      "specflow-create-sub-issues",
-      [],
-      tempRoot,
-      prependPath({ SPECFLOW_TEST_GH_STATE: legacyStub.statePath }, legacyStub.stubDir),
-      payload(),
-    );
 
     assert.equal(nodeResult.status, 2);
-    assert.equal(nodeResult.status, legacyResult.status);
-    assert.deepEqual(JSON.parse(nodeResult.stdout), JSON.parse(legacyResult.stdout));
+    assert.deepEqual(JSON.parse(nodeResult.stdout), readFixtureJson("create-sub-issues/partial-output.json"));
     assert.deepEqual(
       normalizeGhState(readJson(nodeStub.statePath)),
-      normalizeGhState(readJson(legacyStub.statePath)),
+      normalizeGhState(
+        readFixtureJson<{
+          next_issue_number: number;
+          labels: unknown[];
+          issues: unknown[];
+          comments: unknown[];
+        }>("create-sub-issues/partial-state.json"),
+      ),
     );
   } finally {
     removeTempDir(tempRoot);

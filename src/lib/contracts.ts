@@ -203,7 +203,7 @@ function validateCliCoverage(orchestrators: readonly OrchestratorContract[]): Va
   const errors: ValidationError[] = [];
   const declaredIds = new Set(orchestrators.map((orchestrator) => orchestrator.id));
   for (const entry of readdirSync(fromRepo("src/bin"))) {
-    if (!entry.endsWith(".ts") || entry === "legacy-wrapper.ts") {
+    if (!entry.endsWith(".ts")) {
       continue;
     }
     const id = entry.replace(/\.ts$/, "");

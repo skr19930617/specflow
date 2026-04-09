@@ -1,0 +1,35 @@
+{
+  "feature_id": "test-change",
+  "phase": "design",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 1,
+  "findings": [
+    {
+      "title": "Clarify data flow",
+      "file": "design.md",
+      "category": "design",
+      "severity": "high",
+      "id": "R1-F01",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 1,
+      "open": 1,
+      "new": 1,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1
+      }
+    }
+  ]
+}

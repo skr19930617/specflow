@@ -8,7 +8,7 @@ The active runtime now has three layers:
 2. `src/build.ts` — generator that renders `global/`, `template/`, `dist/manifest.json`, `dist/contracts.json`, and `dist/install-plan.json`
 3. `bin/*` + `dist/bin/*` — Node entrypoints for active CLIs
 
-The previous Bash implementation is frozen under `legacy/v1/` for parity checks and archival reference only. Active build/runtime paths no longer read assets or wrappers from `legacy/v1/`.
+The previous Bash implementation is archived at git tag `legacy-v1-final`. Active build/runtime paths no longer read assets or wrappers from any in-tree legacy snapshot.
 
 ## Workflow Truth
 
@@ -22,7 +22,7 @@ The previous Bash implementation is frozen under `legacy/v1/` for parity checks 
 - `global/commands/*.md` are generated entirely from TypeScript command contracts, including frontmatter, body sections, and run-state hooks
 - `global/prompts/*.md`, `template/`, and `global/claude-settings.json` are rendered from repo-owned source assets under `assets/`
 - `dist/manifest.json` and `dist/install-plan.json` are the machine-readable deployment contracts
-- `dist/contracts.json` contains the contract bundle without `legacy/v1` source references
+- `dist/contracts.json` contains the contract bundle without archived legacy source references
 
 ## Runtime Strategy
 

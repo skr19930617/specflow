@@ -1,8 +1,0 @@
-{
-  "decision": "REQUEST_CHANGES",
-  "findings": [
-    {"id":"F1","severity":"high","category":"correctness","file":"src/main.sh","title":"Missing error handling","detail":"Add error handling"},
-    {"id":"F2","severity":"medium","category":"completeness","file":"src/new.sh","title":"Missing tests","detail":"Add tests"}
-  ],
-  "summary": "Two issues found"
-}

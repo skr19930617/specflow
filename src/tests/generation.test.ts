@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { contracts } from "../contracts/install.js";
 import type { InstallPlan, Manifest } from "../types/contracts.js";
 
@@ -39,6 +39,14 @@ test("command contracts render without legacy command source paths", async () =>
 });
 
 test("generated contracts no longer reference legacy asset paths", () => {
+  const archivedTree = ["legacy", "v1", ""].join("/");
   const contractsJson = readFileSync("dist/contracts.json", "utf8");
-  assert.equal(contractsJson.includes("legacy/v1/"), false);
+  assert.equal(contractsJson.includes(archivedTree), false);
+});
+
+test("main branch no longer carries the in-tree legacy runtime", () => {
+  const archivedTree = ["legacy", "v1"].join("/");
+  const retiredWrapper = ["legacy", "wrapper.ts"].join("-");
+  assert.equal(existsSync(archivedTree), false);
+  assert.equal(existsSync(`src/bin/${retiredWrapper}`), false);
 });

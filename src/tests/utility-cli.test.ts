@@ -13,11 +13,10 @@ import {
   prependPath,
   removeTempDir,
   repoRoot,
-  runLegacyCli,
   runNodeCli,
 } from "./test-helpers.js";
 
-test("specflow-fetch-issue matches legacy output", () => {
+test("specflow-fetch-issue returns the expected issue payload", () => {
   const tempRoot = makeTempDir("fetch-issue-");
   try {
     const stubDir = createGhStub(
@@ -26,11 +25,19 @@ test("specflow-fetch-issue matches legacy output", () => {
     );
     const env = prependPath({ HOME: createInstalledHome(tempRoot) }, stubDir);
     const args = ["https://github.com/test/repo/issues/71"];
-    const nodeResult = runNodeCli("specflow-fetch-issue", args, repoRoot, env);
-    const legacyResult = runLegacyCli("specflow-fetch-issue", args, repoRoot, env);
-    assert.equal(nodeResult.status, legacyResult.status);
-    assert.equal(nodeResult.stdout, legacyResult.stdout);
-    assert.equal(nodeResult.stderr, legacyResult.stderr);
+    const result = runNodeCli("specflow-fetch-issue", args, repoRoot, env);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      number: 71,
+      title: "Stub issue",
+      body: "test",
+      url: "https://github.com/test/repo/issues/71",
+      labels: [],
+      assignees: [],
+      author: { login: "bot" },
+      state: "OPEN",
+    });
+    assert.equal(result.stderr, "");
   } finally {
     removeTempDir(tempRoot);
   }
@@ -49,7 +56,7 @@ test("specflow-fetch-issue fails on invalid metadata contract", () => {
   }
 });
 
-test("specflow-filter-diff matches legacy output and summary", () => {
+test("specflow-filter-diff returns the expected diff and summary", () => {
   const tempRoot = makeTempDir("filter-diff-");
   try {
     const { repoPath } = createFixtureRepo(tempRoot);
@@ -66,10 +73,29 @@ test("specflow-filter-diff matches legacy output and summary", () => {
     writeFileSync(join(repoPath, "review-ledger.json"), "{}\n", "utf8");
     const env = { DIFF_EXCLUDE_PATTERNS: "*.lock" };
     const args = ["--", "."];
-    const nodeResult = runNodeCli("specflow-filter-diff", args, repoPath, env);
-    const legacyResult = runLegacyCli("specflow-filter-diff", args, repoPath, env);
-    assert.equal(nodeResult.stdout, legacyResult.stdout);
-    assert.deepEqual(JSON.parse(nodeResult.stderr.trim()), JSON.parse(legacyResult.stderr.trim()));
+    const result = runNodeCli("specflow-filter-diff", args, repoPath, env);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+      result.stdout,
+      [
+        "diff --git a/app.txt b/app.txt",
+        "index 90be1f3..9d35b45 100644",
+        "--- a/app.txt",
+        "+++ b/app.txt",
+        "@@ -1 +1,2 @@",
+        "-before",
+        "+after",
+        "+more",
+        "",
+      ].join("\n"),
+    );
+    assert.deepEqual(JSON.parse(result.stderr.trim()), {
+      excluded: [{ file: "deleted.txt", reason: "deleted_file" }],
+      warnings: [],
+      included_count: 1,
+      excluded_count: 1,
+      total_lines: 8,
+    });
   } finally {
     removeTempDir(tempRoot);
   }

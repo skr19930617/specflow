@@ -1,37 +1,46 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createFetchIssueStub, createFixtureRepo, makeTempDir, normalizeRunState, removeTempDir, runLegacyCli, runNodeCli } from "./test-helpers.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import {
+  createFetchIssueStub,
+  createFixtureRepo,
+  makeTempDir,
+  normalizeRunState,
+  readFixtureJson,
+  removeTempDir,
+  runNodeCli,
+} from "./test-helpers.js";
 
-test("node specflow-run matches legacy output for start/propose lifecycle", () => {
+test("specflow-run matches archived start/propose fixtures", () => {
   const tempRoot = makeTempDir("specflow-parity-");
   try {
-    const left = createFixtureRepo(`${tempRoot}/left`);
-    const right = createFixtureRepo(`${tempRoot}/right`);
+    const { repoPath, changeId } = createFixtureRepo(tempRoot);
     const stubPath = createFetchIssueStub(tempRoot);
+    const startFixture = readFixtureJson("specflow-run/start.json");
+    const advanceFixture = readFixtureJson("specflow-run/advance.json");
 
     const nodeStart = runNodeCli(
       "specflow-run",
-      ["start", left.changeId, "--issue-url", "https://github.com/test/repo/issues/71"],
-      left.repoPath,
+      ["start", changeId, "--issue-url", "https://github.com/test/repo/issues/71"],
+      repoPath,
       { SPECFLOW_FETCH_ISSUE: stubPath },
     );
-    const legacyStart = runLegacyCli(
-      "specflow-run",
-      ["start", right.changeId, "--issue-url", "https://github.com/test/repo/issues/71"],
-      right.repoPath,
-      { SPECFLOW_FETCH_ISSUE: stubPath },
-    );
-
     assert.equal(nodeStart.status, 0, nodeStart.stderr);
-    assert.equal(legacyStart.status, 0, legacyStart.stderr);
-    assert.deepEqual(normalizeRunState(nodeStart.stdout), normalizeRunState(legacyStart.stdout));
+    assert.deepEqual(normalizeRunState(nodeStart.stdout), startFixture);
+    assert.deepEqual(
+      normalizeRunState(readFileSync(join(repoPath, ".specflow/runs", changeId, "run.json"), "utf8")),
+      startFixture,
+    );
 
-    const nodeAdvance = runNodeCli("specflow-run", ["advance", left.changeId, "propose"], left.repoPath);
-    const legacyAdvance = runLegacyCli("specflow-run", ["advance", right.changeId, "propose"], right.repoPath);
+    const nodeAdvance = runNodeCli("specflow-run", ["advance", changeId, "propose"], repoPath);
 
     assert.equal(nodeAdvance.status, 0, nodeAdvance.stderr);
-    assert.equal(legacyAdvance.status, 0, legacyAdvance.stderr);
-    assert.deepEqual(normalizeRunState(nodeAdvance.stdout), normalizeRunState(legacyAdvance.stdout));
+    assert.deepEqual(normalizeRunState(nodeAdvance.stdout), advanceFixture);
+    assert.deepEqual(
+      normalizeRunState(readFileSync(join(repoPath, ".specflow/runs", changeId, "run.json"), "utf8")),
+      advanceFixture,
+    );
   } finally {
     removeTempDir(tempRoot);
   }
