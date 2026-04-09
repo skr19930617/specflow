@@ -1,32 +1,29 @@
 import { AssetType, type OrchestratorContract } from "../types/contracts.js";
 
-function wrapper(id: string): OrchestratorContract {
-  return {
-    id,
-    type: AssetType.Orchestrator,
-    filePath: `bin/${id}`,
-    entryModule: `dist/bin/${id}.js`,
-    legacyFallbackPath: `legacy/v1/bin/${id}`,
-    references: [],
-  };
-}
-
 export const orchestratorContracts: readonly OrchestratorContract[] = [
   {
     id: "specflow-analyze",
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-analyze",
     entryModule: "dist/bin/specflow-analyze.js",
-    resultSchemaId: "analyze-project",
+    stdoutSchemaId: "analyze-project",
     references: [],
   },
-  wrapper("specflow-create-sub-issues"),
+  {
+    id: "specflow-create-sub-issues",
+    type: AssetType.Orchestrator,
+    filePath: "bin/specflow-create-sub-issues",
+    entryModule: "dist/bin/specflow-create-sub-issues.js",
+    stdinSchemaId: "create-sub-issues-input",
+    stdoutSchemaId: "create-sub-issues-result",
+    references: [],
+  },
   {
     id: "specflow-design-artifacts",
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-design-artifacts",
     entryModule: "dist/bin/specflow-design-artifacts.js",
-    resultSchemaId: "design-artifact-next",
+    stdoutSchemaId: "design-artifact-next",
     references: [],
   },
   {
@@ -34,7 +31,7 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-fetch-issue",
     entryModule: "dist/bin/specflow-fetch-issue.js",
-    resultSchemaId: "issue-metadata",
+    stdoutSchemaId: "issue-metadata",
     references: [],
   },
   {
@@ -42,7 +39,7 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-filter-diff",
     entryModule: "dist/bin/specflow-filter-diff.js",
-    resultSchemaId: "diff-summary",
+    stderrSchemaId: "diff-summary",
     references: [],
   },
   {
@@ -50,7 +47,7 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-init",
     entryModule: "dist/bin/specflow-init.js",
-    resultSchemaId: "init-project",
+    stdoutSchemaId: "init-project",
     references: [],
   },
   {
@@ -65,7 +62,7 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-review-apply",
     entryModule: "dist/bin/specflow-review-apply.js",
-    resultSchemaId: "review-apply-result",
+    stdoutSchemaId: "review-apply-result",
     references: ["prompt:review_apply_prompt", "prompt:review_apply_rereview_prompt"],
   },
   {
@@ -73,7 +70,7 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-review-design",
     entryModule: "dist/bin/specflow-review-design.js",
-    resultSchemaId: "review-design-result",
+    stdoutSchemaId: "review-design-result",
     references: [
       "prompt:review_design_prompt",
       "prompt:review_design_rereview_prompt",
@@ -85,7 +82,7 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
     type: AssetType.Orchestrator,
     filePath: "bin/specflow-run",
     entryModule: "dist/bin/specflow-run.js",
-    resultSchemaId: "run-state",
+    stdoutSchemaId: "run-state",
     references: [],
   },
 ];

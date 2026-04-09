@@ -272,7 +272,7 @@ Optionally capture spec bootstrap transitions when using a synthetic run id.
 
 ```bash
 SYNTHETIC_RUN_ID="_spec_$(date +%Y%m%d-%H%M%S)"
-specflow-run start "$SYNTHETIC_RUN_ID"
+specflow-run start "$SYNTHETIC_RUN_ID" --run-kind synthetic
 specflow-run advance "$SYNTHETIC_RUN_ID" spec_bootstrap_start
 # ... baseline spec generation ...
 specflow-run advance "$SYNTHETIC_RUN_ID" spec_bootstrap_complete

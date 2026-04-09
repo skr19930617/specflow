@@ -21,10 +21,13 @@ test("workflow OpenSpec stays aligned with phase-specific revise events and run 
   const workflowSpec = readFileSync("openspec/specs/workflow-definition/spec.md", "utf8");
   const transitionSpec = readFileSync("openspec/specs/transition-core/spec.md", "utf8");
   const runStateSpec = readFileSync("openspec/specs/run-state-management/spec.md", "utf8");
+  const commandRuntimeSpec = readFileSync("openspec/specs/command-runtime-integration/spec.md", "utf8");
 
   assert.ok(workflowSpec.includes("revise_design"));
   assert.ok(workflowSpec.includes("revise_apply"));
   assert.ok(!workflowSpec.includes("result SHALL include events `accept_design`, `reject`, and `revise`"));
   assert.ok(transitionSpec.includes("update-field"));
   assert.ok(runStateSpec.includes("update-field <run_id> <field> <value>"));
+  assert.ok(runStateSpec.includes('run_kind'));
+  assert.ok(commandRuntimeSpec.includes("--run-kind synthetic"));
 });

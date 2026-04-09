@@ -4,7 +4,7 @@
 TBD - created by archiving change workflow-state-machine. Update Purpose after archive.
 ## Requirements
 ### Requirement: Per-run state file
-The system SHALL store per-run state at `.specflow/runs/<run_id>/run.json` where `run_id` equals the OpenSpec change name.
+The system SHALL store per-run state at `.specflow/runs/<run_id>/run.json`. Change-scoped runs use the OpenSpec change name as `run_id`; branch-path flows may use synthetic run ids.
 
 #### Scenario: Run state file is created on run start
 - **WHEN** a new run is started for change `workflow-state-machine`
@@ -13,10 +13,10 @@ The system SHALL store per-run state at `.specflow/runs/<run_id>/run.json` where
 
 #### Scenario: Run state directory structure
 - **WHEN** the `.specflow/runs/` directory is listed
-- **THEN** each subdirectory name SHALL match the corresponding OpenSpec change name
+- **THEN** each subdirectory name SHALL match either an OpenSpec change name or a synthetic run id created by a branch-path command
 
 ### Requirement: Run state schema
-The run state JSON SHALL contain the following fields: `run_id`, `change_name`, `current_phase`, `status`, `allowed_events`, `created_at`, `updated_at`, `project_id`, `repo_name`, `repo_path`, `branch_name`, `worktree_path`, `agents`, `last_summary_path`.
+The run state JSON SHALL contain the following fields: `run_id`, `change_name`, `current_phase`, `status`, `allowed_events`, `created_at`, `updated_at`, `project_id`, `repo_name`, `repo_path`, `branch_name`, `worktree_path`, `agents`, `last_summary_path`. Synthetic runs MAY additionally include `run_kind: "synthetic"`.
 
 #### Scenario: Initial run state contents
 - **WHEN** a run is newly created
@@ -33,6 +33,13 @@ The run state JSON SHALL contain the following fields: `run_id`, `change_name`, 
 - **THEN** `worktree_path` SHALL be the git working tree root absolute path
 - **THEN** `agents` SHALL be an object with `main` and `review` string fields
 - **THEN** `last_summary_path` SHALL be `null`
+
+#### Scenario: Synthetic run state contents
+- **WHEN** `specflow-run start <run_id> --run-kind synthetic` is executed
+- **THEN** the JSON SHALL contain `run_id` equal to the provided synthetic run id
+- **THEN** `change_name` SHALL be `null`
+- **THEN** `run_kind` SHALL be `"synthetic"`
+- **THEN** `allowed_events` SHALL still be derived from the workflow definition for `start`
 
 #### Scenario: Run state after transition
 - **WHEN** a transition advances the run from `start` to `proposal`
@@ -96,6 +103,17 @@ The `specflow-run` CLI SHALL support a `get-field <run_id> <field>` subcommand t
 #### Scenario: Get-field field whitelist
 - **WHEN** `specflow-run get-field` is executed
 - **THEN** the readable fields SHALL include all top-level fields in run.json (no whitelist restriction for reads)
+
+### Requirement: Existing run files are the source of truth
+After a run file exists, lifecycle commands SHALL operate on `.specflow/runs/<run_id>/run.json` without re-validating `openspec/changes/<run_id>/proposal.md`.
+
+#### Scenario: Synthetic status lookup
+- **WHEN** `specflow-run status <synthetic-run-id>` is executed for an existing synthetic run
+- **THEN** the command SHALL read the run file successfully even though there is no matching `openspec/changes/<run_id>/proposal.md`
+
+#### Scenario: Synthetic advance
+- **WHEN** `specflow-run advance <synthetic-run-id> explore_start` is executed for an existing synthetic run
+- **THEN** the command SHALL update the run file and history based on the stored run state
 
 ### Requirement: Update-field subcommand
 The `specflow-run` CLI SHALL support an `update-field <run_id> <field> <value>` subcommand for controlled mutation of mutable run-state fields.

@@ -1,4 +1,5 @@
 import { resolveCommand, tryExec } from "../lib/process.js";
+import { parseSchemaJson } from "../lib/schemas.js";
 
 const ISSUE_PATTERN = /^https:\/\/([^/]+)\/([^/]+)\/([^/]+)\/issues\/([0-9]+)(?:\/.*)?$/;
 
@@ -28,8 +29,15 @@ function main(): void {
     process.cwd(),
     env,
   );
-  if (result.stdout) {
+  if (result.status === 0 && result.stdout) {
+    try {
+      void parseSchemaJson("issue-metadata", result.stdout, "gh issue view output");
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exit(1);
+    }
     process.stdout.write(result.stdout);
+    process.exit(0);
   }
   if (result.stderr) {
     process.stderr.write(result.stderr);

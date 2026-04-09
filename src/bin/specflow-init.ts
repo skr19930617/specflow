@@ -1,14 +1,18 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
-import type { Manifest } from "../types/contracts.js";
-import { moduleRepoRoot, resolveCommand, tryExec } from "../lib/process.js";
+import { stdin as input } from "node:process";
+import type { InitProjectResult, Manifest } from "../types/contracts.js";
+import { moduleRepoRoot, printSchemaJson, resolveCommand, tryExec } from "../lib/process.js";
 import { currentBranch, projectRoot as gitProjectRoot, tryGit } from "../lib/git.js";
 
 const CONFIG_DIR = resolve(process.env.HOME ?? "", ".config/specflow");
 const MAIN_AGENTS = ["claude"];
 const REVIEW_AGENTS = ["codex"];
+
+function log(message: string): void {
+  process.stderr.write(`${message}\n`);
+}
 
 function die(message: string): never {
   process.stderr.write(`${message}\n`);
@@ -57,20 +61,21 @@ async function promptYesNo(rl: readline.Interface, question: string, defaultValu
   }
 }
 
-function ensureGitignoreEntry(targetPath: string, entry: string): void {
+function ensureGitignoreEntry(targetPath: string, entry: string): boolean {
   const gitignore = resolve(targetPath, ".gitignore");
   if (!existsSync(gitignore)) {
     writeFileSync(gitignore, `${entry}\n`, "utf8");
-    process.stdout.write(`Created .gitignore with ${entry}\n`);
-    return;
+    log(`Created .gitignore with ${entry}`);
+    return true;
   }
   const content = readFileSync(gitignore, "utf8");
   if (content.split("\n").includes(entry)) {
-    process.stdout.write(`.gitignore already contains ${entry}, skipped\n`);
-    return;
+    log(`.gitignore already contains ${entry}, skipped`);
+    return false;
   }
   writeFileSync(gitignore, `${content}${content.endsWith("\n") ? "" : "\n"}${entry}\n`, "utf8");
-  process.stdout.write(`Added ${entry} to .gitignore\n`);
+  log(`Added ${entry} to .gitignore`);
+  return true;
 }
 
 function ensureNotSubdirectory(targetPath: string): void {
@@ -91,8 +96,9 @@ function ensureNotSubdirectory(targetPath: string): void {
   }
 }
 
-function copyCommandFiles(manifest: Manifest, sourceCommandsDir: string, overwrite: boolean): void {
+function copyCommandFiles(manifest: Manifest, sourceCommandsDir: string, overwrite: boolean): string[] {
   mkdirSync(resolve(process.env.HOME ?? "", ".claude/commands"), { recursive: true });
+  const installed: string[] = [];
   for (const command of manifest.commands) {
     const base = command.filePath.split("/").pop() ?? `${command.id}.md`;
     const source = resolve(sourceCommandsDir, base);
@@ -104,18 +110,21 @@ function copyCommandFiles(manifest: Manifest, sourceCommandsDir: string, overwri
       continue;
     }
     copyFileSync(source, target);
-    process.stdout.write(`${overwrite ? "Updated" : "Installed"} ~/.claude/commands/${base}\n`);
+    installed.push(command.id);
+    log(`${overwrite ? "Updated" : "Installed"} ~/.claude/commands/${base}`);
   }
+  return installed;
 }
 
-function verifyPrompts(globalDir: string): void {
+function verifyPrompts(globalDir: string, warnings: string[]): void {
   const promptsDir = resolve(globalDir, "prompts");
   if (!existsSync(promptsDir)) {
-    process.stdout.write("Warning: prompts/ not found. Run 'specflow-install' to fix.\n");
+    warnings.push("prompts/ not found. Run 'specflow-install' to fix.");
+    log("Warning: prompts/ not found. Run 'specflow-install' to fix.");
     return;
   }
   const count = readdirSync(promptsDir).filter((entry) => entry.endsWith(".md")).length;
-  process.stdout.write(`Verified ${count} prompt(s) in ${promptsDir}/\n`);
+  log(`Verified ${count} prompt(s) in ${promptsDir}/`);
 }
 
 async function runUpdateMode(runtimeRoot: string): Promise<never> {
@@ -127,45 +136,61 @@ async function runUpdateMode(runtimeRoot: string): Promise<never> {
     die(`Error: global/ not found at ${globalDir}\nRun 'specflow-install' to update.`);
   }
 
+  const createdFiles: string[] = [];
+  const updatedFiles: string[] = [];
+  const warnings: string[] = [];
   const manifest = readManifest(runtimeRoot);
-  copyCommandFiles(manifest, resolve(globalDir, "commands"), true);
-  verifyPrompts(globalDir);
+  const installedCommands = copyCommandFiles(manifest, resolve(globalDir, "commands"), true);
+  verifyPrompts(globalDir, warnings);
 
   const templateMcp = resolve(templateDir, ".mcp.json");
   if (existsSync(templateMcp)) {
     copyFileSync(templateMcp, ".mcp.json");
-    process.stdout.write("Updated .mcp.json\n");
+    updatedFiles.push(".mcp.json");
+    log("Updated .mcp.json");
   } else {
-    process.stdout.write("Warning: template/.mcp.json not found, skipping\n");
+    warnings.push("template/.mcp.json not found, skipping");
+    log("Warning: template/.mcp.json not found, skipping");
   }
 
   const templateClaude = resolve(templateDir, "CLAUDE.md");
   if (existsSync(templateClaude)) {
     if (!existsSync("CLAUDE.md")) {
       copyFileSync(templateClaude, "CLAUDE.md");
-      process.stdout.write("Created CLAUDE.md\n");
+      createdFiles.push("CLAUDE.md");
+      log("Created CLAUDE.md");
     } else if (readFileSync(templateClaude, "utf8") !== readFileSync("CLAUDE.md", "utf8")) {
-      process.stdout.write("\nCLAUDE.md differs from the template:\n");
+      log("CLAUDE.md differs from the template:");
       const diff = tryExec("diff", ["-u", "CLAUDE.md", templateClaude], process.cwd());
       const preview = diff.stdout.split("\n").slice(0, 40).join("\n");
       if (preview.trim()) {
-        process.stdout.write(`${preview}\n\n`);
+        process.stderr.write(`${preview}\n\n`);
       }
-      const rl = readline.createInterface({ input, output });
+      const rl = readline.createInterface({ input, output: process.stderr });
       const overwrite = await promptYesNo(rl, "Overwrite CLAUDE.md with template? (your changes will be lost)", "n");
       rl.close();
       if (overwrite === "y") {
         copyFileSync(templateClaude, "CLAUDE.md");
-        process.stdout.write("Updated CLAUDE.md\n");
+        updatedFiles.push("CLAUDE.md");
+        log("Updated CLAUDE.md");
       } else {
-        process.stdout.write("Skipped CLAUDE.md\n");
+        log("Skipped CLAUDE.md");
       }
     } else {
-      process.stdout.write("CLAUDE.md is up to date\n");
+      log("CLAUDE.md is up to date");
     }
   }
 
-  process.stdout.write("\nDone. All templates updated.\n");
+  log("Done. All templates updated.");
+  printSchemaJson("init-project", {
+    mode: "update",
+    project_name: basename(updateRoot),
+    location: updateRoot,
+    created_files: createdFiles,
+    updated_files: updatedFiles,
+    installed_commands: installedCommands,
+    warnings,
+  } satisfies InitProjectResult);
   process.exit(0);
 }
 
@@ -177,7 +202,7 @@ function injectProjectContext(configPath: string, projectName: string): void {
   const lines = content.split("\n");
   lines.splice(1, 0, `context: "Project: ${projectName.replace(/["\\]/g, "\\$&")}"`);
   writeFileSync(configPath, `${lines.join("\n")}\n`, "utf8");
-  process.stdout.write("Added project name to openspec/config.yaml context\n");
+  log("Added project name to openspec/config.yaml context");
 }
 
 async function main(): Promise<void> {
@@ -250,42 +275,48 @@ Initialize a new specflow + OpenSpec project.
   mkdirSync(targetPath, { recursive: true });
   process.chdir(targetPath);
   const root = process.cwd();
+  const createdFiles: string[] = [];
+  const updatedFiles: string[] = [];
+  const warnings: string[] = [];
 
   const isGitRepo = tryGit(["rev-parse", "--show-toplevel"], root);
   if (isGitRepo.status !== 0) {
     const init = tryExec("git", ["init"], root);
     if (init.stdout) {
-      process.stdout.write(init.stdout);
+      process.stderr.write(init.stdout);
     }
-    process.stdout.write("Initialized git repository\n");
+    log("Initialized git repository");
   }
 
-  const rl = readline.createInterface({ input, output });
+  const rl = readline.createInterface({ input, output: process.stderr });
   if (!projectName) {
     projectName = await promptProjectName(rl, basename(root));
   }
 
-  process.stdout.write("\n");
+  process.stderr.write("\n");
   const mainAgent = await selectAgent(rl, MAIN_AGENTS, "main");
-  process.stdout.write(`  → main agent: ${mainAgent}\n\n`);
+  process.stderr.write(`  → main agent: ${mainAgent}\n\n`);
   const reviewAgent = await selectAgent(rl, REVIEW_AGENTS, "review");
-  process.stdout.write(`  → review agent: ${reviewAgent}\n\n`);
-  process.stdout.write("Track .claude/ in git? (commands/ and skills/ will be shared with the team)\n");
+  process.stderr.write(`  → review agent: ${reviewAgent}\n\n`);
+  process.stderr.write("Track .claude/ in git? (commands/ and skills/ will be shared with the team)\n");
   const trackClaudeDir = await promptYesNo(rl, "Include .claude/ in git?", "y");
-  process.stdout.write(`  → track .claude/: ${trackClaudeDir}\n\n`);
+  process.stderr.write(`  → track .claude/: ${trackClaudeDir}\n\n`);
   rl.close();
 
   const toolsArg = `${mainAgent},${reviewAgent}`;
   const openspec = resolveCommand("SPECFLOW_OPENSPEC", "openspec");
   const openspecInit = tryExec(openspec, ["init", ".", "--tools", toolsArg, "--force"], root);
+  const openspecInitialized = openspecInit.status === 0;
   if (openspecInit.status === 0) {
-    process.stdout.write(`Initialized openspec/ with tools: ${toolsArg}\n`);
+    log(`Initialized openspec/ with tools: ${toolsArg}`);
     const configPath = resolve(root, "openspec/config.yaml");
     if (existsSync(configPath)) {
       injectProjectContext(configPath, projectName);
+      updatedFiles.push("openspec/config.yaml");
     }
   } else {
-    process.stdout.write("Warning: openspec init failed, continuing without openspec\n");
+    warnings.push("openspec init failed, continuing without openspec");
+    log("Warning: openspec init failed, continuing without openspec");
   }
 
   mkdirSync(resolve(root, ".specflow"), { recursive: true });
@@ -294,61 +325,91 @@ Initialize a new specflow + OpenSpec project.
     `# specflow agent configuration\n# Edit these values to change your agents\nSPECFLOW_MAIN_AGENT=${mainAgent}\nSPECFLOW_REVIEW_AGENT=${reviewAgent}\n`,
     "utf8",
   );
-  process.stdout.write("Created .specflow/config.env\n");
+  createdFiles.push(".specflow/config.env");
+  log("Created .specflow/config.env");
 
   if (trackClaudeDir === "y") {
-    ensureGitignoreEntry(root, ".claude/settings.json");
-    ensureGitignoreEntry(root, ".claude/settings.local.json");
+    if (ensureGitignoreEntry(root, ".claude/settings.json")) {
+      updatedFiles.push(".gitignore");
+    }
+    if (ensureGitignoreEntry(root, ".claude/settings.local.json")) {
+      updatedFiles.push(".gitignore");
+    }
   } else {
-    ensureGitignoreEntry(root, ".claude/");
+    if (ensureGitignoreEntry(root, ".claude/")) {
+      updatedFiles.push(".gitignore");
+    }
   }
-  ensureGitignoreEntry(root, ".mcp.json");
-  ensureGitignoreEntry(root, ".specflow/config.env");
+  if (ensureGitignoreEntry(root, ".mcp.json")) {
+    updatedFiles.push(".gitignore");
+  }
+  if (ensureGitignoreEntry(root, ".specflow/config.env")) {
+    updatedFiles.push(".gitignore");
+  }
 
   let templateDir = resolve(CONFIG_DIR, "template");
   if (process.env.SPECFLOW_TEMPLATE_REPO) {
     const gh = resolveCommand("SPECFLOW_GH", "gh");
     const tmp = resolve(process.env.TMPDIR || "/tmp", `specflow-template-${process.pid}-${Date.now()}`);
     mkdirSync(tmp, { recursive: true });
-    process.stdout.write(`Fetching template from ${process.env.SPECFLOW_TEMPLATE_REPO}...\n`);
+    log(`Fetching template from ${process.env.SPECFLOW_TEMPLATE_REPO}...`);
     const clone = tryExec(gh, ["repo", "clone", process.env.SPECFLOW_TEMPLATE_REPO, `${tmp}/template`, "--", "--depth", "1"], root);
     if (clone.status === 0) {
       templateDir = resolve(tmp, "template");
     } else {
-      process.stdout.write(`Warning: Failed to clone template repo: ${process.env.SPECFLOW_TEMPLATE_REPO}\nSkipping .mcp.json and CLAUDE.md template copy.\n`);
+      warnings.push(`Failed to clone template repo: ${process.env.SPECFLOW_TEMPLATE_REPO}`);
+      log(`Warning: Failed to clone template repo: ${process.env.SPECFLOW_TEMPLATE_REPO}`);
+      log("Skipping .mcp.json and CLAUDE.md template copy.");
     }
   }
 
   const mcpTemplate = resolve(templateDir, ".mcp.json");
   if (!existsSync(resolve(root, ".mcp.json")) && existsSync(mcpTemplate)) {
     copyFileSync(mcpTemplate, resolve(root, ".mcp.json"));
-    process.stdout.write("Created .mcp.json\n");
+    createdFiles.push(".mcp.json");
+    log("Created .mcp.json");
   } else if (existsSync(resolve(root, ".mcp.json"))) {
-    process.stdout.write(".mcp.json already exists, skipped\n");
+    log(".mcp.json already exists, skipped");
   }
 
   const claudeTemplate = resolve(templateDir, "CLAUDE.md");
   if (!existsSync(resolve(root, "CLAUDE.md")) && existsSync(claudeTemplate)) {
     copyFileSync(claudeTemplate, resolve(root, "CLAUDE.md"));
-    process.stdout.write("Created CLAUDE.md — edit to match your project\n");
+    createdFiles.push("CLAUDE.md");
+    log("Created CLAUDE.md — edit to match your project");
   } else if (existsSync(resolve(root, "CLAUDE.md"))) {
-    process.stdout.write("CLAUDE.md already exists, skipped\n");
+    log("CLAUDE.md already exists, skipped");
   }
 
   const globalDir = resolve(CONFIG_DIR, "global");
+  let installedCommands: string[] = [];
   if (existsSync(resolve(globalDir, "commands"))) {
-    copyCommandFiles(readManifest(runtimeRoot), resolve(globalDir, "commands"), false);
+    installedCommands = copyCommandFiles(readManifest(runtimeRoot), resolve(globalDir, "commands"), false);
   } else {
-    process.stdout.write(`Warning: ${resolve(globalDir, "commands")}/ not found, skipping slash commands\n`);
+    warnings.push(`${resolve(globalDir, "commands")}/ not found, skipping slash commands`);
+    log(`Warning: ${resolve(globalDir, "commands")}/ not found, skipping slash commands`);
   }
 
-  process.stdout.write(`\nInitialized specflow project: ${projectName}\n`);
-  process.stdout.write(`  Location: ${root}\n`);
-  process.stdout.write(`  Main agent: ${mainAgent}\n`);
-  process.stdout.write(`  Review agent: ${reviewAgent}\n\n`);
-  process.stdout.write("Next steps:\n");
-  process.stdout.write("  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style\n");
-  process.stdout.write("  2. Run '/specflow <issue-url>' to start your first feature\n");
+  log(`Initialized specflow project: ${projectName}`);
+  log(`  Location: ${root}`);
+  log(`  Main agent: ${mainAgent}`);
+  log(`  Review agent: ${reviewAgent}`);
+  log("Next steps:");
+  log("  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style");
+  log("  2. Run '/specflow <issue-url>' to start your first feature");
+  printSchemaJson("init-project", {
+    mode: "init",
+    project_name: projectName,
+    location: root,
+    main_agent: mainAgent,
+    review_agent: reviewAgent,
+    track_claude_dir: trackClaudeDir === "y",
+    openspec_initialized: openspecInitialized,
+    created_files: createdFiles,
+    updated_files: updatedFiles,
+    installed_commands: installedCommands,
+    warnings,
+  } satisfies InitProjectResult);
 }
 
 main().catch((error) => {

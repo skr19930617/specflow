@@ -1,28 +1,10 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
-import { moduleRepoRoot } from "../lib/process.js";
+import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
+import type { RunKind, RunState } from "../types/contracts.js";
 
 type JsonObject = Record<string, unknown>;
-
-interface RunState extends JsonObject {
-  run_id: string;
-  change_name: string;
-  current_phase: string;
-  status: string;
-  allowed_events: string[];
-  issue: JsonObject | null;
-  project_id: string;
-  repo_name: string;
-  repo_path: string;
-  branch_name: string;
-  worktree_path: string;
-  agents: { main: string; review: string };
-  last_summary_path: string | null;
-  created_at: string;
-  updated_at: string;
-  history: { from: string; to: string; event: string; timestamp: string }[];
-}
 
 interface WorkflowDefinition {
   readonly version: string;
@@ -34,10 +16,6 @@ interface WorkflowDefinition {
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
   process.exit(1);
-}
-
-function printJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 function git(args: readonly string[]): string {
@@ -96,6 +74,10 @@ function validateRunId(root: string, runId: string): void {
   if (runId.includes("/") || runId.includes("..") || runId === ".") {
     fail(`Error: invalid run_id '${runId}'. Must not contain '/' or '..'`);
   }
+}
+
+function validateChangeRunId(root: string, runId: string): void {
+  validateRunId(root, runId);
   const changeDir = resolve(root, "openspec/changes", runId);
   try {
     const stat = readFileSync(resolve(changeDir, "proposal.md"), "utf8");
@@ -197,6 +179,7 @@ function cmdStart(args: string[], root: string, workflow: WorkflowDefinition): v
   let issueUrl = "";
   let agentMain = "claude";
   let agentReview = "codex";
+  let runKind: RunKind = "change";
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -215,6 +198,14 @@ function cmdStart(args: string[], root: string, workflow: WorkflowDefinition): v
       agentReview = args[++index] ?? fail("Error: --agent-review requires a value");
       continue;
     }
+    if (arg === "--run-kind") {
+      const value = args[++index] ?? fail("Error: --run-kind requires a value");
+      if (value !== "change" && value !== "synthetic") {
+        fail("Error: --run-kind must be 'change' or 'synthetic'");
+      }
+      runKind = value;
+      continue;
+    }
     if (arg.startsWith("-")) {
       fail(`Error: unknown option '${arg}'`);
     }
@@ -225,10 +216,14 @@ function cmdStart(args: string[], root: string, workflow: WorkflowDefinition): v
   }
 
   if (!runId) {
-    fail("Usage: specflow-run start <run_id> [--issue-url <url>] [--agent-main <name>] [--agent-review <name>]");
+    fail("Usage: specflow-run start <run_id> [--issue-url <url>] [--agent-main <name>] [--agent-review <name>] [--run-kind <change|synthetic>]");
   }
 
-  validateRunId(root, runId);
+  if (runKind === "change") {
+    validateChangeRunId(root, runId);
+  } else {
+    validateRunId(root, runId);
+  }
   const path = runFile(root, runId);
   try {
     readFileSync(path, "utf8");
@@ -239,7 +234,7 @@ function cmdStart(args: string[], root: string, workflow: WorkflowDefinition): v
 
   const state: RunState = {
     run_id: runId,
-    change_name: runId,
+    change_name: runKind === "synthetic" ? null : runId,
     current_phase: "start",
     status: "active",
     allowed_events: allowedEventsFor(workflow, "start"),
@@ -254,10 +249,11 @@ function cmdStart(args: string[], root: string, workflow: WorkflowDefinition): v
     created_at: nowIso(),
     updated_at: nowIso(),
     history: [],
+    ...(runKind === "synthetic" ? { run_kind: "synthetic" as const } : {}),
   };
 
   atomicWrite(path, `${JSON.stringify(state, null, 2)}\n`);
-  printJson(state);
+  printSchemaJson("run-state", state);
 }
 
 function cmdAdvance(args: string[], root: string, workflow: WorkflowDefinition): void {
@@ -267,7 +263,6 @@ function cmdAdvance(args: string[], root: string, workflow: WorkflowDefinition):
     fail("Usage: specflow-run advance <run_id> <event>");
   }
 
-  validateRunId(root, runId);
   const path = ensureRunExists(root, runId);
   const runState = readRunState(path);
   validateRunSchema(runState);
@@ -295,7 +290,7 @@ function cmdAdvance(args: string[], root: string, workflow: WorkflowDefinition):
   };
 
   atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
-  printJson(updated);
+  printSchemaJson("run-state", updated);
 }
 
 function cmdStatus(args: string[], root: string): void {
@@ -303,11 +298,10 @@ function cmdStatus(args: string[], root: string): void {
   if (!runId) {
     fail("Usage: specflow-run status <run_id>");
   }
-  validateRunId(root, runId);
   const path = ensureRunExists(root, runId);
   const runState = readRunState(path);
   validateRunSchema(runState);
-  printJson(runState);
+  printSchemaJson("run-state", runState);
 }
 
 function cmdUpdateField(args: string[], root: string): void {
@@ -318,7 +312,6 @@ function cmdUpdateField(args: string[], root: string): void {
   if (field !== "last_summary_path") {
     fail(`Error: field '${field}' is not updatable. Allowed fields: last_summary_path`);
   }
-  validateRunId(root, runId);
   const path = ensureRunExists(root, runId);
   const runState = readRunState(path);
   validateRunSchema(runState);
@@ -328,7 +321,7 @@ function cmdUpdateField(args: string[], root: string): void {
     updated_at: nowIso(),
   };
   atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
-  printJson(updated);
+  printSchemaJson("run-state", updated);
 }
 
 function cmdGetField(args: string[], root: string): void {
@@ -336,14 +329,13 @@ function cmdGetField(args: string[], root: string): void {
   if (!runId || !field) {
     fail("Usage: specflow-run get-field <run_id> <field>");
   }
-  validateRunId(root, runId);
   const path = ensureRunExists(root, runId);
   const runState = readRunState(path);
   const value = (runState as JsonObject)[field];
   if (value === undefined) {
     fail(`Error: field '${field}' not found in run state`);
   }
-  printJson(value);
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 function main(): void {

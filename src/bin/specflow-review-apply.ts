@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { moduleRepoRoot, printJson, tryExec } from "../lib/process.js";
+import { moduleRepoRoot, printSchemaJson, tryExec } from "../lib/process.js";
 import { projectRoot as resolveProjectRoot, tryGit } from "../lib/git.js";
 import { tryParseJson } from "../lib/json.js";
 import {
@@ -523,7 +523,7 @@ function main(): void {
     default:
       die(`Error: unknown subcommand '${subcommand}'. Use: review, fix-review, autofix-loop`);
   }
-  printJson(result);
+  printSchemaJson("review-apply-result", result);
 }
 
 main();

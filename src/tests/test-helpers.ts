@@ -108,6 +108,95 @@ export function createGhStub(root: string, responseJson: string): string {
   return stubDir;
 }
 
+export function createGhSubIssueStub(root: string): { stubDir: string; statePath: string } {
+  const stubDir = createStubDir(root);
+  const statePath = join(root, "gh-sub-issue-state.json");
+  writeFileSync(
+    statePath,
+    JSON.stringify(
+      {
+        next_issue_number: 100,
+        labels: [],
+        issues: [],
+        comments: [],
+        fail_create_phases: [],
+        fail_comment: false,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  writeExecutable(
+    join(stubDir, "gh"),
+    [
+      "#!/usr/bin/env node",
+      "const fs = require('node:fs');",
+      "const statePath = process.env.SPECFLOW_TEST_GH_STATE;",
+      "const args = process.argv.slice(2);",
+      "const state = statePath && fs.existsSync(statePath)",
+      "  ? JSON.parse(fs.readFileSync(statePath, 'utf8'))",
+      "  : { next_issue_number: 100, labels: [], issues: [], comments: [], fail_create_phases: [], fail_comment: false };",
+      "const save = () => { if (statePath) fs.writeFileSync(statePath, JSON.stringify(state, null, 2)); };",
+      "const argValue = (name) => { const index = args.indexOf(name); return index === -1 ? '' : String(args[index + 1] || ''); };",
+      "if (args[0] === 'label' && args[1] === 'create') {",
+      "  const name = args[2] || '';",
+      "  const repo = argValue('--repo');",
+      "  const color = argValue('--color');",
+      "  const description = argValue('--description');",
+      "  state.labels = (state.labels || []).filter((label) => label.name !== name);",
+      "  state.labels.push({ name, repo, color, description });",
+      "  save();",
+      "  process.exit(0);",
+      "}",
+      "if (args[0] === 'issue' && args[1] === 'list') {",
+      "  const search = argValue('--search');",
+      "  const match = (state.issues || []).find((issue) => issue.decomposition_id === search);",
+      "  process.stdout.write(JSON.stringify(match ? [{ number: match.number, url: match.url, title: match.title }] : []));",
+      "  save();",
+      "  process.exit(0);",
+      "}",
+      "if (args[0] === 'issue' && args[1] === 'create') {",
+      "  const repo = argValue('--repo');",
+      "  const title = argValue('--title');",
+      "  const body = argValue('--body');",
+      "  const label = argValue('--label');",
+      "  const phaseMatch = title.match(/^Phase (\\d+):/);",
+      "  const phase = phaseMatch ? Number(phaseMatch[1]) : 0;",
+      "  if ((state.fail_create_phases || []).includes(phase)) {",
+      "    process.stderr.write(`phase ${phase} failed`);",
+      "    save();",
+      "    process.exit(1);",
+      "  }",
+      "  const decompositionMatch = body.match(/\\*\\*Decomposition ID\\*\\*: (.+)/);",
+      "  const decompositionId = decompositionMatch ? decompositionMatch[1].trim() : '';",
+      "  const number = Number(state.next_issue_number || 100);",
+      "  state.next_issue_number = number + 1;",
+      "  const url = `https://github.com/${repo}/issues/${number}`;",
+      "  state.issues.push({ number, url, title, body, label, repo, decomposition_id: decompositionId });",
+      "  save();",
+      "  process.stdout.write(`${url}\\n`);",
+      "  process.exit(0);",
+      "}",
+      "if (args[0] === 'issue' && args[1] === 'comment') {",
+      "  if (state.fail_comment) {",
+      "    process.stderr.write('comment failed');",
+      "    save();",
+      "    process.exit(1);",
+      "  }",
+      "  state.comments.push({ issue_number: args[2], repo: argValue('--repo'), body: argValue('--body') });",
+      "  save();",
+      "  process.exit(0);",
+      "}",
+      "process.stderr.write(`unsupported gh args: ${args.join(' ')}`);",
+      "save();",
+      "process.exit(1);",
+      "",
+    ].join("\n"),
+  );
+  return { stubDir, statePath };
+}
+
 export function createOpenspecStub(root: string, scriptBody: string): string {
   const stubDir = createStubDir(root);
   writeExecutable(join(stubDir, "openspec"), scriptBody);

@@ -3,7 +3,7 @@ import { basename, join, resolve } from "node:path";
 import { matchesGlobPattern } from "../lib/glob.js";
 import { tryGit } from "../lib/git.js";
 import { tryParseJson } from "../lib/json.js";
-import { printJson, tryExec } from "../lib/process.js";
+import { printSchemaJson, tryExec } from "../lib/process.js";
 import type { AnalyzeProjectResult } from "../types/contracts.js";
 
 function readTextIfExists(path: string): string {
@@ -345,7 +345,7 @@ function main(): void {
     "nuxt.config.*",
   ]);
 
-  printJson({
+  printSchemaJson("analyze-project", {
     project_name: projectName,
     description,
     languages: unique(languages),

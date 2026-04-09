@@ -4,7 +4,7 @@
 TBD - created by archiving change design-orchestrator-extraction. Update Purpose after archive.
 ## Requirements
 ### Requirement: Artifact loop script entry point
-The system SHALL provide `bin/specflow-design-artifacts` as a Bash script with two subcommands: `next` and `validate`. The script SHALL exit with code 0 on success and non-zero on error.
+The system SHALL provide `bin/specflow-design-artifacts` as a Node-based CLI with two subcommands: `next` and `validate`. The script SHALL exit with code 0 on success and non-zero on error.
 
 #### Scenario: Next subcommand invocation
 - **WHEN** `specflow-design-artifacts next <CHANGE_ID>` is executed
@@ -43,4 +43,3 @@ The `validate` subcommand SHALL wrap `openspec validate` with consistent output 
 #### Scenario: Validation failure
 - **WHEN** `openspec validate <CHANGE_ID> --type change --json` returns `valid: false`
 - **THEN** the script SHALL output the full validation JSON (including issues) and exit with code 1
-

@@ -1,6 +1,8 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stringifySchemaJson } from "./schemas.js";
+import type { SchemaId } from "../types/contracts.js";
 
 export interface CommandResult {
   readonly stdout: string;
@@ -60,4 +62,16 @@ export function fail(message: string, code = 1, stream: "stderr" | "stdout" = "s
 
 export function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+export function printSchemaJson(
+  schemaId: SchemaId,
+  value: unknown,
+  options: {
+    stream?: "stdout" | "stderr";
+    pretty?: boolean;
+  } = {},
+): void {
+  const target = (options.stream ?? "stdout") === "stdout" ? process.stdout : process.stderr;
+  target.write(`${stringifySchemaJson(schemaId, value, { pretty: options.pretty })}\n`);
 }

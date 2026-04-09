@@ -12,7 +12,8 @@ import type {
 } from "../types/contracts.js";
 import { AssetType } from "../types/contracts.js";
 import { fromRepo } from "./paths.js";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { schemaIds } from "./schemas.js";
 
 function validateUnique(
   kind: AssetType | "contract",
@@ -94,7 +95,7 @@ function validatePromptContracts(prompts: readonly PromptContract[]): Validation
         prompt.id,
         AssetType.Prompt,
         prompt.filePath,
-        prompt.legacySourcePath,
+        prompt.sourcePath,
         "prompt-source-exists",
       ),
     );
@@ -105,19 +106,33 @@ function validatePromptContracts(prompts: readonly PromptContract[]): Validation
 function validateOrchestratorContracts(orchestrators: readonly OrchestratorContract[]): ValidationError[] {
   const errors: ValidationError[] = [];
   errors.push(...validateUnique(AssetType.Orchestrator, "id", orchestrators, (entry) => entry.id));
+  const knownSchemas = new Set(schemaIds());
   for (const orchestrator of orchestrators) {
-    if (!orchestrator.legacyFallbackPath) {
-      continue;
-    }
     errors.push(
       ...validateSourcePath(
         orchestrator.id,
         AssetType.Orchestrator,
         orchestrator.filePath,
-        orchestrator.legacyFallbackPath,
-        "legacy-fallback-exists",
+        orchestrator.entryModule.replace(/^dist\//, "src/").replace(/\.js$/, ".ts"),
+        "entry-module-exists",
       ),
     );
+    for (const [fieldName, schemaId] of [
+      ["stdinSchemaId", orchestrator.stdinSchemaId],
+      ["stdoutSchemaId", orchestrator.stdoutSchemaId],
+      ["stderrSchemaId", orchestrator.stderrSchemaId],
+    ] as const) {
+      if (!schemaId || knownSchemas.has(schemaId)) {
+        continue;
+      }
+      errors.push({
+        id: orchestrator.id,
+        type: AssetType.Orchestrator,
+        check: "schema-id-exists",
+        filePath: orchestrator.filePath,
+        message: `${fieldName} "${schemaId}" is not registered.`,
+      });
+    }
   }
   return errors;
 }
@@ -176,10 +191,32 @@ function validateTemplateContracts(templates: readonly TemplateAssetContract[]):
         template.id,
         AssetType.Template,
         template.filePath,
-        template.legacySourcePath,
+        template.sourcePath,
         "template-source-exists",
       ),
     );
+  }
+  return errors;
+}
+
+function validateCliCoverage(orchestrators: readonly OrchestratorContract[]): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const declaredIds = new Set(orchestrators.map((orchestrator) => orchestrator.id));
+  for (const entry of readdirSync(fromRepo("src/bin"))) {
+    if (!entry.endsWith(".ts") || entry === "legacy-wrapper.ts") {
+      continue;
+    }
+    const id = entry.replace(/\.ts$/, "");
+    if (declaredIds.has(id)) {
+      continue;
+    }
+    errors.push({
+      id,
+      type: "contract",
+      check: "orchestrator-contract-exists",
+      filePath: `src/bin/${entry}`,
+      message: `CLI entrypoint "${id}" does not have an orchestrator contract.`,
+    });
   }
   return errors;
 }
@@ -285,6 +322,7 @@ export function validateContracts(contracts: ContractsBundle): readonly Validati
     ...validateCommandContracts(contracts.commands),
     ...validatePromptContracts(contracts.prompts),
     ...validateOrchestratorContracts(contracts.orchestrators),
+    ...validateCliCoverage(contracts.orchestrators),
     ...validateWorkflowContract(contracts.workflow),
     ...validateTemplateContracts(contracts.templates),
     ...validateInstallCopies(contracts.installCopies),

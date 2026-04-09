@@ -5,7 +5,7 @@ function prompt(id: string): PromptContract {
     id,
     type: AssetType.Prompt,
     filePath: `global/prompts/${id}.md`,
-    legacySourcePath: `legacy/v1/global/prompts/${id}.md`,
+    sourcePath: `assets/global/prompts/${id}.md`,
     references: [],
   };
 }

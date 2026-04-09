@@ -4,6 +4,6 @@ import type { PromptContract } from "../types/contracts.js";
 
 export function renderPrompts(prompts: readonly PromptContract[]): void {
   for (const prompt of prompts) {
-    copyPath(fromRepo(prompt.legacySourcePath), fromRepo(prompt.filePath));
+    copyPath(fromRepo(prompt.sourcePath), fromRepo(prompt.filePath));
   }
 }

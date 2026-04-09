@@ -44,3 +44,18 @@ The approval slash command SHALL update the summary pointer and advance the run 
 #### Scenario: Approve accepts apply
 - **WHEN** `/specflow.approve` completes successfully
 - **THEN** the command definition SHALL include `specflow-run advance "<CHANGE_ID>" accept_apply`
+
+### Requirement: Branch-path commands SHALL use synthetic runs
+The branch-path slash commands SHALL initialize synthetic runs before emitting `explore_*` and `spec_bootstrap_*` events.
+
+#### Scenario: Explore command records branch transitions
+- **WHEN** `/specflow.explore` enters the explore branch path
+- **THEN** the command definition SHALL include `specflow-run start "<RUN_ID>" --run-kind synthetic`
+- **THEN** it SHALL include `specflow-run advance "<RUN_ID>" explore_start`
+- **THEN** it SHALL include `specflow-run advance "<RUN_ID>" explore_complete`
+
+#### Scenario: Spec bootstrap command records branch transitions
+- **WHEN** `/specflow.spec` enters the spec bootstrap branch path
+- **THEN** the command definition SHALL include `specflow-run start "<RUN_ID>" --run-kind synthetic`
+- **THEN** it SHALL include `specflow-run advance "<RUN_ID>" spec_bootstrap_start`
+- **THEN** it SHALL include `specflow-run advance "<RUN_ID>" spec_bootstrap_complete`

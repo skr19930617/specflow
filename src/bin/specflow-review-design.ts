@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { moduleRepoRoot, printJson, tryExec } from "../lib/process.js";
+import { moduleRepoRoot, printSchemaJson, tryExec } from "../lib/process.js";
 import { tryGit } from "../lib/git.js";
 import {
   actionableCount,
@@ -511,7 +511,7 @@ Subcommands:
     default:
       die(`Error: unknown subcommand '${subcommand}'. Available: review, fix-review, autofix-loop`);
   }
-  printJson(result);
+  printSchemaJson("review-design-result", result);
 }
 
 main();

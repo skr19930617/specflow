@@ -1,6 +1,6 @@
 import type { DesignArtifactNextResult, DesignArtifactValidateResult } from "../types/contracts.js";
 import { parseJson, tryParseJson } from "../lib/json.js";
-import { printJson, resolveCommand, tryExec } from "../lib/process.js";
+import { printSchemaJson, resolveCommand, tryExec } from "../lib/process.js";
 
 function usage(): never {
   process.stderr.write(`Usage: specflow-design-artifacts <subcommand> <CHANGE_ID>
@@ -20,12 +20,12 @@ function openspec(args: readonly string[]) {
 function cmdNext(changeId: string): never {
   const statusResult = openspec(["status", "--change", changeId, "--json"]);
   if (statusResult.status !== 0) {
-    printJson({ status: "error", error: "openspec status failed" } satisfies DesignArtifactNextResult);
+    printSchemaJson("design-artifact-next", { status: "error", error: "openspec status failed" } satisfies DesignArtifactNextResult);
     process.exit(1);
   }
   const statusJson = parseJson<Record<string, unknown>>(statusResult.stdout, "openspec status");
   if (statusJson.isComplete === true) {
-    printJson({ status: "complete" } satisfies DesignArtifactNextResult);
+    printSchemaJson("design-artifact-next", { status: "complete" } satisfies DesignArtifactNextResult);
     process.exit(0);
   }
 
@@ -35,7 +35,7 @@ function cmdNext(changeId: string): never {
     const blocked = artifacts
       .filter((artifact) => artifact && typeof artifact === "object" && (artifact as { status?: unknown }).status === "blocked")
       .map((artifact) => String((artifact as { id?: unknown }).id ?? ""));
-    printJson({ status: "blocked", blocked } satisfies DesignArtifactNextResult);
+    printSchemaJson("design-artifact-next", { status: "blocked", blocked } satisfies DesignArtifactNextResult);
     process.exit(1);
   }
 
@@ -43,14 +43,14 @@ function cmdNext(changeId: string): never {
   process.stderr.write(`Fetching instructions for artifact: ${artifactId}\n`);
   const instructionsResult = openspec(["instructions", artifactId, "--change", changeId, "--json"]);
   if (instructionsResult.status !== 0) {
-    printJson({ status: "error", error: `openspec instructions failed for ${artifactId}` } satisfies DesignArtifactNextResult);
+    printSchemaJson("design-artifact-next", { status: "error", error: `openspec instructions failed for ${artifactId}` } satisfies DesignArtifactNextResult);
     process.exit(1);
   }
   const instructions = parseJson<Record<string, unknown>>(instructionsResult.stdout, "openspec instructions");
   const outputPath = instructions.outputPath == null ? undefined : String(instructions.outputPath);
   const template = instructions.template == null ? undefined : String(instructions.template);
   const instruction = instructions.instruction == null ? undefined : String(instructions.instruction);
-  printJson({
+  printSchemaJson("design-artifact-next", {
     status: "ready",
     artifactId,
     outputPath,
@@ -74,15 +74,15 @@ function cmdValidate(changeId: string): never {
   const result = openspec(["validate", changeId, "--type", "change", "--json"]);
   const parsed = tryParseJson<Record<string, unknown>>(result.stdout || result.stderr);
   if (!parsed) {
-    printJson({ status: "error", error: result.stdout || result.stderr } satisfies DesignArtifactValidateResult);
+    printSchemaJson("design-artifact-validate", { status: "error", error: result.stdout || result.stderr } satisfies DesignArtifactValidateResult);
     process.exit(1);
   }
   const valid = Boolean(((parsed.items as unknown[] | undefined)?.[0] as { valid?: unknown } | undefined)?.valid);
   if (valid) {
-    printJson({ status: "valid" } satisfies DesignArtifactValidateResult);
+    printSchemaJson("design-artifact-validate", { status: "valid" } satisfies DesignArtifactValidateResult);
     process.exit(0);
   }
-  printJson({ ...parsed, status: "invalid" } satisfies DesignArtifactValidateResult);
+  printSchemaJson("design-artifact-validate", { ...parsed, status: "invalid" } satisfies DesignArtifactValidateResult);
   process.exit(1);
 }
 

@@ -49,7 +49,7 @@ export interface PromptContract {
   readonly id: string;
   readonly type: typeof AssetType.Prompt;
   readonly filePath: string;
-  readonly legacySourcePath: string;
+  readonly sourcePath: string;
   readonly references: readonly string[];
 }
 
@@ -58,8 +58,9 @@ export interface OrchestratorContract {
   readonly type: typeof AssetType.Orchestrator;
   readonly filePath: string;
   readonly entryModule: string;
-  readonly resultSchemaId?: string;
-  readonly legacyFallbackPath?: string;
+  readonly stdinSchemaId?: SchemaId;
+  readonly stdoutSchemaId?: SchemaId;
+  readonly stderrSchemaId?: SchemaId;
   readonly references: readonly string[];
 }
 
@@ -83,7 +84,7 @@ export interface TemplateAssetContract {
   readonly id: string;
   readonly type: typeof AssetType.Template;
   readonly filePath: string;
-  readonly legacySourcePath: string;
+  readonly sourcePath: string;
 }
 
 export interface InstallLinkContract {
@@ -146,7 +147,7 @@ export interface InstallPlan {
   readonly settingsMerge: InstallSettingsMergeContract;
 }
 
-export type ResultSchemaId =
+export type SchemaId =
   | "issue-metadata"
   | "diff-summary"
   | "design-artifact-next"
@@ -155,7 +156,9 @@ export type ResultSchemaId =
   | "init-project"
   | "review-apply-result"
   | "review-design-result"
-  | "run-state";
+  | "run-state"
+  | "create-sub-issues-input"
+  | "create-sub-issues-result";
 
 export type ReviewSeverity = "high" | "medium" | "low" | string;
 export type ReviewFindingStatus = "new" | "open" | "resolved" | "accepted_risk" | "ignored" | string;
@@ -173,6 +176,40 @@ export interface IssueMetadata extends JsonMap {
   readonly assignees?: readonly JsonMap[];
   readonly author?: JsonMap | null;
   readonly state?: string;
+}
+
+export type RunKind = "change" | "synthetic";
+
+export interface RunHistoryEntry extends JsonMap {
+  readonly from: string;
+  readonly to: string;
+  readonly event: string;
+  readonly timestamp: string;
+}
+
+export interface RunAgents extends JsonMap {
+  readonly main: string;
+  readonly review: string;
+}
+
+export interface RunState extends JsonMap {
+  readonly run_id: string;
+  readonly change_name: string | null;
+  readonly current_phase: string;
+  readonly status: string;
+  readonly allowed_events: readonly string[];
+  readonly issue: JsonMap | null;
+  readonly project_id: string;
+  readonly repo_name: string;
+  readonly repo_path: string;
+  readonly branch_name: string;
+  readonly worktree_path: string;
+  readonly agents: RunAgents;
+  readonly last_summary_path: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+  readonly history: readonly RunHistoryEntry[];
+  readonly run_kind?: RunKind;
 }
 
 export interface DiffExcludedEntry extends JsonMap {
@@ -349,4 +386,55 @@ export interface AnalyzeProjectResult extends JsonMap {
   readonly config_files: readonly string[];
   readonly contributing: string | null;
   readonly keywords: readonly string[];
+}
+
+export interface InitProjectResult extends JsonMap {
+  readonly mode: "init" | "update";
+  readonly project_name: string | null;
+  readonly location: string;
+  readonly main_agent?: string;
+  readonly review_agent?: string;
+  readonly track_claude_dir?: boolean;
+  readonly openspec_initialized?: boolean;
+  readonly created_files: readonly string[];
+  readonly updated_files: readonly string[];
+  readonly installed_commands: readonly string[];
+  readonly warnings: readonly string[];
+}
+
+export interface CreateSubIssueCreated extends JsonMap {
+  readonly phase_number: number;
+  readonly issue_number: number;
+  readonly issue_url: string;
+  readonly title: string;
+}
+
+export interface CreateSubIssueFailed extends JsonMap {
+  readonly phase_number: number;
+  readonly title: string;
+  readonly error: string;
+}
+
+export interface CreateSubIssueInputItem extends JsonMap {
+  readonly phase_number: number;
+  readonly title: string;
+  readonly description: string;
+  readonly requirements: readonly string[];
+  readonly acceptance_criteria: readonly string[];
+  readonly phase_total: number;
+}
+
+export interface CreateSubIssuesInput extends JsonMap {
+  readonly parent_issue_number: number;
+  readonly repo: string;
+  readonly run_timestamp: string;
+  readonly sub_features: readonly CreateSubIssueInputItem[];
+  readonly skip_comment?: boolean;
+}
+
+export interface CreateSubIssuesResult extends JsonMap {
+  readonly created: readonly CreateSubIssueCreated[];
+  readonly failed: readonly CreateSubIssueFailed[];
+  readonly summary_comment_posted: boolean;
+  readonly parent_issue_number: number;
 }

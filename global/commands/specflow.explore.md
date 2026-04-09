@@ -165,7 +165,7 @@ Optionally capture explore branch transitions when using a synthetic run id.
 
 ```bash
 SYNTHETIC_RUN_ID="_explore_$(date +%Y%m%d-%H%M%S)"
-specflow-run start "$SYNTHETIC_RUN_ID"
+specflow-run start "$SYNTHETIC_RUN_ID" --run-kind synthetic
 specflow-run advance "$SYNTHETIC_RUN_ID" explore_start
 # ... exploration ...
 specflow-run advance "$SYNTHETIC_RUN_ID" explore_complete

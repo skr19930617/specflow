@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 import { matchesGlobPattern } from "../lib/glob.js";
-import { tryExec } from "../lib/process.js";
+import { printSchemaJson, tryExec } from "../lib/process.js";
 import type { DiffExcludedEntry, DiffSummary } from "../types/contracts.js";
 
 const HELP_TEXT = `Usage: specflow-filter-diff [-- <pathspec>...]
@@ -70,7 +70,7 @@ function git(args: readonly string[]) {
 }
 
 function printSummary(summary: DiffSummary): void {
-  process.stderr.write(`${JSON.stringify(summary)}\n`);
+  printSchemaJson("diff-summary", summary, { stream: "stderr", pretty: false });
 }
 
 function main(): void {

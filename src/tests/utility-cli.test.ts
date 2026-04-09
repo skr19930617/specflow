@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   addImplementationDiff,
@@ -31,6 +31,19 @@ test("specflow-fetch-issue matches legacy output", () => {
     assert.equal(nodeResult.status, legacyResult.status);
     assert.equal(nodeResult.stdout, legacyResult.stdout);
     assert.equal(nodeResult.stderr, legacyResult.stderr);
+  } finally {
+    removeTempDir(tempRoot);
+  }
+});
+
+test("specflow-fetch-issue fails on invalid metadata contract", () => {
+  const tempRoot = makeTempDir("fetch-issue-invalid-");
+  try {
+    const stubDir = createGhStub(tempRoot, '{"number":71,"url":"https://github.com/test/repo/issues/71"}\n');
+    const env = prependPath({ HOME: createInstalledHome(tempRoot) }, stubDir);
+    const result = runNodeCli("specflow-fetch-issue", ["https://github.com/test/repo/issues/71"], repoRoot, env);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /does not satisfy schema 'issue-metadata'/);
   } finally {
     removeTempDir(tempRoot);
   }
@@ -119,6 +132,10 @@ test("specflow-init --update refreshes installed commands from manifest", () => 
     writeFileSync(join(repoPath, "CLAUDE.md"), "custom\n", "utf8");
     const result = runNodeCli("specflow-init", ["--update"], repoPath, { HOME: home }, "n\n");
     assert.equal(result.status, 0, result.stderr);
+    const json = JSON.parse(result.stdout) as { mode: string; location: string; installed_commands: string[] };
+    assert.equal(json.mode, "update");
+    assert.equal(realpathSync(json.location), realpathSync(repoPath));
+    assert.ok(json.installed_commands.includes("specflow"));
     assert.ok(existsSync(join(repoPath, ".mcp.json")));
     assert.ok(existsSync(join(home, ".claude/commands/specflow.md")));
   } finally {

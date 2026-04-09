@@ -4,6 +4,6 @@ import type { TemplateAssetContract } from "../types/contracts.js";
 
 export function renderTemplates(templates: readonly TemplateAssetContract[]): void {
   for (const template of templates) {
-    copyPath(fromRepo(template.legacySourcePath), fromRepo(template.filePath));
+    copyPath(fromRepo(template.sourcePath), fromRepo(template.filePath));
   }
 }
