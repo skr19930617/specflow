@@ -8,3 +8,7 @@
 # Specflow local env
 .specflow/config.env
 .specflow/runs/
+
+# Node
+node_modules/
+dist/

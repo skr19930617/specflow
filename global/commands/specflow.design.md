@@ -88,20 +88,23 @@ If any are incomplete, report which artifacts are missing and ask the user how t
 
 ## Step 4: Validate
 
-Run the orchestrator:
+Run:
 ```bash
-specflow-design-artifacts validate <CHANGE_ID>
+openspec validate "<CHANGE_ID>" --type change --json
 ```
 
-Capture stdout as `VALIDATE_JSON`. Parse as JSON.
-
-Handle result by `VALIDATE_JSON.status`:
-
-**`"valid"`** — Validation passed. Report success and continue to Step 5.
-
-**`"invalid"`** — Validation found issues. Present the validation results to the user. Let the user decide whether to fix them or continue.
-
-**`"error"`** — Display `VALIDATE_JSON.error` and **STOP**.
+Parse the JSON response:
+- If `valid: true`: Report `Step 4 complete — Validation passed`
+- If `valid: false`: Display the issues table:
+  ```
+  | Level | Path | Message |
+  |-------|------|---------|
+  | ERROR | ... | ... |
+  ```
+  Use `AskUserQuestion` to let the user decide:
+  - **"修正して続行"** — Fix the issues and re-run validation
+  - **"このまま続行"** — Proceed despite validation errors
+  - **"中止"** — Stop the workflow
 
 ## Step 5: Codex Design Review
 
@@ -123,4 +126,4 @@ This will:
 - All artifacts are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - Artifact generation (Step 2) is driven by calling `specflow-design-artifacts next` in a loop. The LLM generates artifact content; the orchestrator manages the dependency graph and readiness.
-- Validation (Step 4) is delegated to `specflow-design-artifacts validate`.
+- Validation (Step 4) uses `openspec validate "<CHANGE_ID>" --type change --json`.

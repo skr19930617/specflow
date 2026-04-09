@@ -518,10 +518,10 @@ ledger_compute_score() {
 
 ledger_persist_max_finding_id() {
   jq -c '
-    [(.findings // [])[] | .id // "" |
-     capture("F0*(?<n>[0-9]+)$") | .n | tonumber
-    ] | (max // 0) as $max_id |
-    . + { max_finding_id: $max_id }
+    ([(.findings // [])[] | .id // "" |
+      capture("F0*(?<n>[0-9]+)$") | .n | tonumber
+    ] | max // 0) as $max_id |
+    .max_finding_id = $max_id
   '
 }
 

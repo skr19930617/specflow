@@ -55,7 +55,7 @@ error_json() {
 read_config() {
   local config="${PROJECT_ROOT}/openspec/config.yaml"
   if [[ -f "$config" ]]; then
-    MAX_AUTOFIX_ROUNDS="$(grep -E '^\s*max_autofix_rounds:' "$config" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '[:space:]')"
+    MAX_AUTOFIX_ROUNDS="$(grep -E '^\s*max_autofix_rounds:' "$config" 2>/dev/null | head -1 | sed 's/.*: *//' | tr -d '[:space:]' || true)"
     if [[ ! "$MAX_AUTOFIX_ROUNDS" =~ ^[0-9]+$ ]] || (( MAX_AUTOFIX_ROUNDS < 1 || MAX_AUTOFIX_ROUNDS > 10 )); then
       MAX_AUTOFIX_ROUNDS=4
     fi
@@ -186,15 +186,21 @@ FIXEOF
 
 call_codex() {
   local prompt_file="$1"
-  local output exit_code=0
+  local output_file exit_code=0
+  output_file="$(mktemp /tmp/specflow-codex-output-XXXXX)"
 
-  output="$(codex --approval-mode full-auto -q "$(cat "$prompt_file")" 2>/dev/null)" || exit_code=$?
+  codex exec --full-auto --ephemeral -o "$output_file" "$(cat "$prompt_file")" >/dev/null 2>/dev/null || exit_code=$?
   rm -f "$prompt_file"
 
   if [[ $exit_code -ne 0 ]]; then
+    rm -f "$output_file"
     echo "__CODEX_EXIT_${exit_code}__"
     return 1
   fi
+
+  local output
+  output="$(cat "$output_file" 2>/dev/null)"
+  rm -f "$output_file"
 
   if [[ -z "$output" ]]; then
     echo "__CODEX_EMPTY__"

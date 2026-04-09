@@ -1,0 +1,104 @@
+{
+  "feature_id": "registry-validation-manifest",
+  "phase": "design",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 5,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "title": "Registry completeness is not actually validated against the filesystem",
+      "detail": "The design relies on a manual registry plus a `file-exists` checker, but that only proves registered paths exist. It does not catch the acceptance-criteria failure where a real asset exists on disk but is missing from the registry. As written, the design cannot enforce that every `global/commands/*.md`, every `global/prompts/*.md`, and every executable in `bin/` has a corresponding registry entry. Add a completeness checker that scans those locations and compares them to the registry, failing on missing or extra entries.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "`handoffTargets` and `agentRoles` are modeled inconsistently between the design, types, and tasks",
+      "detail": "The design says commands, prompts, orchestrators, handoff targets, and agent roles are all asset types and the manifest must expose top-level `handoffTargets` and `agentRoles`, but the task list only creates registry entries for commands/prompts/orchestrators and treats handoff targets and agent roles as references on commands. That leaves the required manifest sections underspecified and does not resolve how these asset types satisfy the common entry contract (`id`, `type`, `filePath`, `references`). Pick one concrete model for these two groups and align `types.ts`, `registry.ts`, validation rules, and manifest generation tasks to that model.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "The modified `openspec validate` requirement is only checked, not implemented",
+      "detail": "Task 4.6 adds a syntax checker, but there is no task to update the existing command files that must comply with the modified spec. In the current repository, `global/commands/specflow.design.md` still validates through `specflow-design-artifacts validate <CHANGE_ID>` instead of `openspec validate \"<CHANGE_ID>\" --type change --json`, so the acceptance criterion cannot pass without explicit source edits. Add tasks to patch the affected command markdown files before or alongside the new checker.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/changes/registry-validation-manifest/tasks.md",
+      "title": "The plan never adds the promised `tsc --noEmit` type-check gate",
+      "detail": "Decision D1 relies on `tsc --noEmit` as a separate validation step, but the tasks only install TypeScript and wire `npm run validate:registry` to `tsx src/validate.ts`. Because `tsx` executes without type-checking, registry/schema typing mistakes can still pass the planned workflow. Add an explicit task and script for `tsc --noEmit`, and make the validation workflow or CI run it before the registry work is considered complete.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F05",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "openspec/changes/registry-validation-manifest/design.md",
+      "title": "`handoffTargets` are modeled as aliases instead of the command IDs the spec requires",
+      "detail": "The spec says every handoff target referenced in a command must exist as a registered command. D3 and task 5.4 instead validate command references against `registry.handoffTargets` aliases that only later resolve to commands. That permits a non-command alias ID to validate even though no command with that ID exists, and it adds an unnecessary indirection for manifest consumers. Constrain handoff-target IDs to be registered command IDs, or validate handoff references directly against `registry.commands` and derive the `handoffTargets` manifest group from that command set.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 2,
+      "new": 2,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      }
+    }
+  ]
+}
