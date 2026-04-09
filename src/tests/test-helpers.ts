@@ -69,17 +69,18 @@ export function createInstalledHome(root: string): string {
   const promptsTarget = join(home, ".config/specflow/global/prompts");
   const commandsTarget = join(home, ".config/specflow/global/commands");
   const templateTarget = join(home, ".config/specflow/template");
+  const packageRoot = resolve(repoRoot, "dist/package");
   mkdirSync(promptsTarget, { recursive: true });
   mkdirSync(commandsTarget, { recursive: true });
   mkdirSync(templateTarget, { recursive: true });
-  for (const file of readdirSync(resolve(repoRoot, "global/prompts"))) {
-    copyFileSync(resolve(repoRoot, "global/prompts", file), join(promptsTarget, file));
+  for (const file of readdirSync(resolve(packageRoot, "global/prompts"))) {
+    copyFileSync(resolve(packageRoot, "global/prompts", file), join(promptsTarget, file));
   }
-  for (const file of readdirSync(resolve(repoRoot, "global/commands"))) {
-    copyFileSync(resolve(repoRoot, "global/commands", file), join(commandsTarget, file));
+  for (const file of readdirSync(resolve(packageRoot, "global/commands"))) {
+    copyFileSync(resolve(packageRoot, "global/commands", file), join(commandsTarget, file));
   }
-  copyFileSync(resolve(repoRoot, "template/.mcp.json"), join(templateTarget, ".mcp.json"));
-  copyFileSync(resolve(repoRoot, "template/CLAUDE.md"), join(templateTarget, "CLAUDE.md"));
+  copyFileSync(resolve(packageRoot, "template/.mcp.json"), join(templateTarget, ".mcp.json"));
+  copyFileSync(resolve(packageRoot, "template/CLAUDE.md"), join(templateTarget, "CLAUDE.md"));
   return home;
 }
 

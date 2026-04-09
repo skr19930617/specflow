@@ -50,6 +50,7 @@ export interface PromptContract {
   readonly type: typeof AssetType.Prompt;
   readonly filePath: string;
   readonly sourcePath: string;
+  readonly outputExample?: PromptTemplateValue;
   readonly references: readonly string[];
 }
 
@@ -146,6 +147,20 @@ export interface InstallPlan {
   readonly links: readonly InstallLinkContract[];
   readonly settingsMerge: InstallSettingsMergeContract;
 }
+
+export interface PromptRawValue {
+  readonly kind: "raw";
+  readonly value: string;
+}
+
+export type PromptTemplateValue =
+  | string
+  | number
+  | boolean
+  | null
+  | PromptRawValue
+  | readonly PromptTemplateValue[]
+  | { readonly [key: string]: PromptTemplateValue };
 
 export type SchemaId =
   | "issue-metadata"

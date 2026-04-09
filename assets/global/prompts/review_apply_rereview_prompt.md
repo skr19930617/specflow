@@ -57,31 +57,4 @@ Severity guide:
 
 Return strict JSON only. No markdown, no prose before or after the JSON.
 
-{
-  "decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK",
-  "resolved_previous_findings": [
-    {
-      "id": "R1-F01",
-      "note": "description of how the issue was resolved"
-    }
-  ],
-  "still_open_previous_findings": [
-    {
-      "id": "R1-F02",
-      "severity": "high" | "medium" | "low",
-      "note": "description of why the issue is still open"
-    }
-  ],
-  "new_findings": [
-    {
-      "id": "F3",
-      "severity": "high" | "medium" | "low",
-      "category": "correctness" | "completeness" | "quality" | "scope" | "testing" | "error_handling" | "forbidden_files" | "performance",
-      "file": "path/to/file",
-      "title": "short title",
-      "detail": "what is wrong and how to fix it"
-    }
-  ],
-  "summary": "short summary of review results",
-  "ledger_error": false
-}
+{{OUTPUT_SCHEMA}}

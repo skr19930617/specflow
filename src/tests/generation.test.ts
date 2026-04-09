@@ -44,6 +44,22 @@ test("generated contracts no longer reference legacy asset paths", () => {
   assert.equal(contractsJson.includes(archivedTree), false);
 });
 
+test("prompt templates render contract-driven output schemas", () => {
+  const designPrompt = readFileSync("global/prompts/review_design_prompt.md", "utf8");
+  const applyRereviewPrompt = readFileSync("global/prompts/review_apply_rereview_prompt.md", "utf8");
+
+  assert.equal(designPrompt.includes("{{OUTPUT_SCHEMA}}"), false);
+  assert.ok(designPrompt.includes(`"decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK"`));
+  assert.ok(applyRereviewPrompt.includes(`"ledger_error": false`));
+  assert.ok(applyRereviewPrompt.includes(`"resolved_previous_findings": [`));
+});
+
+test("build emits a dist package for installer assets", () => {
+  assert.ok(existsSync("dist/package/global/prompts/review_design_prompt.md"));
+  assert.ok(existsSync("dist/package/global/commands/specflow.md"));
+  assert.ok(existsSync("dist/package/template/CLAUDE.md"));
+});
+
 test("main branch no longer carries the in-tree legacy runtime", () => {
   const archivedTree = ["legacy", "v1"].join("/");
   const retiredWrapper = ["legacy", "wrapper.ts"].join("-");

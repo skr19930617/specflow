@@ -17,17 +17,4 @@ Severity guide:
 - low: style nit, minor improvement suggestion, optional optimization
 
 Return strict JSON:
-{
-  "decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK",
-  "findings": [
-    {
-      "id": "F1",
-      "severity": "high" | "medium" | "low",
-      "category": "correctness" | "completeness" | "quality" | "scope" | "testing" | "error_handling" | "forbidden_files" | "performance",
-      "file": "path/to/file",
-      "title": "short title",
-      "detail": "what is wrong and how to fix it"
-    }
-  ],
-  "summary": "short summary"
-}
+{{OUTPUT_SCHEMA}}

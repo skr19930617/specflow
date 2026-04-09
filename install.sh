@@ -42,11 +42,11 @@ else
     "$SPECFLOW_REPO" "$CLONE_DIR"
 fi
 
-info "Building generated assets..."
+info "Building distribution bundle..."
 npm --prefix "$CLONE_DIR" run build >/dev/null
 
-info "Installing manifest-driven assets..."
-"$CLONE_DIR/bin/specflow-install"
+info "Installing generated distribution bundle..."
+node "$CLONE_DIR/dist/bin/specflow-install.js"
 
 echo
 success "specflow installed successfully!"

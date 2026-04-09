@@ -4,6 +4,7 @@ import { validateContracts, createManifest } from "./lib/contracts.js";
 import { renderCommands } from "./generators/commands.js";
 import { renderInstallPlan } from "./generators/install-plan.js";
 import { renderPrompts } from "./generators/prompts.js";
+import { renderReleasePackage } from "./generators/release-package.js";
 import { renderStaticAssets } from "./generators/static-assets.js";
 import { renderTemplates } from "./generators/templates.js";
 import { renderWorkflow } from "./generators/workflow.js";
@@ -33,6 +34,7 @@ function main(): void {
   renderCommands(contracts.commands);
   renderTemplates(contracts.templates);
   renderStaticAssets();
+  renderReleasePackage();
 
   const installPlan = {
     copies: contracts.installCopies,

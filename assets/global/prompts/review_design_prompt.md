@@ -46,16 +46,4 @@ Output rules:
 - If there are no blocking findings, return an empty findings array
 
 Return exactly this schema:
-{
-  "decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK",
-  "findings": [
-    {
-      "id": "P1",
-      "severity": "high" | "medium" | "low",
-      "category": "completeness" | "feasibility" | "ordering" | "granularity" | "scope" | "consistency" | "risk",
-      "title": "short title",
-      "detail": "what is wrong and how to fix it"
-    }
-  ],
-  "summary": "short summary assessing implementation readiness"
-}
+{{OUTPUT_SCHEMA}}

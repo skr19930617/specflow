@@ -38,6 +38,7 @@ function mergeSettings(sourcePath: string, targetPath: string): void {
 
 function install(): void {
   const root = moduleRepoRoot(import.meta.url);
+  const packageRoot = resolve(root, "dist/package");
   const installPlan = loadJson<InstallPlan>(resolve(root, "dist/install-plan.json"));
   const manifest = loadJson<Manifest>(resolve(root, "dist/manifest.json"));
 
@@ -46,7 +47,7 @@ function install(): void {
   out("");
 
   for (const copy of installPlan.copies) {
-    const sourcePath = resolve(root, copy.sourcePath);
+    const sourcePath = resolve(packageRoot, copy.sourcePath);
     const targetPath = expandHome(copy.targetPath);
     if (copy.sourceKind === "directory" && existsSync(targetPath)) {
       rmSync(targetPath, { recursive: true, force: true });
@@ -84,14 +85,14 @@ function install(): void {
   const claudeCommandsDir = expandHome("$HOME/.claude/commands");
   mkdirSync(claudeCommandsDir, { recursive: true });
   for (const command of manifest.commands) {
-    const sourcePath = resolve(root, command.filePath);
+    const sourcePath = resolve(packageRoot, command.filePath);
     const targetPath = join(claudeCommandsDir, command.filePath.split("/").pop() ?? `${command.id}.md`);
     copyPath(sourcePath, targetPath);
     out(`installed command ${command.id}`);
   }
 
   mergeSettings(
-    resolve(root, installPlan.settingsMerge.sourcePath),
+    resolve(packageRoot, installPlan.settingsMerge.sourcePath),
     expandHome(installPlan.settingsMerge.targetPath),
   );
   out("merged Claude permissions");

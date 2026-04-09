@@ -22,10 +22,19 @@ test("manifest-driven installer deploys commands, links bins, and merges setting
     const manifest = JSON.parse(readFileSync(resolve(repoRoot, "dist/manifest.json"), "utf8")) as Manifest;
     const commandFiles = readdirSync(join(tempHome, ".claude/commands"));
     assert.equal(commandFiles.length, manifest.commands.length);
+    assert.equal(
+      readFileSync(join(tempHome, ".claude/commands", "specflow.review_apply.md"), "utf8"),
+      readFileSync(resolve(repoRoot, "dist/package/global/commands/specflow.review_apply.md"), "utf8"),
+    );
 
     const runLink = join(tempHome, "bin/specflow-run");
     assert.ok(existsSync(runLink));
     assert.ok(lstatSync(runLink).isSymbolicLink());
+
+    assert.equal(
+      readFileSync(join(tempHome, ".config/specflow/global/prompts/review_design_prompt.md"), "utf8"),
+      readFileSync(resolve(repoRoot, "dist/package/global/prompts/review_design_prompt.md"), "utf8"),
+    );
 
     const mergedSettings = JSON.parse(readFileSync(join(settingsDir, "settings.json"), "utf8")) as {
       permissions: { allow: string[] };
