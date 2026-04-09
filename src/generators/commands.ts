@@ -1,5 +1,5 @@
 import { writeText } from "../lib/fs.js";
-import { fromRepo } from "../lib/paths.js";
+import { fromDistribution } from "../lib/paths.js";
 import type { CommandContract } from "../types/contracts.js";
 
 function renderFrontmatter(contract: CommandContract): string {
@@ -53,6 +53,6 @@ export function renderCommands(commands: readonly CommandContract[]): void {
     ]
       .filter((part) => part.length > 0)
       .join("\n");
-    writeText(fromRepo(contract.filePath), `${nextContent.trimEnd()}\n`);
+    writeText(fromDistribution(contract.filePath), `${nextContent.trimEnd()}\n`);
   }
 }

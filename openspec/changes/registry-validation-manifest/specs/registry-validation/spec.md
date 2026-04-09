@@ -5,11 +5,11 @@ The system SHALL provide a TypeScript typed registry that declares all specflow 
 
 #### Scenario: Registry declares all command files
 - **WHEN** the registry is loaded
-- **THEN** every `.md` file in `global/commands/` SHALL have a corresponding entry with type `command`
+- **THEN** every `.md` file in `dist/package/global/commands/` SHALL have a corresponding entry with type `command`
 
 #### Scenario: Registry declares all prompt files
 - **WHEN** the registry is loaded
-- **THEN** every `.md` file in `global/prompts/` SHALL have a corresponding entry with type `prompt`
+- **THEN** every `.md` file in `dist/package/global/prompts/` SHALL have a corresponding entry with type `prompt`
 
 #### Scenario: Registry declares all orchestrator scripts
 - **WHEN** the registry is loaded

@@ -9,11 +9,11 @@ Additionally, the registry validation pipeline SHALL invoke `openspec validate` 
 
 #### Scenario: specflow.md の validate ステップが正しい構文を使用する
 - **WHEN** `/specflow` フローの Step 6: Validate が実行される
-- **THEN** `global/commands/specflow.md` 内の validate コマンドは `openspec validate "<CHANGE_ID>" --type change --json` の形式である
+- **THEN** `dist/package/global/commands/specflow.md` 内の validate コマンドは `openspec validate "<CHANGE_ID>" --type change --json` の形式である
 
 #### Scenario: specflow.design.md の validate ステップが正しい構文を使用する
 - **WHEN** `/specflow.design` フローの Step 4: Validate が実行される
-- **THEN** `global/commands/specflow.design.md` 内の validate コマンドは `openspec validate "<CHANGE_ID>" --type change --json` の形式である
+- **THEN** `dist/package/global/commands/specflow.design.md` 内の validate コマンドは `openspec validate "<CHANGE_ID>" --type change --json` の形式である
 
 #### Scenario: Registry validation includes command syntax check
 - **WHEN** `npm run validate:registry` is executed

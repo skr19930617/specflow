@@ -76,7 +76,7 @@ export function resolvePromptPath(runtimeRoot: string, promptFile: string): stri
   if (existsSync(installed)) {
     return installed;
   }
-  const local = resolve(runtimeRoot, "global/prompts", promptFile);
+  const local = resolve(runtimeRoot, "dist/package/global/prompts", promptFile);
   if (existsSync(local)) {
     return local;
   }

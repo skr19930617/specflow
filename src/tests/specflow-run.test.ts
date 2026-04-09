@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createFetchIssueStub, createFixtureRepo, makeTempDir, removeTempDir, runNodeCli } from "./test-helpers.js";
+import { createBareHome, createFetchIssueStub, createFixtureRepo, makeTempDir, removeTempDir, runNodeCli } from "./test-helpers.js";
 
 test("specflow-run supports lifecycle, issue metadata, and update-field", () => {
   const tempRoot = makeTempDir("specflow-run-");
@@ -95,6 +95,23 @@ test("specflow-run rejects old run schema and removed revise event", () => {
     const oldSchema = runNodeCli("specflow-run", ["status", changeId], repoPath);
     assert.notEqual(oldSchema.status, 0);
     assert.match(oldSchema.stderr, /missing required fields/);
+  } finally {
+    removeTempDir(tempRoot);
+  }
+});
+
+test("specflow-run falls back to module-local workflow when project and installed copies are absent", () => {
+  const tempRoot = makeTempDir("specflow-run-module-workflow-");
+  try {
+    const { repoPath, changeId } = createFixtureRepo(tempRoot);
+    rmSync(join(repoPath, "global"), { recursive: true, force: true });
+    const start = runNodeCli("specflow-run", ["start", changeId], repoPath, {
+      HOME: createBareHome(tempRoot),
+    });
+    assert.equal(start.status, 0, start.stderr);
+    const startJson = JSON.parse(start.stdout) as { current_phase: string; allowed_events: string[] };
+    assert.equal(startJson.current_phase, "start");
+    assert.ok(startJson.allowed_events.includes("propose"));
   } finally {
     removeTempDir(tempRoot);
   }

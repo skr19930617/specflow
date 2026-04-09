@@ -1,5 +1,5 @@
 import { writeText } from "../lib/fs.js";
-import { fromRepo } from "../lib/paths.js";
+import { fromDistribution } from "../lib/paths.js";
 import type { WorkflowContract } from "../types/contracts.js";
 
 export function renderWorkflow(workflow: WorkflowContract): void {
@@ -9,5 +9,5 @@ export function renderWorkflow(workflow: WorkflowContract): void {
     events: workflow.events,
     transitions: workflow.transitions,
   };
-  writeText(fromRepo(workflow.filePath), `${JSON.stringify(payload, null, 2)}\n`);
+  writeText(fromDistribution(workflow.filePath), `${JSON.stringify(payload, null, 2)}\n`);
 }

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   addDesignArtifacts,
   addImplementationDiff,
+  createBareHome,
   createCodexStub,
   createFixtureRepo,
   createInstalledHome,
@@ -165,6 +166,38 @@ test("specflow-review-design autofix-loop stops with no_progress after unchanged
     const json = JSON.parse(result.stdout) as { autofix: { result: string; total_rounds: number } };
     assert.equal(json.autofix.result, "no_progress");
     assert.equal(json.autofix.total_rounds, 2);
+  } finally {
+    removeTempDir(tempRoot);
+  }
+});
+
+test("specflow-review-design falls back to module-local prompts when no installed prompts exist", () => {
+  const tempRoot = makeTempDir("review-design-module-prompts-");
+  try {
+    const { repoPath, changeId } = createFixtureRepo(tempRoot);
+    addDesignArtifacts(repoPath, changeId);
+    const stubDir = createCodexStub(tempRoot);
+    const responsesPath = join(tempRoot, "codex-responses.json");
+    const statePath = join(tempRoot, "codex-state.txt");
+    writeFileSync(
+      responsesPath,
+      JSON.stringify([{ exitCode: 0, output: JSON.stringify({ decision: "OK", findings: [], summary: "done" }) }]),
+      "utf8",
+    );
+    writeFileSync(statePath, "0", "utf8");
+    const env = prependPath(
+      {
+        HOME: createBareHome(tempRoot),
+        SPECFLOW_TEST_CODEX_RESPONSES: responsesPath,
+        SPECFLOW_TEST_CODEX_STATE: statePath,
+      },
+      stubDir,
+    );
+    const result = runNodeCli("specflow-review-design", ["review", changeId], repoPath, env);
+    assert.equal(result.status, 0, result.stderr);
+    const json = JSON.parse(result.stdout) as { status: string; review: { summary: string } };
+    assert.equal(json.status, "success");
+    assert.equal(json.review.summary, "done");
   } finally {
     removeTempDir(tempRoot);
   }

@@ -224,7 +224,7 @@ The orchestrator `autofix-loop` subcommand SHALL manage the full auto-fix cycle 
 - **THEN** the orchestrator SHALL record a divergence warning of type `new_high_increase`
 
 #### Scenario: Fix prompt file fallback
-- **WHEN** `fix_design_prompt.md` is not found at `~/.config/specflow/global/prompts/`
+- **WHEN** `fix_design_prompt.md` is not found in either `~/.config/specflow/global/prompts/` or the module-local `dist/package/global/prompts/`
 - **THEN** the orchestrator SHALL use a generic fix instruction as fallback
 
 #### Scenario: Codex fix step failure in autofix round

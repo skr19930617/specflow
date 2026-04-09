@@ -52,12 +52,18 @@ function stateMachinePath(root: string): string {
     readFileSync(projectLocal, "utf8");
     return projectLocal;
   } catch {
-    const installed = resolve(process.env.HOME ?? "", ".config/specflow/global/workflow/state-machine.json");
+    const moduleLocal = resolve(moduleRepoRoot(import.meta.url), "dist/package/global/workflow/state-machine.json");
     try {
-      readFileSync(installed, "utf8");
-      return installed;
+      readFileSync(moduleLocal, "utf8");
+      return moduleLocal;
     } catch {
-      fail("Error: state-machine.json not found. Check global/workflow/ or ~/.config/specflow/global/workflow/");
+      const installed = resolve(process.env.HOME ?? "", ".config/specflow/global/workflow/state-machine.json");
+      try {
+        readFileSync(installed, "utf8");
+        return installed;
+      } catch {
+        fail("Error: state-machine.json not found. Check project global/workflow/, dist/package/global/workflow/, or ~/.config/specflow/global/workflow/");
+      }
     }
   }
 }

@@ -29,7 +29,7 @@ export function createFixtureRepo(root: string, changeId = "test-change"): { rep
 
   const workflowDir = join(repoPath, "global/workflow");
   mkdirSync(workflowDir, { recursive: true });
-  copyFileSync(resolve(repoRoot, "global/workflow/state-machine.json"), join(workflowDir, "state-machine.json"));
+  copyFileSync(resolve(repoRoot, "dist/package/global/workflow/state-machine.json"), join(workflowDir, "state-machine.json"));
   spawnSync("git", ["add", "."], { cwd: repoPath, stdio: "ignore" });
   spawnSync("git", ["commit", "--allow-empty", "-m", "init"], { cwd: repoPath, stdio: "ignore" });
 
@@ -81,6 +81,12 @@ export function createInstalledHome(root: string): string {
   }
   copyFileSync(resolve(packageRoot, "template/.mcp.json"), join(templateTarget, ".mcp.json"));
   copyFileSync(resolve(packageRoot, "template/CLAUDE.md"), join(templateTarget, "CLAUDE.md"));
+  return home;
+}
+
+export function createBareHome(root: string): string {
+  const home = join(root, "home");
+  mkdirSync(home, { recursive: true });
   return home;
 }
 

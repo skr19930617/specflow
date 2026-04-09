@@ -1,6 +1,6 @@
 ## Context
 
-specflow currently manages ~16 command files (`global/commands/*.md`), 5 prompt files (`global/prompts/*.md`), and 10 orchestrator scripts (`bin/specflow-*`). These assets cross-reference each other: commands invoke other commands as handoff targets, orchestrator scripts read prompt files at runtime, and commands embed `openspec validate` calls.
+specflow currently manages ~16 generated command files (`dist/package/global/commands/*.md`), 5 generated prompt files (`dist/package/global/prompts/*.md`), and 10 orchestrator scripts (`bin/specflow-*`). These assets cross-reference each other: commands invoke other commands as handoff targets, orchestrator scripts read prompt files at runtime, and commands embed `openspec validate` calls.
 
 Today, these references are validated only at runtime — a typo in a handoff target or a renamed prompt file silently breaks the flow until a user hits it. The codebase has no `package.json` or TypeScript setup; all logic is in Bash scripts and Markdown command files.
 
@@ -36,7 +36,7 @@ Today, these references are validated only at runtime — a typo in a handoff ta
 
 **Choice:** The registry is a hand-written TypeScript file (`src/registry.ts`) that explicitly lists all assets.
 
-**Rationale:** Auto-discovery would miss cross-reference metadata (which command references which prompt, handoff targets, etc.). Manual maintenance keeps metadata explicit and reviewable, while a separate completeness checker scans `global/commands/*.md`, `global/prompts/*.md`, and executable files in `bin/` to ensure file-backed assets are neither missing from nor extra in the registry. This preserves the registry as the source of truth for metadata without allowing it to silently drift from the filesystem.
+**Rationale:** Auto-discovery would miss cross-reference metadata (which command references which prompt, handoff targets, etc.). Manual maintenance keeps metadata explicit and reviewable, while a separate completeness checker scans `dist/package/global/commands/*.md`, `dist/package/global/prompts/*.md`, and executable files in `bin/` to ensure file-backed assets are neither missing from nor extra in the registry. This preserves the registry as the source of truth for metadata without allowing it to silently drift from the filesystem.
 
 **Alternatives considered:**
 - Auto-discovery with annotation: Scan files and extract metadata from frontmatter. More complex, requires markdown parsing, and cross-references still need manual declaration.

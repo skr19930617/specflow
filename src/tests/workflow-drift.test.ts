@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { workflowContract } from "../contracts/workflow.js";
 
 test("workflow contract matches generated state-machine", () => {
-  const rendered = JSON.parse(readFileSync("global/workflow/state-machine.json", "utf8")) as {
+  const rendered = JSON.parse(readFileSync("dist/package/global/workflow/state-machine.json", "utf8")) as {
     version: string;
     states: string[];
     events: string[];

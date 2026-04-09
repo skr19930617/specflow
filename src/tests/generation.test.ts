@@ -18,10 +18,10 @@ test("generated manifest and install plan reflect contracts", () => {
 });
 
 test("generated slash commands include run-state hook injections", () => {
-  const specflow = readFileSync("global/commands/specflow.md", "utf8");
-  const apply = readFileSync("global/commands/specflow.apply.md", "utf8");
-  const explore = readFileSync("global/commands/specflow.explore.md", "utf8");
-  const spec = readFileSync("global/commands/specflow.spec.md", "utf8");
+  const specflow = readFileSync("dist/package/global/commands/specflow.md", "utf8");
+  const apply = readFileSync("dist/package/global/commands/specflow.apply.md", "utf8");
+  const explore = readFileSync("dist/package/global/commands/specflow.explore.md", "utf8");
+  const spec = readFileSync("dist/package/global/commands/specflow.spec.md", "utf8");
 
   assert.ok(specflow.includes("## Run State Hooks"));
   assert.ok(specflow.includes("specflow-run start"));
@@ -45,8 +45,8 @@ test("generated contracts no longer reference legacy asset paths", () => {
 });
 
 test("prompt templates render contract-driven output schemas", () => {
-  const designPrompt = readFileSync("global/prompts/review_design_prompt.md", "utf8");
-  const applyRereviewPrompt = readFileSync("global/prompts/review_apply_rereview_prompt.md", "utf8");
+  const designPrompt = readFileSync("dist/package/global/prompts/review_design_prompt.md", "utf8");
+  const applyRereviewPrompt = readFileSync("dist/package/global/prompts/review_apply_rereview_prompt.md", "utf8");
 
   assert.equal(designPrompt.includes("{{OUTPUT_SCHEMA}}"), false);
   assert.ok(designPrompt.includes(`"decision": "APPROVE" | "REQUEST_CHANGES" | "BLOCK"`));
@@ -55,6 +55,8 @@ test("prompt templates render contract-driven output schemas", () => {
 });
 
 test("build emits a dist package for installer assets", () => {
+  assert.ok(existsSync("dist/package/global/claude-settings.json"));
+  assert.ok(existsSync("dist/package/global/workflow/state-machine.json"));
   assert.ok(existsSync("dist/package/global/prompts/review_design_prompt.md"));
   assert.ok(existsSync("dist/package/global/commands/specflow.md"));
   assert.ok(existsSync("dist/package/template/CLAUDE.md"));

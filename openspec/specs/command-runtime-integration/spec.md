@@ -13,7 +13,7 @@ The `/specflow` command definition SHALL initialize `specflow-run` for the creat
 - **THEN** it SHALL include `specflow-run advance "<CHANGE_ID>" propose`
 
 ### Requirement: Phase-entry commands SHALL advance the run state
-The phase-entry slash commands SHALL advance the run according to `global/workflow/state-machine.json`.
+The phase-entry slash commands SHALL advance the run according to the generated workflow definition asset (`dist/package/global/workflow/state-machine.json` in a repo build).
 
 #### Scenario: Design phase accepts proposal
 - **WHEN** `/specflow.design` begins design work for a change in `proposal`

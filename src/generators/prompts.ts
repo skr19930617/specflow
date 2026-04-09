@@ -1,5 +1,5 @@
 import { readText, writeText } from "../lib/fs.js";
-import { fromRepo } from "../lib/paths.js";
+import { fromDistribution, fromRepo } from "../lib/paths.js";
 import type { PromptContract, PromptRawValue, PromptTemplateValue } from "../types/contracts.js";
 
 const OUTPUT_SCHEMA_TOKEN = "{{OUTPUT_SCHEMA}}";
@@ -62,6 +62,6 @@ export function renderPrompts(prompts: readonly PromptContract[]): void {
     if (prompt.outputExample) {
       content = content.replace(OUTPUT_SCHEMA_TOKEN, renderPromptTemplateValue(prompt.outputExample));
     }
-    writeText(fromRepo(prompt.filePath), `${content.trimEnd()}\n`);
+    writeText(fromDistribution(prompt.filePath), `${content.trimEnd()}\n`);
   }
 }

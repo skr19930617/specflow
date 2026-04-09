@@ -75,11 +75,11 @@ The system SHALL provide a `specflow-run status <run_id>` command that outputs t
 - **THEN** the command SHALL output an error message
 
 ### Requirement: Transition validation against workflow definition
-The `advance` command SHALL load `global/workflow/state-machine.json` and validate that the requested event is a valid transition from the current state before applying it.
+The `advance` command SHALL load the generated workflow definition asset (`dist/package/global/workflow/state-machine.json` in a repo build, with project-local and installed overrides) and validate that the requested event is a valid transition from the current state before applying it.
 
 #### Scenario: Validation reads definition at runtime
 - **WHEN** a transition is requested
-- **THEN** the command SHALL read `global/workflow/state-machine.json` to determine validity
+- **THEN** the command SHALL read the workflow definition asset to determine validity
 - **THEN** the command SHALL NOT hardcode transition rules in the script itself
 
 #### Scenario: Modified definition is reflected immediately

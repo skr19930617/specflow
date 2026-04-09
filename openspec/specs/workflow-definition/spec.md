@@ -4,10 +4,10 @@
 TBD - created by archiving change workflow-state-machine. Update Purpose after archive.
 ## Requirements
 ### Requirement: Static workflow definition file
-The system SHALL maintain a machine-readable workflow definition at `global/workflow/state-machine.json` that declares all valid states, events, and transitions for the specflow mainline flow.
+The system SHALL maintain a machine-readable workflow definition asset at logical path `global/workflow/state-machine.json`, emitted in repo builds at `dist/package/global/workflow/state-machine.json`, that declares all valid states, events, and transitions for the specflow mainline flow.
 
 #### Scenario: Definition file exists and is valid JSON
-- **WHEN** the file `global/workflow/state-machine.json` is read
+- **WHEN** the file `dist/package/global/workflow/state-machine.json` is read
 - **THEN** it SHALL parse as valid JSON containing `states`, `events`, and `transitions` keys
 
 #### Scenario: Definition file is consumable by jq
