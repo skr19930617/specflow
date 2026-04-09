@@ -227,6 +227,56 @@ Codex CLI がインストール済みであれば追加設定は不要（Codex t
 | プロジェクト設定 | プロジェクトルートの `CLAUDE.md` | `/specflow.setup` でインタラクティブに設定 |
 | 外部テンプレート | 環境変数 `SPECFLOW_TEMPLATE_REPO` | 任意 — デフォルトはローカルテンプレート |
 
+## ワークフローコア
+
+specflow のワークフローは以下の 3 つのコアコンポーネントで管理される。詳細は [docs/architecture.md](docs/architecture.md) を参照。
+
+| コンポーネント | ファイル | 役割 |
+|---------------|---------|------|
+| State Machine | `global/workflow/state-machine.json` | 状態・イベント・遷移の宣言的定義 (v2.0) |
+| Run CLI | `bin/specflow-run` | 状態遷移の実行・検証・per-run メタデータ管理 |
+| Run State | `.specflow/runs/<run_id>/run.json` | per-run の状態・メタデータ・履歴 |
+
+### 状態遷移図
+
+```
+                        ┌─ explore_start ──→ [explore] ──→ explore_complete ─┐
+                        │                                                    │
+[start] ←──────────────┼────────────────────────────────────────────────────┘
+   │                    │
+   │                    └─ spec_bootstrap_start ──→ [spec_bootstrap] ──→ spec_bootstrap_complete ─→ [start]
+   │
+   └── propose ──→ [proposal] ──→ accept_proposal ──→ [design] ──→ accept_design ──→ [apply] ──→ accept_apply ──→ [approved]
+                       │                              │    ↺                        │    ↺                 
+                       │                              │ revise_design               │ revise_apply
+                       └── reject ──→ [rejected] ←────┘                            │
+                                           ↑───────────────────────────────────────┘
+```
+
+**v2.0 破壊的変更**: `revise` イベントは `revise_design` / `revise_apply` に分割されました。
+
+**ブランチパス**: `explore` と `spec_bootstrap` は state machine と specflow-run CLI で完全にサポートされていますが、現在のスラッシュコマンド（`/specflow.explore`, `/specflow.spec`）はこれらのイベントをまだ emit しません（非 change スコープのため run_id の戦略が未定）。
+
+### run.json メタデータ
+
+v2.0 の `run.json` は以下のフィールドを必須とします（`specflow-run start` 時に自動検出）:
+
+| フィールド | ソース |
+|-----------|--------|
+| `project_id` | `git remote get-url origin` → `owner/repo` |
+| `repo_name` | `project_id` と同値 |
+| `repo_path` | `git rev-parse --show-toplevel` |
+| `branch_name` | `git rev-parse --abbrev-ref HEAD` |
+| `worktree_path` | `git rev-parse --show-toplevel` |
+| `agents` | `{ main: "claude", review: "codex" }` (デフォルト) |
+| `last_summary_path` | `null` (approve 時に更新) |
+
+**マイグレーション不要**: 既存の run.json は `.specflow/runs/` に gitignore されており、ローカルのみ。旧スキーマの run は破棄して `specflow-run start` で再作成。
+
+### UI バインディングメタデータ分離
+
+配信固有のメタデータ（Slack チャンネル等）は `run.json` に含めず、`.specflow/runs/<run_id>/<ui>.json`（例: `slack.json`）に分離する命名規約。
+
 ## リポジトリアーキテクチャ
 
 このリポジトリには 2 種類のコンテンツが含まれる:
@@ -272,7 +322,10 @@ specflow/                        # このリポジトリ（ツール）
     specflow-filter-diff         #   diff フィルタリング
     specflow-init                #   プロジェクト初期化 / コマンド更新
     specflow-install             #   グローバルインストール（PATH, コマンド, 権限, テンプレート）
+    specflow-run                 #   ワークフロー状態遷移 CLI (start/advance/status/update-field)
   global/                        # グローバル設定・スラッシュコマンド
+    workflow/                    #   ワークフロー定義
+      state-machine.json         #     状態遷移定義 (v2.0)
     commands/                    #   スラッシュコマンド定義
     prompts/                     #   レビュー・ワークフロープロンプト
     claude-settings.json         #   ~/.claude/settings.json 用権限テンプレート

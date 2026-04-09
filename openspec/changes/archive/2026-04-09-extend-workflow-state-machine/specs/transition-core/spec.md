@@ -1,8 +1,5 @@
-# transition-core Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change workflow-state-machine. Update Purpose after archive.
-## Requirements
 ### Requirement: specflow-run start command
 The system SHALL provide a `specflow-run start <run_id>` command that initializes a new run with the `start` state, auto-detects project metadata, and creates the run state file.
 
@@ -60,42 +57,3 @@ The system SHALL provide a `specflow-run advance <run_id> <event>` command that 
 #### Scenario: Metadata preserved across transitions
 - **WHEN** any transition is applied
 - **THEN** all enriched metadata fields SHALL be preserved in the updated run state
-
-### Requirement: specflow-run status command
-The system SHALL provide a `specflow-run status <run_id>` command that outputs the current run state as JSON.
-
-#### Scenario: Status of existing run
-- **WHEN** `specflow-run status workflow-state-machine` is executed
-- **THEN** the command SHALL output the full run state JSON to stdout
-- **THEN** the command SHALL exit with code 0
-
-#### Scenario: Status of nonexistent run
-- **WHEN** `specflow-run status nonexistent-run` is executed
-- **THEN** the command SHALL exit with code 1
-- **THEN** the command SHALL output an error message
-
-### Requirement: Transition validation against workflow definition
-The `advance` command SHALL load `global/workflow/state-machine.json` and validate that the requested event is a valid transition from the current state before applying it.
-
-#### Scenario: Validation reads definition at runtime
-- **WHEN** a transition is requested
-- **THEN** the command SHALL read `global/workflow/state-machine.json` to determine validity
-- **THEN** the command SHALL NOT hardcode transition rules in the script itself
-
-#### Scenario: Modified definition is reflected immediately
-- **WHEN** `state-machine.json` is modified to add a new transition
-- **THEN** the next `advance` call SHALL recognize the new transition without restarting any process
-
-### Requirement: Command output format
-All `specflow-run` subcommands SHALL output JSON to stdout for success responses and plain text error messages to stderr for failures.
-
-#### Scenario: Success output is JSON
-- **WHEN** any subcommand succeeds
-- **THEN** stdout SHALL contain valid JSON
-- **THEN** stderr SHALL be empty
-
-#### Scenario: Error output to stderr
-- **WHEN** any subcommand fails
-- **THEN** stderr SHALL contain a human-readable error message
-- **THEN** the exit code SHALL be non-zero
-
