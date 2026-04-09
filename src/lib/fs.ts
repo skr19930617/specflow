@@ -1,5 +1,5 @@
-import { chmodSync, copyFileSync, cpSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { chmodSync, copyFileSync, cpSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 
 export function ensureDir(path: string): void {
   mkdirSync(path, { recursive: true });
@@ -8,6 +8,13 @@ export function ensureDir(path: string): void {
 export function writeText(path: string, content: string): void {
   ensureDir(dirname(path));
   writeFileSync(path, content, "utf8");
+}
+
+export function atomicWriteText(path: string, content: string): void {
+  ensureDir(dirname(path));
+  const tempPath = join(dirname(path), `.${basename(path)}.${process.pid}.${Date.now()}.tmp`);
+  writeFileSync(tempPath, content, "utf8");
+  renameSync(tempPath, path);
 }
 
 export function readText(path: string): string {

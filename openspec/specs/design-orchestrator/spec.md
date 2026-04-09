@@ -286,6 +286,12 @@ All subcommands SHALL output a unified result JSON schema to stdout matching the
 - **WHEN** the review pipeline completes successfully
 - **THEN** the result JSON SHALL contain `status: "success"`, `review`, `ledger`, and `handoff` objects
 
+#### Scenario: Design review result fields
+- **WHEN** the review or fix-review pipeline completes successfully
+- **THEN** the result JSON SHALL include top-level keys `status`, `action`, `change_id`, `review`, `ledger`, `autofix`, `handoff`, `rereview_classification`, and `error`
+- **THEN** `review` SHALL include `decision`, `summary`, `findings`, `rereview_mode`, `parse_error`, and `raw_response`
+- **THEN** `ledger` SHALL include `round`, `status`, `counts`, `by_severity`, and `round_summaries`
+
 #### Scenario: Error result JSON
 - **WHEN** any pipeline step fails fatally
 - **THEN** the result JSON SHALL contain `status: "error"` and `error` with a description
@@ -293,3 +299,8 @@ All subcommands SHALL output a unified result JSON schema to stdout matching the
 #### Scenario: Fix-review result includes re-review classification
 - **WHEN** the `fix-review` pipeline completes successfully
 - **THEN** the result JSON SHALL include a `rereview_classification` object with `resolved`, `still_open`, and `new_findings` arrays containing finding IDs, enabling the slash command to display the classification table
+
+#### Scenario: Ledger recovery prompt result
+- **WHEN** the ledger is corrupt and cannot be recovered from backup
+- **THEN** the result JSON SHALL contain `status: "success"` and `ledger_recovery: "prompt_user"`
+- **THEN** `review`, `ledger`, `autofix`, and `handoff` SHALL all be `null`

@@ -3,16 +3,19 @@ description: 全featureのレビュー台帳を集計し、ダッシュボード
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
 
+
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing: `"❌ openspec/ ディレクトリが見つかりません。"` → **STOP**.
 
 ## Step 1: Discover Features
+
 
 1. Run via Bash to get the repository root:
    ```bash
@@ -35,6 +38,7 @@ $ARGUMENTS
 
 ## Step 2: Collect Ledger Data
 
+
 For each feature directory found in Step 1:
 
 1. Extract the feature name from the directory path (e.g., `openspec/changes/007-current-phase` → `007-current-phase`).
@@ -53,6 +57,7 @@ For each feature directory found in Step 1:
      - `resolution_rate`: if `finding_count > 0`, compute `resolved_count / finding_count * 100` (rounded to integer). If `finding_count == 0`, record as "-"
 
 ## Step 3: Generate Dashboard Table
+
 
 Build a Markdown table with the following columns:
 
@@ -81,6 +86,7 @@ Where "reviewed" means the ledger file exists (regardless of error state).
 
 ## Step 4: Display and Save
 
+
 1. **Display in terminal**: Output the dashboard as a formatted CLI table. Use Markdown table syntax (which renders well in Claude Code's terminal output). Include the header, data rows, and summary line.
 
 2. **Save to file**: Write the dashboard to `openspec/review-dashboard.md` with the following format:
@@ -99,6 +105,7 @@ Where "reviewed" means the ledger file exists (regardless of error state).
 Report: `Dashboard saved to openspec/review-dashboard.md`
 
 ## Important Rules
+
 
 - Use the git repository root as the base for all relative paths.
 - Never modify ledger files — read-only access.

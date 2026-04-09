@@ -3,10 +3,12 @@ description: CLAUDE.md をインタラクティブに設定（Tech Stack, Comman
 ---
 ## Overview
 
+
 プロジェクトの CLAUDE.md をインタラクティブに設定する。
 ユーザーに質問しながら Tech Stack、Commands、Code Style セクションを埋める。
 
 ## Prerequisites
+
 
 1. Run `ls CLAUDE.md` via Bash to confirm CLAUDE.md exists.
    - If missing: "`CLAUDE.md` が見つかりません。先に `specflow-init` を実行してください。" → **STOP**.
@@ -14,6 +16,7 @@ description: CLAUDE.md をインタラクティブに設定（Tech Stack, Comman
 2. Read the current `CLAUDE.md` file to understand existing content.
 
 ## Step 1: Analyze Project [1/4]
+
 
 Automatically detect what you can from the project:
 
@@ -55,6 +58,7 @@ Report what you found:
 
 ## Step 2: Tech Stack の確認 [2/4]
 
+
 検出した内容をもとに、ユーザーに確認する:
 
 **質問:**
@@ -65,6 +69,7 @@ Report what you found:
 ユーザーの回答を待つ。修正があれば反映する。
 
 ## Step 3: Commands の確認 [3/4]
+
 
 検出したビルド・テスト・リントコマンドをもとに確認:
 
@@ -85,6 +90,7 @@ Report what you found:
 
 ## Step 4: Code Style の確認 [4/4]
 
+
 検出したスタイル設定をもとに確認:
 
 **質問:**
@@ -98,6 +104,7 @@ Report what you found:
 各質問をまとめて聞き、ユーザーの回答を待つ。
 
 ## Step 5: CLAUDE.md を更新
+
 
 ユーザーの回答をもとに CLAUDE.md を更新する。
 
@@ -133,6 +140,7 @@ CLAUDE.md を更新しました:
 ```
 
 ## Important Rules
+
 
 - CLAUDE.md の `## specflow Integration` セクションは絶対に変更しない。
 - `## MANUAL ADDITIONS` セクションの既存内容を消さない。

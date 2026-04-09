@@ -3,11 +3,13 @@ description: specflow で Design artifacts を生成し、Codex でレビュー
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
@@ -23,6 +25,7 @@ $ARGUMENTS
 
 ## Step 1: Check Status
 
+
 Run:
 ```bash
 openspec status --change "<CHANGE_ID>" --json
@@ -35,6 +38,7 @@ Parse the JSON output to get:
 If the command fails, report the error and **STOP**.
 
 ## Step 2: Generate Artifacts in Dependency Order
+
 
 Use the orchestrator to discover the next ready artifact, then generate its content.
 
@@ -77,6 +81,7 @@ Repeat the following until all `applyRequires` artifacts are complete:
 
 ## Step 3: Verify Completion
 
+
 Run:
 ```bash
 openspec status --change "<CHANGE_ID>" --json
@@ -86,6 +91,7 @@ Verify that every artifact listed in `applyRequires` has `status: "done"`.
 If any are incomplete, report which artifacts are missing and ask the user how to proceed.
 
 ## Step 4: Validate
+
 
 Run:
 ```bash
@@ -107,6 +113,7 @@ Parse the JSON response:
 
 ## Step 5: Codex Design Review
 
+
 Invoke the design review workflow:
 
 ```
@@ -121,11 +128,13 @@ This will:
 
 ## Important Rules
 
+
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - All artifacts are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - Artifact generation (Step 2) is driven by calling `specflow-design-artifacts next` in a loop. The LLM generates artifact content; the orchestrator manages the dependency graph and readiness.
 - Validation (Step 4) uses `openspec validate "<CHANGE_ID>" --type change --json`.
+
 
 ## Run State Hooks
 

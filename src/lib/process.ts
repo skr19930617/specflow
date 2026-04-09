@@ -8,17 +8,32 @@ export interface CommandResult {
   readonly status: number;
 }
 
-export function exec(command: string, args: readonly string[], cwd: string): string {
+export interface CommandOptions {
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly stdin?: string;
+}
+
+export function exec(command: string, args: readonly string[], cwd: string, env: NodeJS.ProcessEnv = process.env): string {
   return execFileSync(command, [...args], {
     cwd,
+    env,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
 }
 
-export function tryExec(command: string, args: readonly string[], cwd: string): CommandResult {
+export function tryExec(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = process.env,
+  stdin?: string,
+): CommandResult {
   const result = spawnSync(command, [...args], {
     cwd,
+    env,
+    input: stdin,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -31,4 +46,18 @@ export function tryExec(command: string, args: readonly string[], cwd: string): 
 
 export function moduleRepoRoot(moduleUrl: string): string {
   return resolve(dirname(fileURLToPath(moduleUrl)), "../..");
+}
+
+export function resolveCommand(envName: string, fallback: string): string {
+  return process.env[envName] || fallback;
+}
+
+export function fail(message: string, code = 1, stream: "stderr" | "stdout" = "stderr"): never {
+  const target = stream === "stdout" ? process.stdout : process.stderr;
+  target.write(`${message}\n`);
+  process.exit(code);
+}
+
+export function printJson(value: unknown): void {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }

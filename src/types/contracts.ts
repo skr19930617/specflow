@@ -23,16 +23,26 @@ export interface CommandHook {
   readonly shell: string;
 }
 
+export interface CommandSection {
+  readonly title: string | null;
+  readonly content: string;
+}
+
+export interface CommandBody {
+  readonly frontmatter: Readonly<Record<string, string>>;
+  readonly sections: readonly CommandSection[];
+}
+
 export interface CommandContract {
   readonly id: string;
   readonly type: typeof AssetType.Command;
   readonly description: string;
   readonly slashCommandName: `/${string}`;
   readonly filePath: string;
-  readonly legacySourcePath: string;
   readonly acceptedArguments: string;
   readonly references: readonly string[];
   readonly runHooks: readonly CommandHook[];
+  readonly body: CommandBody;
 }
 
 export interface PromptContract {
@@ -48,6 +58,7 @@ export interface OrchestratorContract {
   readonly type: typeof AssetType.Orchestrator;
   readonly filePath: string;
   readonly entryModule: string;
+  readonly resultSchemaId?: string;
   readonly legacyFallbackPath?: string;
   readonly references: readonly string[];
 }
@@ -133,4 +144,209 @@ export interface InstallPlan {
   readonly copies: readonly InstallCopyContract[];
   readonly links: readonly InstallLinkContract[];
   readonly settingsMerge: InstallSettingsMergeContract;
+}
+
+export type ResultSchemaId =
+  | "issue-metadata"
+  | "diff-summary"
+  | "design-artifact-next"
+  | "design-artifact-validate"
+  | "analyze-project"
+  | "init-project"
+  | "review-apply-result"
+  | "review-design-result"
+  | "run-state";
+
+export type ReviewSeverity = "high" | "medium" | "low" | string;
+export type ReviewFindingStatus = "new" | "open" | "resolved" | "accepted_risk" | "ignored" | string;
+
+export interface JsonMap {
+  readonly [key: string]: unknown;
+}
+
+export interface IssueMetadata extends JsonMap {
+  readonly number: number;
+  readonly title: string;
+  readonly body?: string;
+  readonly url: string;
+  readonly labels?: readonly JsonMap[];
+  readonly assignees?: readonly JsonMap[];
+  readonly author?: JsonMap | null;
+  readonly state?: string;
+}
+
+export interface DiffExcludedEntry extends JsonMap {
+  readonly file: string;
+  readonly reason: string;
+  readonly new_path?: string;
+  readonly pattern?: string;
+}
+
+export interface DiffSummary extends JsonMap {
+  readonly excluded: readonly DiffExcludedEntry[];
+  readonly warnings: readonly string[];
+  readonly included_count: number;
+  readonly excluded_count: number;
+  readonly total_lines: number;
+  readonly diff_warning?: boolean;
+}
+
+export interface ReviewDiffSummary extends JsonMap {
+  readonly included_count: number;
+  readonly excluded_count: number;
+  readonly total_lines: number;
+  readonly diff_warning?: boolean;
+}
+
+export interface ReviewFinding extends JsonMap {
+  readonly id?: string;
+  readonly title?: string;
+  readonly file?: string;
+  readonly category?: string;
+  readonly severity?: ReviewSeverity;
+  readonly status?: ReviewFindingStatus;
+  readonly relation?: string;
+  readonly supersedes?: string | null;
+  readonly notes?: string;
+  readonly origin_round?: number;
+  readonly latest_round?: number;
+  readonly resolved_round?: number;
+}
+
+export interface LedgerRoundSummary extends JsonMap {
+  readonly round: number;
+  readonly total: number;
+  readonly open: number;
+  readonly new: number;
+  readonly resolved: number;
+  readonly overridden: number;
+  readonly by_severity: Readonly<Record<string, number>>;
+}
+
+export interface ReviewLedger extends JsonMap {
+  readonly feature_id: string;
+  readonly phase: string;
+  readonly current_round: number;
+  readonly status: string;
+  readonly max_finding_id: number;
+  readonly findings: readonly ReviewFinding[];
+  readonly round_summaries: readonly LedgerRoundSummary[];
+}
+
+export interface ReviewPayload extends JsonMap {
+  readonly decision: string;
+  readonly summary: string;
+  readonly findings: readonly ReviewFinding[];
+  readonly rereview_mode: boolean;
+  readonly parse_error?: boolean;
+  readonly raw_response?: string | null;
+}
+
+export interface LedgerCounts extends JsonMap {
+  readonly total: number;
+  readonly open: number;
+  readonly new: number;
+  readonly resolved: number;
+  readonly overridden: number;
+}
+
+export interface LedgerSeverityCounts extends JsonMap {
+  readonly open: number;
+  readonly new: number;
+  readonly resolved: number;
+  readonly overridden: number;
+}
+
+export interface LedgerSnapshot extends JsonMap {
+  readonly round: number;
+  readonly status: string;
+  readonly counts: LedgerCounts;
+  readonly by_severity: Readonly<Record<string, LedgerSeverityCounts>>;
+  readonly round_summaries: readonly LedgerRoundSummary[];
+}
+
+export interface HandoffSummary extends JsonMap {
+  readonly state: string;
+  readonly actionable_count: number;
+  readonly severity_summary: string;
+}
+
+export interface AutofixRoundScore extends JsonMap {
+  readonly round: number;
+  readonly score: number;
+  readonly unresolved_high: number;
+  readonly new_high: number;
+}
+
+export interface DivergenceWarning extends JsonMap {
+  readonly round: number;
+  readonly type: string;
+  readonly detail: string;
+}
+
+export interface AutofixSummary extends JsonMap {
+  readonly total_rounds: number;
+  readonly result: string;
+  readonly round_scores: readonly AutofixRoundScore[];
+  readonly divergence_warnings: readonly DivergenceWarning[];
+}
+
+export interface RereviewClassification extends JsonMap {
+  readonly resolved: readonly string[];
+  readonly still_open: readonly string[];
+  readonly new_findings: readonly (string | undefined)[];
+}
+
+export interface ReviewResult extends JsonMap {
+  readonly status: string;
+  readonly action: string;
+  readonly change_id: string;
+  readonly review: ReviewPayload | null;
+  readonly ledger: LedgerSnapshot | null;
+  readonly autofix: AutofixSummary | null;
+  readonly handoff: HandoffSummary | null;
+  readonly diff_summary?: ReviewDiffSummary;
+  readonly diff_total_lines?: number;
+  readonly warning?: string;
+  readonly ledger_recovery?: string;
+  readonly rereview_classification?: RereviewClassification | null;
+  readonly error?: string | null;
+}
+
+export interface DesignArtifactNextResult extends JsonMap {
+  readonly status: "ready" | "complete" | "blocked" | "error";
+  readonly artifactId?: string;
+  readonly outputPath?: string;
+  readonly template?: string;
+  readonly instruction?: string;
+  readonly dependencies?: readonly JsonMap[];
+  readonly blocked?: readonly string[];
+  readonly error?: string;
+}
+
+export interface DesignArtifactValidateResult extends JsonMap {
+  readonly status: "valid" | "invalid" | "error";
+  readonly items?: readonly JsonMap[];
+  readonly error?: string;
+}
+
+export interface AnalyzeProjectResult extends JsonMap {
+  readonly project_name: string;
+  readonly description: string | null;
+  readonly languages: readonly string[];
+  readonly frameworks: readonly string[];
+  readonly package_manager: string | null;
+  readonly build_tools: readonly string[];
+  readonly test_tools: readonly string[];
+  readonly ci: JsonMap;
+  readonly license: string | null;
+  readonly git_remote: JsonMap;
+  readonly openspec: JsonMap;
+  readonly existing_readme: string | null;
+  readonly file_structure: string;
+  readonly bin_entries: readonly string[];
+  readonly scripts: JsonMap;
+  readonly config_files: readonly string[];
+  readonly contributing: string | null;
+  readonly keywords: readonly string[];
 }

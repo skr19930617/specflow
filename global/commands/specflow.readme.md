@@ -3,11 +3,13 @@ description: プロジェクト解析に基づいて OSS 風 README を生成・
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `which specflow-analyze` via Bash to confirm `specflow-analyze` is installed.
    - If missing:
@@ -18,6 +20,7 @@ $ARGUMENTS
      → **STOP**.
 
 ## Step 1: Analyze Project
+
 
 Run via Bash:
 ```bash
@@ -37,6 +40,7 @@ Step 1: Project analyzed
 ```
 
 ## Step 2: Generate README
+
 
 Using `ANALYZE_RESULT`, generate the README following these rules:
 
@@ -113,6 +117,7 @@ Apply the merge strategy:
 
 ## Step 3: Review and Approve
 
+
 **New README (no existing):**
 - Display the full generated README
 - Use `AskUserQuestion` with options: "適用" / "再生成" / "キャンセル"
@@ -126,6 +131,7 @@ On "再生成": Ask for feedback, add to prompt context, and re-run Step 2
 On "キャンセル": Report: `Cancelled. No changes made.`
 
 ## Important Rules
+
 
 - Use the git repository root as the base for all paths
 - All evidence must come from `specflow-analyze` output — do not read additional files

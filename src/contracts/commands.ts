@@ -1,4 +1,5 @@
 import { AssetType, type CommandContract, type CommandHook } from "../types/contracts.js";
+import { commandBodies } from "./command-bodies.js";
 
 function hook(title: string, description: string, shell: string): CommandHook {
   return { title, description, shell };
@@ -16,10 +17,10 @@ function command(
     description,
     slashCommandName: `/${id}` as const,
     filePath: `global/commands/${id}.md`,
-    legacySourcePath: `legacy/v1/global/commands/${id}.md`,
     acceptedArguments: "$ARGUMENTS",
     references,
     runHooks,
+    body: commandBodies[id],
   };
 }
 

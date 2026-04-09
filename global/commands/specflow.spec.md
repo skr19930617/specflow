@@ -3,11 +3,13 @@ description: 既存コードベースを解析し、openspec/specs/ にベース
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
@@ -21,6 +23,7 @@ $ARGUMENTS
      → **STOP**.
 
 ## Step 1: コードベース解析
+
 
 プロジェクトのコードベースを解析し、capability 候補を検出する。
 
@@ -78,6 +81,7 @@ AskUserQuestion:
 
 ## Step 2: capability 選択
 
+
 検出した capability 一覧をユーザーに提示し、生成対象を選択させる。
 
 `AskUserQuestion` の multiSelect モードを使用する:
@@ -101,6 +105,7 @@ AskUserQuestion:
 Report: `Step 2 complete — <N> capability を選択`
 
 ## Step 3: capability ごとのインタラクティブ質問
+
 
 選択された各 capability について、以下の質問を AskUserQuestion で1つずつ提示する。
 
@@ -146,6 +151,7 @@ Report: `Step 3 complete — <capability-name> の質問完了`
 
 ## Step 4: spec ファイル生成
 
+
 選択された各 capability について spec ファイルを生成する。
 
 ### 4a. capability 名の正規化
@@ -182,9 +188,11 @@ CLI テンプレートが取得できない場合（コマンド失敗、`specs`
 # <capability-name> Specification
 
 ## Purpose
+
 <capability の目的を1-2文で記述>
 
 ## Requirements
+
 ### Requirement: <requirement name>
 <requirement description using SHALL/MUST>
 
@@ -212,10 +220,13 @@ Report: `Step 4 complete — openspec/specs/<name>/spec.md を生成`
 
 ## Step 5: 完了報告とハンドオフ
 
+
 生成結果のサマリーを表示する:
 
 ```
+
 ## Spec Bootstrap 完了
+
 
 | # | Capability | Path | Status |
 |---|-----------|------|--------|
@@ -245,11 +256,13 @@ AskUserQuestion:
 
 ## Important Rules
 
+
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - Baseline spec は `openspec/specs/<name>/spec.md` に配置する（`openspec/changes/` ではない）。
 - `openspec new spec` コマンドは現在サポートされていないため、`mkdir -p` で直接ディレクトリを作成する。
 - spec のフォーマットは既存の `openspec/specs/*/spec.md` と互換性を保つこと。
 - If any tool call fails, report the error and ask the user how to proceed.
+
 
 ## Run State Hooks
 

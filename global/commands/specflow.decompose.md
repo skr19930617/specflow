@@ -3,11 +3,13 @@ description: specの複雑さを分析し、issue-linked specはGitHub sub-issue
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
@@ -32,6 +34,7 @@ $ARGUMENTS
 
 ## Step 1: Read Spec and Determine Mode
 
+
 1. Resolve `FEATURE_DIR` from the current change id:
    - If `$ARGUMENTS` contains a change id, set `FEATURE_DIR=openspec/changes/<id>`.
    - Otherwise, detect the active change from the current branch name or prompt the user.
@@ -47,6 +50,7 @@ $ARGUMENTS
 Note: Parent issue accessibility is validated later in Step 4, after the user confirms the decomposition proposal. This ensures no GitHub API calls are made before the user has a chance to cancel (FR-007).
 
 ## Step 2: AI Analysis
+
 
 Analyze the spec content to identify independent functional areas. Determine one of three outcomes:
 
@@ -70,6 +74,7 @@ Read the proposal file and identify logically independent functional areas — g
 Only outcome (a) proceeds to Step 3.
 
 ## Step 3: Present Proposal (Issue-Linked) / Warn (Inline)
+
 
 ### If `MODE = inline`:
 
@@ -100,7 +105,9 @@ Present the decomposition proposal using `AskUserQuestion`:
 
 Display:
 ```
+
 ## Decomposition Proposal for Issue #<PARENT_ISSUE_NUMBER>
+
 
 The spec contains <N> independent functional areas:
 
@@ -116,6 +123,7 @@ Then use `AskUserQuestion` with options:
 - **"Cancel"**: Report `"No issues created."` → **STOP**
 
 ## Step 4: Validate Parent and Create Sub-Issues
+
 
 **First, validate the parent issue** (this is the first GitHub API call in the flow — after user confirmation per FR-007):
 
@@ -159,6 +167,7 @@ cat /tmp/specflow-decompose-payload.json | specflow-create-sub-issues
 
 ## Step 5: Report Results
 
+
 Read the JSON output from the helper script.
 
 ### If all issues created successfully (`failed` array is empty):
@@ -170,7 +179,9 @@ gh issue comment <PARENT_ISSUE_NUMBER> --repo <REPO> --body "<formatted comment 
 
 The comment body should list all created sub-issues in phase order:
 ```
+
 ## Decomposition Sub-Issues
+
 
 This issue has been decomposed into the following sub-issues:
 
@@ -219,6 +230,7 @@ Options:
 - **"Cancel (keep created)"**: Report the partial result and **STOP**.
 
 ## Important Rules
+
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - Never modify files inside `openspec/specs/` — read-only (current specs are the source of truth).

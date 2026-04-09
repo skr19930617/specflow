@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
+import { moduleRepoRoot } from "../lib/process.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -147,7 +148,7 @@ function atomicWrite(path: string, content: string): void {
 }
 
 function parseIssueMetadata(issueUrl: string): JsonObject {
-  const fetchTool = process.env.SPECFLOW_FETCH_ISSUE ?? resolve(projectRoot(), "legacy/v1/bin/specflow-fetch-issue");
+  const fetchTool = process.env.SPECFLOW_FETCH_ISSUE ?? resolve(moduleRepoRoot(import.meta.url), "bin/specflow-fetch-issue");
   try {
     const stdout = execFileSync(fetchTool, [issueUrl], {
       cwd: process.cwd(),

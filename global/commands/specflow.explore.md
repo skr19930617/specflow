@@ -3,11 +3,13 @@ description: openspec explore ベースの自由対話 → GitHub issue 起票
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
@@ -21,6 +23,7 @@ $ARGUMENTS
      → **STOP**.
 
 ## Step 1: Context Check
+
 
 Run via Bash:
 ```bash
@@ -41,6 +44,7 @@ Active changes:
 If no changes exist, display: `"現在アクティブな change はありません。"`
 
 ## Step 2: Enter Explore Mode
+
 
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence, no mandatory outputs. You are a thinking partner helping the user explore.
 
@@ -84,6 +88,7 @@ If a change exists and is relevant to the discussion:
 - **Don't auto-capture** — Offer to save insights, don't just do it
 
 ## Step 3: Convergence Check
+
 
 When the discussion appears to be converging (a clear problem definition, approach, or scope has emerged), **proactively suggest wrapping up** — but don't force it.
 
@@ -131,7 +136,9 @@ Step 2 に戻り、対話を継続する。次の収束ポイントで再度 Ste
 
 探索の要約を表示する:
 ```
+
 ## 探索のまとめ
+
 
 **テーマ**: <what was explored>
 
@@ -143,10 +150,12 @@ Step 2 に戻り、対話を継続する。次の収束ポイントで再度 Ste
 
 ## Important Rules
 
+
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - This command is read-only — never write application code or modify existing implementation.
 - OpenSpec artifacts (proposals, designs) may be created if the user explicitly requests.
 - The convergence check (Step 3) is a suggestion, not a gate. The user controls when to stop.
+
 
 ## Run State Hooks
 

@@ -25,3 +25,11 @@ test("generated slash commands include run-state hook injections", () => {
   assert.ok(specflow.includes("specflow-run start"));
   assert.ok(apply.includes("accept_design"));
 });
+
+test("command contracts render without legacy command source paths", async () => {
+  const { contracts } = await import("../contracts/install.js");
+  for (const command of contracts.commands) {
+    assert.ok(command.body.sections.length > 0);
+    assert.equal("legacySourcePath" in (command as unknown as Record<string, unknown>), false);
+  }
+});

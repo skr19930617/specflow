@@ -70,15 +70,16 @@ function validateCommandContracts(commands: readonly CommandContract[]): Validat
   }));
 
   for (const command of commands) {
-    errors.push(
-      ...validateSourcePath(
-        command.id,
-        AssetType.Command,
-        command.filePath,
-        command.legacySourcePath,
-        "command-source-exists",
-      ),
-    );
+    if (command.body.sections.length > 0) {
+      continue;
+    }
+    errors.push({
+      id: command.id,
+      type: AssetType.Command,
+      check: "command-sections-present",
+      filePath: command.filePath,
+      message: "Command contract must include at least one markdown section.",
+    });
   }
 
   return errors;

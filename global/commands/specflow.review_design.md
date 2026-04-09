@@ -3,11 +3,13 @@ description: Codex design/tasks review を実行し、ledger 更新・auto-fix l
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
@@ -23,6 +25,7 @@ $ARGUMENTS
 
 ## Setup
 
+
 Determine `CHANGE_ID`:
 - If `$ARGUMENTS` contains a change id, use it.
 - Otherwise, derive from the current branch name or prompt the user.
@@ -32,6 +35,7 @@ Verify `openspec/changes/<CHANGE_ID>/proposal.md` exists via Bash. If missing �
 Verify that `openspec/changes/<CHANGE_ID>/design.md` and `openspec/changes/<CHANGE_ID>/tasks.md` exist (via Read tool). If either file does not exist, display an error: `"design.md または tasks.md が見つかりません。先に /specflow.design を実行してください。"` → **STOP**.
 
 ## Step 1: Run Orchestrator
+
 
 Run the Bash orchestrator:
 ```bash
@@ -43,6 +47,7 @@ Capture stdout as `RESULT_JSON`. If the command fails (non-zero exit), display t
 Parse `RESULT_JSON` as JSON. If parse fails, display raw output and **STOP**.
 
 ## Step 2: Handle Ledger Recovery
+
 
 If `RESULT_JSON.ledger_recovery == "prompt_user"`:
 
@@ -67,10 +72,12 @@ AskUserQuestion:
 
 ## Step 3: Handle Error Results
 
+
 If `RESULT_JSON.status == "error"`:
 - Display `RESULT_JSON.error` → **STOP**.
 
 ## Step 4: Display Review Results
+
 
 ### Review Findings
 
@@ -108,6 +115,7 @@ If `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact pr
 Then show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`
 
 ## Step 5: Handoff (based on RESULT_JSON.handoff.state)
+
 
 ### Actionable Findings 定義
 
@@ -206,6 +214,7 @@ AskUserQuestion:
 ```
 
 ## Step 6: Auto-fix Loop
+
 
 ユーザーが「Auto-fix 実行」を選択した場合、Bash orchestrator で auto-fix loop を実行する。
 
@@ -318,6 +327,7 @@ AskUserQuestion:
 **IMPORTANT:** 全ハンドオフポイントで Dual-Display Fallback Pattern を適用すること — テキストプロンプトと AskUserQuestion の両方を必ず表示する。
 
 ## Important Rules
+
 
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.

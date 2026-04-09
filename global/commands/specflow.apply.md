@@ -3,11 +3,13 @@ description: specflow で実装を適用し、Codex で実装レビュー
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
@@ -23,6 +25,7 @@ $ARGUMENTS
 
 ## Step 0.5: Read Current Phase Context
 
+
 1. Determine `CHANGE_ID`:
    - If `$ARGUMENTS` contains a change id, use it.
    - Otherwise, derive from the current branch name or prompt the user.
@@ -36,6 +39,7 @@ $ARGUMENTS
 5. If the file does not exist: proceed without error. Optionally note: "No prior phase context found (first run)."
 
 ## Step 0.7: Get Apply Instructions from OpenSpec
+
 
 1. Run the following command via Bash:
    ```bash
@@ -67,6 +71,7 @@ $ARGUMENTS
 
 ## Step 1: Implement
 
+
 Execute the implementation using `openspec/changes/<CHANGE_ID>/` artifacts:
 1. Load `openspec/changes/<CHANGE_ID>/tasks.md` and `openspec/changes/<CHANGE_ID>/design.md`.
 2. Execute tasks phase-by-phase.
@@ -76,6 +81,7 @@ Execute the implementation using `openspec/changes/<CHANGE_ID>/` artifacts:
 Report: `Step 1 complete — Implementation done`
 
 ## Step 2: Codex Implementation Review + Handoff
+
 
 Read the file `global/specflow.review_apply.md` and follow its complete workflow.
 
@@ -90,9 +96,11 @@ This will:
 
 ## Important Rules
 
+
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - All artifacts (proposal, design, tasks, current-phase, review-ledger) are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
+
 
 ## Run State Hooks
 

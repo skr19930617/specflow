@@ -238,9 +238,21 @@ All subcommands SHALL output a unified result JSON schema to stdout containing s
 - **WHEN** the review pipeline completes successfully
 - **THEN** the result JSON SHALL contain `status: "success"`, `review`, `ledger`, and `handoff` objects
 
+#### Scenario: Apply review result fields
+- **WHEN** the review or fix-review pipeline completes successfully
+- **THEN** the result JSON SHALL include top-level keys `status`, `action`, `change_id`, `review`, `ledger`, `autofix`, `handoff`, `diff_summary`, and `error`
+- **THEN** `diff_summary` SHALL contain only `included_count`, `excluded_count`, `total_lines`, and `diff_warning`
+- **THEN** `ledger` SHALL include `round`, `status`, `counts`, `by_severity`, and `round_summaries`
+- **THEN** `review` SHALL include `decision`, `summary`, `findings`, `rereview_mode`, `parse_error`, and `raw_response`
+
 #### Scenario: Error result JSON
 - **WHEN** any pipeline step fails fatally
 - **THEN** the result JSON SHALL contain `status: "error"` and `error` with a description
+
+#### Scenario: Ledger recovery prompt result
+- **WHEN** the ledger is corrupt and cannot be recovered from backup
+- **THEN** the result JSON SHALL contain `status: "success"` and `ledger_recovery: "prompt_user"`
+- **THEN** `review`, `ledger`, `autofix`, and `handoff` SHALL all be `null`
 
 ### Requirement: Ledger library filename parameterization
 The `lib/specflow-ledger.sh` library SHALL provide a `ledger_init` function that allows callers to configure the ledger filename and backup filename. If `ledger_init` is not called, the default filenames (`review-ledger.json` and `review-ledger.json.bak`) SHALL be used for backward compatibility.

@@ -3,11 +3,13 @@ description: 実装を破棄し、全変更をリセットする
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Reject Implementation
+
 
 全変更を破棄します。
 

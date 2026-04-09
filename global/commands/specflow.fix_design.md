@@ -3,11 +3,13 @@ description: Design/Tasks のレビュー指摘を修正し、再度 Codex revie
 ---
 ## User Input
 
+
 ```text
 $ARGUMENTS
 ```
 
 ## Prerequisites
+
 
 1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.
    - If missing:
@@ -22,6 +24,7 @@ $ARGUMENTS
 2. Read `openspec/config.yaml`. Extract any relevant settings. If parse fails, display error and **STOP**.
 
 ## Setup
+
 
 Determine `CHANGE_ID`:
 - If `$ARGUMENTS` contains a change id (excluding `autofix`), use it.
@@ -45,6 +48,7 @@ If `$ARGUMENTS` contains `autofix` → set `AUTOFIX_MODE = true`. Otherwise `AUT
 
 ## Step 1: Apply Design/Tasks Fixes
 
+
 Based on the review findings from the previous step (the user has just seen them), apply fixes to address all findings:
 - Completeness gaps (missing acceptance criteria coverage)
 - Ordering issues (incorrect task dependencies)
@@ -58,6 +62,7 @@ Update `DESIGN_FILE` and/or `TASKS_FILE` as needed. If a finding requires fundam
 Report what was fixed.
 
 ## Step 2: Run Orchestrator for Re-review
+
 
 Run the Bash orchestrator:
 
@@ -76,6 +81,7 @@ Capture stdout as `RESULT_JSON`. If the command fails (non-zero exit), display t
 Parse `RESULT_JSON` as JSON. If parse fails, display raw output and **STOP**.
 
 ## Step 3: Handle Ledger Recovery
+
 
 If `RESULT_JSON.ledger_recovery == "prompt_user"`:
 
@@ -101,10 +107,12 @@ AskUserQuestion:
 
 ## Step 4: Handle Error Results
 
+
 If `RESULT_JSON.status == "error"`:
 - Display `RESULT_JSON.error` → **STOP**.
 
 ## Step 5: Display Review Results
+
 
 ### Re-review Classification (if RESULT_JSON.rereview_classification is not null)
 
@@ -165,6 +173,7 @@ Report: `current-phase.md updated` (the orchestrator generates this automaticall
 
 ## Handoff: 次のアクション選択
 
+
 **Auto-fix mode check**: `AUTOFIX_MODE = true` の場合、このコマンドは auto-fix loop から呼び出されている。ハンドオフ（AskUserQuestion）は **スキップ** し、ここで処理を終了する。制御は呼び出し元の auto-fix loop に戻り、ループ側が停止条件を判定する。
 
 **通常モード**（`AUTOFIX_MODE = false`）:
@@ -205,10 +214,12 @@ AskUserQuestion:
 
 ## Important Rules
 
+
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
 - All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.
 - If any tool call fails, report the error and ask the user how to proceed.
 - ALL control flow logic (Codex invocation, ledger detection/CRUD, finding matching, current-phase generation) is handled by the `specflow-review-design fix-review` orchestrator. This slash command applies fixes (LLM), then calls the orchestrator for re-review, parses its JSON output, and displays UI.
+
 
 ## Run State Hooks
 

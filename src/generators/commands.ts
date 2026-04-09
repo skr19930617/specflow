@@ -1,19 +1,26 @@
-import { readText, writeText } from "../lib/fs.js";
+import { writeText } from "../lib/fs.js";
 import { fromRepo } from "../lib/paths.js";
 import type { CommandContract } from "../types/contracts.js";
 
-const FRONTMATTER_PATTERN = /^---\n([\s\S]*?)\n---\n?/;
+function renderFrontmatter(contract: CommandContract): string {
+  const entries = {
+    ...contract.body.frontmatter,
+    description: contract.description,
+  };
+  const lines = Object.entries(entries).map(([key, value]) => `${key}: ${value}`);
+  return `---\n${lines.join("\n")}\n---`;
+}
 
-function replaceDescription(content: string, description: string): string {
-  const match = content.match(FRONTMATTER_PATTERN);
-  if (!match) {
-    return `---\ndescription: ${description}\n---\n\n${content.trimEnd()}\n`;
-  }
-  const frontmatterLines = match[1]
-    .split("\n")
-    .map((line) => (line.startsWith("description:") ? `description: ${description}` : line));
-  const updatedFrontmatter = `---\n${frontmatterLines.join("\n")}\n---\n`;
-  return `${updatedFrontmatter}${content.slice(match[0].length).replace(/^\n+/, "")}`;
+function renderBody(contract: CommandContract): string {
+  return contract.body.sections
+    .map((section) => {
+      if (section.title === null) {
+        return section.content.trimEnd();
+      }
+      return `## ${section.title}\n\n${section.content.trimEnd()}`;
+    })
+    .join("\n\n")
+    .trimEnd();
 }
 
 function renderHookSection(contract: CommandContract): string {
@@ -38,9 +45,14 @@ function renderHookSection(contract: CommandContract): string {
 
 export function renderCommands(commands: readonly CommandContract[]): void {
   for (const contract of commands) {
-    const legacyContent = readText(fromRepo(contract.legacySourcePath));
-    const withDescription = replaceDescription(legacyContent, contract.description).trimEnd();
-    const nextContent = `${withDescription}${renderHookSection(contract)}`;
+    const nextContent = [
+      renderFrontmatter(contract),
+      "",
+      renderBody(contract),
+      renderHookSection(contract).trimEnd(),
+    ]
+      .filter((part) => part.length > 0)
+      .join("\n");
     writeText(fromRepo(contract.filePath), `${nextContent.trimEnd()}\n`);
   }
 }
