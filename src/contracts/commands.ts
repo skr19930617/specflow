@@ -31,12 +31,12 @@ function command(
 export const commandContracts: readonly CommandContract[] = [
 	command(
 		"specflow",
-		"GitHub issue URL またはインライン仕様記述から proposal 作成 → clarify → Codex proposal review を実行",
+		"GitHub issue URL またはインライン仕様記述から proposal 作成 → scope → clarify → proposal review → validate を厳格に実行",
 		[],
 		[
 			hook(
 				"Run Initialization",
-				"After the change directory is created, initialize and enter the workflow state machine.",
+				"After the change directory is created, initialize and enter the workflow state machine at proposal_draft.",
 				[
 					'if specflow-run status "<CHANGE_ID>" >/dev/null 2>&1; then',
 					'  echo "Run already exists for <CHANGE_ID>; keep current state"',
@@ -50,15 +50,15 @@ export const commandContracts: readonly CommandContract[] = [
 	),
 	command(
 		"specflow.design",
-		"specflow で Design artifacts を生成し、Codex でレビュー",
+		"proposal_ready から design artifacts を生成し、validate → review の strict gate で進める",
 		["specflow.review_design"],
 		[
 			hook(
 				"Proposal Acceptance",
-				"Before generating design artifacts, advance the run from proposal to design if it is still in proposal state.",
+				"Before generating design artifacts, only advance the run when proposal has reached proposal_ready.",
 				[
 					'CURRENT_PHASE="$(specflow-run get-field "<CHANGE_ID>" current_phase 2>/dev/null || true)"',
-					'if [[ "$CURRENT_PHASE" == "proposal" ]]; then',
+					'if [[ "$CURRENT_PHASE" == "proposal_ready" ]]; then',
 					'  specflow-run advance "<CHANGE_ID>" accept_proposal',
 					"fi",
 				].join("\n"),
@@ -67,15 +67,15 @@ export const commandContracts: readonly CommandContract[] = [
 	),
 	command(
 		"specflow.apply",
-		"specflow で実装を適用し、Codex で実装レビュー",
+		"design_ready から実装を適用し、review gate を通過したら apply_ready に進める",
 		[],
 		[
 			hook(
 				"Design Acceptance",
-				"Advance the run into apply before implementation work begins.",
+				"Advance the run into apply only after design has reached design_ready.",
 				[
 					'CURRENT_PHASE="$(specflow-run get-field "<CHANGE_ID>" current_phase 2>/dev/null || true)"',
-					'if [[ "$CURRENT_PHASE" == "design" ]]; then',
+					'if [[ "$CURRENT_PHASE" == "design_ready" ]]; then',
 					'  specflow-run advance "<CHANGE_ID>" accept_design',
 					"fi",
 				].join("\n"),

@@ -52,9 +52,9 @@ The run state JSON SHALL contain the following fields: `run_id`, `change_name`, 
 
 #### Scenario: Run state after transition
 
-- **WHEN** a transition advances the run from `start` to `proposal`
-- **THEN** `current_phase` SHALL be `proposal`
-- **THEN** `allowed_events` SHALL be recomputed from the workflow definition for the `proposal` state
+- **WHEN** a transition advances the run from `start` to `proposal_draft`
+- **THEN** `current_phase` SHALL be `proposal_draft`
+- **THEN** `allowed_events` SHALL be recomputed from the workflow definition for the `proposal_draft` state
 - **THEN** `updated_at` SHALL be updated to the current time
 - **THEN** all metadata fields (`project_id`, `repo_name`, `repo_path`, `branch_name`, `worktree_path`, `agents`, `last_summary_path`) SHALL be preserved unchanged
 

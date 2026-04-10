@@ -20,28 +20,28 @@ The system SHALL maintain a machine-readable workflow definition asset at logica
 - **WHEN** the file is piped to `jq '.'`
 - **THEN** the command SHALL exit with code 0 and produce valid output
 
-### Requirement: Top-level phase states
+### Requirement: Detailed flat workflow states
 
-The workflow definition SHALL define the following top-level states: `start`, `proposal`, `design`, `apply`, `approved`, `rejected`, `explore`, `spec_bootstrap`.
+The workflow definition SHALL define the following flat states: `start`, `proposal_draft`, `proposal_scope`, `proposal_clarify`, `proposal_review`, `proposal_validate`, `proposal_ready`, `design_draft`, `design_validate`, `design_review`, `design_ready`, `apply_draft`, `apply_review`, `apply_ready`, `approved`, `decomposed`, `rejected`, `explore`, `spec_bootstrap`.
 
-#### Scenario: All states are present
+#### Scenario: All detailed states are present
 
 - **WHEN** the `states` array in the definition is inspected
-- **THEN** it SHALL contain exactly: `start`, `proposal`, `design`, `apply`, `approved`, `rejected`, `explore`, `spec_bootstrap`
+- **THEN** it SHALL contain exactly: `start`, `proposal_draft`, `proposal_scope`, `proposal_clarify`, `proposal_review`, `proposal_validate`, `proposal_ready`, `design_draft`, `design_validate`, `design_review`, `design_ready`, `apply_draft`, `apply_review`, `apply_ready`, `approved`, `decomposed`, `rejected`, `explore`, `spec_bootstrap`
 
-#### Scenario: No sub-phase states exist
+#### Scenario: No dotted state names exist
 
 - **WHEN** the `states` array is inspected
-- **THEN** it SHALL NOT contain sub-phase entries such as `proposal.clarify`, `proposal.validate`, `design.review`, or similar dotted names
+- **THEN** it SHALL NOT contain dotted names such as `proposal.clarify`, `design.review`, or `apply.ready`
 
 ### Requirement: Event definitions
 
-The workflow definition SHALL declare named events that trigger transitions between states. Events SHALL include: `propose`, `accept_proposal`, `accept_design`, `accept_apply`, `reject`, `revise_design`, `revise_apply`, `explore_start`, `explore_complete`, `spec_bootstrap_start`, `spec_bootstrap_complete`.
+The workflow definition SHALL declare named events that trigger transitions between detailed states. Events SHALL include: `propose`, `check_scope`, `continue_proposal`, `decompose`, `review_proposal`, `proposal_review_approved`, `revise_proposal`, `proposal_validated`, `accept_proposal`, `validate_design`, `design_validated`, `revise_design`, `design_review_approved`, `accept_design`, `review_apply`, `revise_apply`, `apply_review_approved`, `accept_apply`, `reject`, `explore_start`, `explore_complete`, `spec_bootstrap_start`, `spec_bootstrap_complete`.
 
-#### Scenario: Mainline forward events are defined
+#### Scenario: Proposal, design, and apply gate events are defined
 
 - **WHEN** the `events` array is inspected
-- **THEN** it SHALL contain `propose`, `accept_proposal`, `accept_design`, and `accept_apply`
+- **THEN** it SHALL contain `propose`, `check_scope`, `continue_proposal`, `review_proposal`, `proposal_review_approved`, `proposal_validated`, `accept_proposal`, `validate_design`, `design_validated`, `design_review_approved`, `accept_design`, `review_apply`, `apply_review_approved`, and `accept_apply`
 
 #### Scenario: Reject event is defined
 
@@ -51,8 +51,8 @@ The workflow definition SHALL declare named events that trigger transitions betw
 #### Scenario: Phase-specific revise events are defined
 
 - **WHEN** the `events` array is inspected
-- **THEN** it SHALL contain `revise_design` and `revise_apply`
-- **THEN** it SHALL NOT contain `revise`
+- **THEN** it SHALL contain `revise_proposal`, `revise_design`, and `revise_apply`
+- **THEN** it SHALL NOT contain a generic `revise`
 
 #### Scenario: Branch path events are defined
 
@@ -66,19 +66,26 @@ Each transition SHALL specify a `from` state, an `event`, and a `to` state. Only
 #### Scenario: Forward flow transitions
 
 - **WHEN** the mainline flow is followed from `start` to `approved`
-- **THEN** the transitions SHALL form the path: `start` →(propose)→ `proposal` →(accept_proposal)→ `design` →(accept_design)→ `apply` →(accept_apply)→ `approved`
+- **THEN** the transitions SHALL form the path: `start` →(propose)→ `proposal_draft` →(check_scope)→ `proposal_scope` →(continue_proposal)→ `proposal_clarify` →(review_proposal)→ `proposal_review` →(proposal_review_approved)→ `proposal_validate` →(proposal_validated)→ `proposal_ready` →(accept_proposal)→ `design_draft` →(validate_design)→ `design_validate` →(design_validated)→ `design_review` →(design_review_approved)→ `design_ready` →(accept_design)→ `apply_draft` →(review_apply)→ `apply_review` →(apply_review_approved)→ `apply_ready` →(accept_apply)→ `approved`
 
-#### Scenario: Reject transition from any active phase
+#### Scenario: Decomposition is a terminal scope path
 
-- **WHEN** the `reject` event is applied to any of `proposal`, `design`, `apply`
-- **THEN** the transition SHALL lead to the `rejected` state
+- **WHEN** the `decompose` event is applied to `proposal_scope`
+- **THEN** the transition SHALL lead to `decomposed`
 
-#### Scenario: Phase-specific revise self-transitions
+#### Scenario: Reject transition from every active non-terminal mainline state
 
-- **WHEN** the `revise_design` event is applied to `design`
-- **THEN** the `to` state SHALL equal `design`
-- **WHEN** the `revise_apply` event is applied to `apply`
-- **THEN** the `to` state SHALL equal `apply`
+- **WHEN** the `reject` event is applied to any of `proposal_draft`, `proposal_scope`, `proposal_clarify`, `proposal_review`, `proposal_validate`, `proposal_ready`, `design_draft`, `design_validate`, `design_review`, `design_ready`, `apply_draft`, `apply_review`, or `apply_ready`
+- **THEN** the transition SHALL lead to `rejected`
+
+#### Scenario: Revision events loop to the appropriate draft state
+
+- **WHEN** `revise_proposal` is applied to `proposal_review` or `proposal_validate`
+- **THEN** the `to` state SHALL equal `proposal_clarify`
+- **WHEN** `revise_design` is applied to `design_validate` or `design_review`
+- **THEN** the `to` state SHALL equal `design_draft`
+- **WHEN** `revise_apply` is applied to `apply_review`
+- **THEN** the `to` state SHALL equal `apply_draft`
 
 #### Scenario: Explore branch path transitions
 
@@ -98,17 +105,17 @@ Each transition SHALL specify a `from` state, an `event`, and a `to` state. Only
 
 The workflow definition SHALL provide a way to derive which events are valid for a given state by filtering transitions by `from` state.
 
-#### Scenario: Query allowed events for a state
+#### Scenario: Query allowed events for a detailed state
 
-- **WHEN** a consumer queries transitions where `from` equals `design`
-- **THEN** the result SHALL include events `accept_design`, `reject`, and `revise_design`
-- **THEN** the result SHALL NOT include events belonging to other phases such as `propose` or `approve`
+- **WHEN** a consumer queries transitions where `from` equals `proposal_validate`
+- **THEN** the result SHALL include events `revise_proposal`, `proposal_validated`, and `reject`
+- **THEN** the result SHALL NOT include unrelated events such as `accept_design` or `accept_apply`
 
 ### Requirement: Workflow definition version
 
-The workflow definition SHALL include a `version` field. The version SHALL be `"2.0"` to reflect the breaking change of removing the `revise` event.
+The workflow definition SHALL include a `version` field. The version SHALL be `"3.0"` to reflect the breaking change of introducing explicit proposal/design/apply gate states.
 
-#### Scenario: Version is 2.0
+#### Scenario: Version is 3.0
 
 - **WHEN** the `version` field in `state-machine.json` is inspected
-- **THEN** it SHALL be `"2.0"`
+- **THEN** it SHALL be `"3.0"`

@@ -171,6 +171,7 @@ export type SchemaId =
 	| "init-project"
 	| "review-apply-result"
 	| "review-design-result"
+	| "review-proposal-result"
 	| "run-state"
 	| "create-sub-issues-input"
 	| "create-sub-issues-result";

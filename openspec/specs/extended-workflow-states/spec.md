@@ -46,19 +46,24 @@ The workflow definition SHALL include a `spec_bootstrap` state as an independent
 - **WHEN** the transitions are filtered where `from` equals `spec_bootstrap`
 - **THEN** no transition SHALL have a `to` value of `proposal`, `design`, `apply`, `approved`, or `rejected`
 
-### Requirement: Distinct revision events for design and apply
+### Requirement: Distinct revision events for proposal, design, and apply
 
-The workflow definition SHALL define `revise_design` and `revise_apply` as separate events replacing the former generic `revise` event. Each SHALL be a self-transition on its respective phase.
+The workflow definition SHALL define `revise_proposal`, `revise_design`, and `revise_apply` as separate events replacing the former generic `revise` event.
 
-#### Scenario: revise_design is a self-transition on design
+#### Scenario: revise_proposal returns to proposal_clarify
+
+- **WHEN** the transitions are filtered for `revise_proposal`
+- **THEN** there SHALL be transitions from `proposal_review` and `proposal_validate` to `proposal_clarify`
+
+#### Scenario: revise_design returns to design_draft
 
 - **WHEN** the transitions are filtered for `revise_design`
-- **THEN** there SHALL be exactly one transition: `{ from: "design", event: "revise_design", to: "design" }`
+- **THEN** there SHALL be transitions from `design_validate` and `design_review` to `design_draft`
 
-#### Scenario: revise_apply is a self-transition on apply
+#### Scenario: revise_apply returns to apply_draft
 
 - **WHEN** the transitions are filtered for `revise_apply`
-- **THEN** there SHALL be exactly one transition: `{ from: "apply", event: "revise_apply", to: "apply" }`
+- **THEN** there SHALL be exactly one transition: `{ from: "apply_review", event: "revise_apply", to: "apply_draft" }`
 
 #### Scenario: Generic revise event does not exist
 

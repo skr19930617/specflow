@@ -12,8 +12,9 @@ The previous Bash implementation is archived at git tag `legacy-v1-final`. Activ
 
 ## Workflow Truth
 
-- The authoritative workflow definition is `src/contracts/workflow.ts`
-- Build renders `dist/package/global/workflow/state-machine.json`
+- The authoritative workflow definition is the XState machine in `src/lib/workflow-machine.ts`
+- `src/contracts/workflow.ts` adapts that machine into the workflow contract consumed by the rest of the build
+- Build renders `dist/package/global/workflow/state-machine.json` and rewrites the bounded README workflow diagram block from the same source
 - `specflow-run` consumes the rendered JSON at runtime
 - OpenSpec specs under `openspec/specs/` are expected to match the rendered workflow and are verified by drift tests
 
@@ -27,7 +28,7 @@ The previous Bash implementation is archived at git tag `legacy-v1-final`. Activ
 
 ## Runtime Strategy
 
-- Native Node implementations now back `specflow-run`, `specflow-install`, `specflow-fetch-issue`, `specflow-filter-diff`, `specflow-review-apply`, `specflow-review-design`, `specflow-design-artifacts`, `specflow-init`, `specflow-analyze`, and `specflow-create-sub-issues`
+- Native Node implementations now back `specflow-run`, `specflow-install`, `specflow-fetch-issue`, `specflow-filter-diff`, `specflow-review-apply`, `specflow-review-design`, `specflow-review-proposal`, `specflow-design-artifacts`, `specflow-init`, `specflow-analyze`, and `specflow-create-sub-issues`
 - Shared runtime libraries in `src/lib/` own subprocess execution, ledger mutations, diff parsing, prompt assembly, schema validation, and review result schemas
 - Orchestrator contracts declare stdin/stdout/stderr schema ids, and runtime JSON payloads are validated before emission
 

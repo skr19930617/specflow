@@ -1,9 +1,9 @@
 {
 	"run_id": "test-change",
 	"change_name": "test-change",
-	"current_phase": "proposal",
+	"current_phase": "proposal_draft",
 	"status": "active",
-	"allowed_events": ["accept_proposal", "reject"],
+	"allowed_events": ["check_scope", "reject"],
 	"issue": {
 		"url": "https://github.com/test/repo/issues/71",
 		"number": 71,
@@ -21,7 +21,7 @@
 	"history": [
 		{
 			"from": "start",
-			"to": "proposal",
+			"to": "proposal_draft",
 			"event": "propose"
 		}
 	]

@@ -69,6 +69,17 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
 		],
 	},
 	{
+		id: "specflow-review-proposal",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-review-proposal",
+		entryModule: "dist/bin/specflow-review-proposal.js",
+		stdoutSchemaId: "review-proposal-result",
+		references: [
+			"prompt:review_proposal_prompt",
+			"prompt:review_proposal_rereview_prompt",
+		],
+	},
+	{
 		id: "specflow-review-design",
 		type: AssetType.Orchestrator,
 		filePath: "bin/specflow-review-design",

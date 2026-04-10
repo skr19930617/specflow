@@ -50,14 +50,20 @@ The system SHALL provide a `specflow-run advance <run_id> <event>` command that 
 #### Scenario: Valid mainline transition
 
 - **WHEN** `specflow-run advance my-change propose` is executed while the run is in `start` state
-- **THEN** the run state SHALL transition to `proposal`
+- **THEN** the run state SHALL transition to `proposal_draft`
 - **THEN** the command SHALL exit with code 0
+
+#### Scenario: Proposal revise transition
+
+- **WHEN** `specflow-run advance my-change revise_proposal` is executed while the run is in `proposal_validate` state
+- **THEN** the run state SHALL transition to `proposal_clarify`
+- **THEN** a history entry SHALL be recorded with `from: "proposal_validate"`, `to: "proposal_clarify"`, `event: "revise_proposal"`
 
 #### Scenario: Phase-specific revise transition
 
-- **WHEN** `specflow-run advance my-change revise_design` is executed while the run is in `design` state
-- **THEN** the run state SHALL remain in `design`
-- **THEN** a history entry SHALL be recorded with `from: "design"`, `to: "design"`, `event: "revise_design"`
+- **WHEN** `specflow-run advance my-change revise_design` is executed while the run is in `design_review` state
+- **THEN** the run state SHALL transition to `design_draft`
+- **THEN** a history entry SHALL be recorded with `from: "design_review"`, `to: "design_draft"`, `event: "revise_design"`
 
 #### Scenario: Branch path transition
 

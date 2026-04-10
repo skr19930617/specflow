@@ -6,15 +6,37 @@ Keep slash-command flow definitions aligned with the authoritative workflow stat
 
 ## Requirements
 
-### Requirement: Proposal flow SHALL initialize and enter the run state machine
+### Requirement: Proposal flow SHALL initialize and enter the detailed proposal states
 
-The `/specflow` command definition SHALL initialize `specflow-run` for the created change and advance it from `start` to `proposal`.
+The `/specflow` command definition SHALL initialize `specflow-run` for the created change and advance it from `start` to `proposal_draft`.
 
 #### Scenario: Change creation starts a run
 
 - **WHEN** `/specflow` creates `openspec/changes/<CHANGE_ID>/`
 - **THEN** the command definition SHALL include `specflow-run start "<CHANGE_ID>"`
 - **THEN** it SHALL include `specflow-run advance "<CHANGE_ID>" propose`
+- **THEN** it SHALL include `specflow-run advance "<CHANGE_ID>" check_scope`
+- **THEN** it SHALL include `specflow-run advance "<CHANGE_ID>" continue_proposal`
+- **THEN** it SHALL include `specflow-run advance "<CHANGE_ID>" review_proposal`
+- **THEN** it SHALL include `specflow-review-proposal review <CHANGE_ID>`
+- **THEN** it SHALL include `specflow-run advance "<CHANGE_ID>" proposal_review_approved`
+- **THEN** it SHALL include `specflow-run advance "<CHANGE_ID>" proposal_validated`
+
+### Requirement: Proposal and design validation SHALL be strict blocking gates
+
+The `/specflow` and `/specflow.design` command definitions SHALL block progression when validation fails.
+
+#### Scenario: Proposal validation cannot be bypassed
+
+- **WHEN** `/specflow` documents the proposal validation step
+- **THEN** it SHALL say `Do **not** continue despite validation errors`
+- **THEN** it SHALL NOT offer a continue-on-error option
+
+#### Scenario: Design validation cannot be bypassed
+
+- **WHEN** `/specflow.design` documents the design validation step
+- **THEN** it SHALL say `Do **not** continue despite validation errors`
+- **THEN** it SHALL NOT offer a continue-on-error option
 
 ### Requirement: Phase-entry commands SHALL advance the run state
 
@@ -22,13 +44,21 @@ The phase-entry slash commands SHALL advance the run according to the generated 
 
 #### Scenario: Design phase accepts proposal
 
-- **WHEN** `/specflow.design` begins design work for a change in `proposal`
+- **WHEN** `/specflow.design` begins design work for a change in `proposal_ready`
 - **THEN** the command definition SHALL include `specflow-run advance "<CHANGE_ID>" accept_proposal`
+- **THEN** `/specflow.design` SHALL start only from `proposal_ready`
 
 #### Scenario: Apply phase accepts design
 
-- **WHEN** `/specflow.apply` begins implementation work for a change in `design`
+- **WHEN** `/specflow.apply` begins implementation work for a change in `design_ready`
 - **THEN** the command definition SHALL include `specflow-run advance "<CHANGE_ID>" accept_design`
+- **THEN** `/specflow.apply` SHALL start only from `design_ready`
+
+#### Scenario: Approve phase requires apply_ready
+
+- **WHEN** `/specflow.approve` begins
+- **THEN** it SHALL require the run phase to be `apply_ready`
+- **THEN** it SHALL NOT be offered while apply review findings remain
 
 ### Requirement: Revision commands SHALL record self-transitions
 

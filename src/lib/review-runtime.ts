@@ -12,6 +12,7 @@ import { atomicWriteText } from "./fs.js";
 import { currentBranch, recentChanges } from "./git.js";
 import { extractJsonFromMarkdown } from "./json.js";
 import { resolveCommand, tryExec } from "./process.js";
+import { actionableCount } from "./review-ledger.js";
 
 export interface ReviewConfig {
 	readonly diffWarnThreshold: number;
@@ -163,18 +164,22 @@ export function callCodex<T>(
 export function renderCurrentPhase(
 	changeDir: string,
 	ledger: ReviewLedger,
-	kind: "apply" | "design",
+	kind: "apply" | "design" | "proposal",
 	cwd: string,
 ): void {
 	const currentRound = Number(ledger.current_round ?? 1);
 	const phase =
-		kind === "apply"
+		kind === "proposal"
 			? currentRound <= 1
-				? "impl-review"
-				: "fix-review"
-			: currentRound <= 1
-				? "design-review"
-				: "design-fix-review";
+				? "proposal-review"
+				: "proposal-fix-review"
+			: kind === "apply"
+				? currentRound <= 1
+					? "impl-review"
+					: "fix-review"
+				: currentRound <= 1
+					? "design-review"
+					: "design-fix-review";
 	const openHigh = (ledger.findings ?? []).filter((finding) => {
 		const severity = String(finding.severity ?? "");
 		const status = String(finding.status ?? "");
@@ -195,14 +200,19 @@ export function renderCurrentPhase(
 					`${String(finding.title ?? "")} (${String(finding.status ?? "")}, notes: "${String(finding.notes ?? "")}")`,
 			)
 			.join("\n") || "none";
+	const actionable = actionableCount(ledger);
 	const nextAction =
-		kind === "apply"
-			? openHigh.length > 0
-				? "/specflow.fix_apply"
-				: "/specflow.approve"
-			: openHigh.length > 0
-				? "/specflow.fix_design"
-				: "/specflow.apply";
+		kind === "proposal"
+			? actionable > 0
+				? "/specflow"
+				: "/specflow.design"
+			: kind === "apply"
+				? actionable > 0
+					? "/specflow.fix_apply"
+					: "/specflow.approve"
+				: actionable > 0
+					? "/specflow.fix_design"
+					: "/specflow.apply";
 
 	atomicWriteText(
 		resolve(changeDir, "current-phase.md"),
@@ -213,6 +223,7 @@ export function renderCurrentPhase(
 			`- Round: ${currentRound}`,
 			`- Status: ${String(ledger.status ?? "in_progress")}`,
 			`- Open High Findings: ${openHighStr}`,
+			`- Actionable Findings: ${actionable}`,
 			`- Accepted Risks: ${acceptedRisks}`,
 			"- Latest Changes:",
 			recentChanges(cwd),

@@ -875,6 +875,7 @@ export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"init-project": initProjectValidator,
 	"review-apply-result": reviewResultValidator,
 	"review-design-result": reviewResultValidator,
+	"review-proposal-result": reviewResultValidator,
 	"run-state": runStateValidator,
 	"create-sub-issues-input": createSubIssuesInputValidator,
 	"create-sub-issues-result": createSubIssuesResultValidator,
