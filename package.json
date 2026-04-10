@@ -3,6 +3,26 @@
 	"version": "0.2.0",
 	"private": true,
 	"type": "module",
+	"bin": {
+		"specflow-analyze": "bin/specflow-analyze",
+		"specflow-create-sub-issues": "bin/specflow-create-sub-issues",
+		"specflow-design-artifacts": "bin/specflow-design-artifacts",
+		"specflow-fetch-issue": "bin/specflow-fetch-issue",
+		"specflow-filter-diff": "bin/specflow-filter-diff",
+		"specflow-init": "bin/specflow-init",
+		"specflow-install": "bin/specflow-install",
+		"specflow-review-apply": "bin/specflow-review-apply",
+		"specflow-review-design": "bin/specflow-review-design",
+		"specflow-review-proposal": "bin/specflow-review-proposal",
+		"specflow-run": "bin/specflow-run"
+	},
+	"files": [
+		"LICENSE",
+		"README.md",
+		"bin",
+		"dist",
+		"scripts/postinstall.mjs"
+	],
 	"scripts": {
 		"build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json && node dist/build.js",
 		"check": "npm run typecheck && npm run lint && npm run format:check && npm run test:coverage && npm run validate:contracts",
@@ -12,6 +32,7 @@
 		"format:check": "biome check . --formatter-enabled=true --linter-enabled=false --assist-enabled=false && prettier --check \"**/*.{md,yaml,yml}\"",
 		"lint": "biome lint .",
 		"lint:fix": "biome lint . --write",
+		"postinstall": "node scripts/postinstall.mjs",
 		"test:coverage": "npm run build && c8 --clean --all --src dist --exclude \"dist/tests/**\" --exclude \"dist/build.js\" --reporter text-summary --reporter json-summary --reporter lcov -- node --test dist/tests/*.test.js",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"validate:contracts": "tsc -p tsconfig.json && node dist/validate.js",

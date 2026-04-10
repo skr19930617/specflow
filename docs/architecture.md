@@ -35,6 +35,14 @@ The previous Bash implementation is archived at git tag `legacy-v1-final`. Activ
 ## Installation
 
 - `install.sh` remains a Bash bootstrap
-- The bootstrap builds the repository and invokes `dist/bin/specflow-install.js`
+- The primary install path is `npm install -g --force https://github.com/skr19930617/specflow/releases/latest/download/specflow-node.tgz`
+- The release tarball ships prebuilt `bin/` and `dist/` artifacts, and `scripts/postinstall.mjs` invokes `dist/bin/specflow-install.js` automatically during global installs
+- `install.sh` is now a thin wrapper over the same latest-release tarball flow
 - `specflow-install` reads `dist/install-plan.json` and `dist/manifest.json` to decide what to copy, link, and merge
 - No command list or install path inventory is hardcoded inside the installer logic
+
+## Release Distribution
+
+- `.github/workflows/release.yml` publishes a GitHub Release after successful `CI` runs on `main`
+- The release job builds the distribution bundle, runs `npm pack`, renames the tarball to `specflow-node.tgz`, and uploads it as the stable latest asset
+- README installation commands target `releases/latest/download/specflow-node.tgz`, so the install URL does not change across releases
