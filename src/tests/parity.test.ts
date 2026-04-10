@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-	createFetchIssueStub,
+	createSourceFile,
 	createFixtureRepo,
 	makeTempDir,
 	normalizeRunState,
@@ -16,20 +16,19 @@ test("specflow-run matches archived start/propose fixtures", () => {
 	const tempRoot = makeTempDir("specflow-parity-");
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
-		const stubPath = createFetchIssueStub(tempRoot);
+		const sourceFile = createSourceFile(tempRoot, {
+			kind: "url",
+			provider: "github",
+			reference: "https://github.com/test/repo/issues/71",
+			title: "Stub issue",
+		});
 		const startFixture = readFixtureJson("specflow-run/start.json");
 		const advanceFixture = readFixtureJson("specflow-run/advance.json");
 
 		const nodeStart = runNodeCli(
 			"specflow-run",
-			[
-				"start",
-				changeId,
-				"--issue-url",
-				"https://github.com/test/repo/issues/71",
-			],
+			["start", changeId, "--source-file", sourceFile],
 			repoPath,
-			{ SPECFLOW_FETCH_ISSUE: stubPath },
 		);
 		assert.equal(nodeStart.status, 0, nodeStart.stderr);
 		assert.deepEqual(normalizeRunState(nodeStart.stdout), startFixture);

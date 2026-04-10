@@ -465,7 +465,7 @@ export const commandBodies: Record<string, CommandBody> = {
 	specflow: {
 		frontmatter: {
 			description:
-				"GitHub issue URL またはインライン仕様記述から proposal 作成 → clarify → Codex proposal review を実行",
+				"URL またはインライン仕様記述から local proposal entry → clarify → Codex proposal review を実行",
 		},
 		sections: [
 			{
@@ -495,7 +495,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 3: Proposal Creation",
 				content:
-					'\n**Feature description input depends on MODE:**\n- **`MODE = issue_url`**: Use the issue title and body from Step 2.\n- **`MODE = inline_spec`**: Use `INPUT_TEXT` directly.\n\n1. Derive a kebab-case `CHANGE_ID` from the feature description.\n2. Create the change:\n   ```bash\n   openspec new change "<CHANGE_ID>"\n   ```\n3. Create the feature branch:\n   ```bash\n   git checkout -b <CHANGE_ID>\n   ```\n4. Generate proposal content with OpenSpec instructions:\n   ```bash\n   openspec instructions proposal --change "<CHANGE_ID>" --json\n   ```\n5. Initialize the run if needed, then enter `proposal_draft`:\n   ```bash\n   if specflow-run status "<CHANGE_ID>" >/dev/null 2>&1; then\n     echo "Run already exists for <CHANGE_ID>; keep current state"\n   else\n     specflow-run start "<CHANGE_ID>" [--issue-url "<ISSUE_URL>"]\n   fi\n   specflow-run advance "<CHANGE_ID>" propose\n   ```\n\nReport: `Step 3 complete — proposal created and run entered proposal_draft`',
+					'\nNormalize the source into a shared local JSON file first.\n\nTarget shape:\n```json\n{\n  "kind": "inline" | "url",\n  "provider": "generic" | "github",\n  "reference": "<raw input or source URL>",\n  "title": "<normalized title or null>",\n  "body": "<normalized source body>"\n}\n```\n\n1. Write `/tmp/specflow-proposal-source.json`.\n   - **`MODE = issue_url`**: use the issue URL, title, and body from Step 2 with `provider: "github"`.\n   - **`MODE = inline_spec`**: set `reference = INPUT_TEXT`, `title = null`, `body = INPUT_TEXT`, `provider: "generic"`.\n2. Run the shared local entry helper:\n   ```bash\n   specflow-prepare-change [<CHANGE_ID>] --source-file /tmp/specflow-proposal-source.json\n   ```\n   - If you already know the desired `CHANGE_ID`, pass it explicitly.\n   - Otherwise let the helper derive it from the normalized source.\n3. The helper performs the canonical entry sequence:\n   - creates or reuses `openspec/changes/<CHANGE_ID>/`\n   - creates or switches the local branch `<CHANGE_ID>`\n   - writes `openspec/changes/<CHANGE_ID>/proposal.md` from OpenSpec proposal instructions plus the normalized source\n   - runs `specflow-run start "<CHANGE_ID>" --source-file /tmp/specflow-proposal-source.json`\n   - runs `specflow-run advance "<CHANGE_ID>" propose`\n4. Parse the returned run-state JSON and set `CHANGE_ID = RUN_STATE.change_name`.\n5. Read `openspec/changes/<CHANGE_ID>/proposal.md`.\n6. If the seeded draft clearly misses obvious scope/details from the source, refine `proposal.md` immediately before moving on.\n\nReport: `Step 3 complete — proposal created and run entered proposal_draft`',
 			},
 			{
 				title: "Step 4: Scope Check",

@@ -10,6 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import type { ProposalSource, SourceMetadata } from "../types/contracts.js";
 
 export const repoRoot = process.cwd();
 
@@ -79,6 +80,16 @@ export function createFetchIssueStub(root: string): string {
 		"utf8",
 	);
 	spawnSync("chmod", ["+x", path], { stdio: "ignore" });
+	return path;
+}
+
+export function createSourceFile(
+	root: string,
+	source: ProposalSource | SourceMetadata,
+	fileName = "source.json",
+): string {
+	const path = join(root, fileName);
+	writeFileSync(path, `${JSON.stringify(source, null, 2)}\n`, "utf8");
 	return path;
 }
 

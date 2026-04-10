@@ -3,6 +3,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import type { RunKind, RunState } from "../types/contracts.js";
+import { readSourceMetadataFile } from "../lib/proposal-source.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -98,7 +99,7 @@ function validateChangeRunId(root: string, runId: string): void {
 		void stat;
 	} catch {
 		fail(
-			`Error: no OpenSpec change found for '${runId}'. Expected directory: openspec/changes/${runId}/`,
+			`Error: no OpenSpec proposal found for '${runId}'. Expected file: openspec/changes/${runId}/proposal.md`,
 		);
 	}
 }
@@ -156,39 +157,6 @@ function atomicWrite(path: string, content: string): void {
 	renameSync(tempPath, path);
 }
 
-function parseIssueMetadata(issueUrl: string): JsonObject {
-	const fetchTool =
-		process.env.SPECFLOW_FETCH_ISSUE ??
-		resolve(moduleRepoRoot(import.meta.url), "bin/specflow-fetch-issue");
-	try {
-		const stdout = execFileSync(fetchTool, [issueUrl], {
-			cwd: process.cwd(),
-			encoding: "utf8",
-			stdio: ["ignore", "pipe", "pipe"],
-		});
-		const parsed = JSON.parse(stdout) as {
-			url: string;
-			number: number;
-			title: string;
-		};
-		const repoMatch = issueUrl.match(
-			/^https:\/\/[^/]+\/([^/]+\/[^/]+)\/issues\/\d+/,
-		);
-		if (!repoMatch) {
-			fail(`Error: could not derive repo from URL: ${issueUrl}`);
-		}
-		return {
-			url: parsed.url,
-			number: parsed.number,
-			title: parsed.title,
-			repo: repoMatch[1],
-		};
-	} catch (error) {
-		const stderr = error instanceof Error ? error.message : String(error);
-		fail(`Error: failed to fetch issue metadata: ${stderr}`);
-	}
-}
-
 function readRunState(path: string): RunState {
 	return JSON.parse(readFileSync(path, "utf8")) as RunState;
 }
@@ -201,6 +169,7 @@ function validateRunSchema(runState: RunState): void {
 		"branch_name",
 		"worktree_path",
 		"agents",
+		"source",
 		"last_summary_path",
 	] as const;
 	const missing = requiredFields.filter((field) => !(field in runState));
@@ -217,7 +186,7 @@ function cmdStart(
 	workflow: WorkflowDefinition,
 ): void {
 	let runId = "";
-	let issueUrl = "";
+	let sourceFile = "";
 	let agentMain = "claude";
 	let agentReview = "codex";
 	let runKind: RunKind = "change";
@@ -227,8 +196,9 @@ function cmdStart(
 		if (!arg) {
 			continue;
 		}
-		if (arg === "--issue-url") {
-			issueUrl = args[++index] ?? fail("Error: --issue-url requires a value");
+		if (arg === "--source-file") {
+			sourceFile =
+				args[++index] ?? fail("Error: --source-file requires a value");
 			continue;
 		}
 		if (arg === "--agent-main") {
@@ -259,7 +229,7 @@ function cmdStart(
 
 	if (!runId) {
 		fail(
-			"Usage: specflow-run start <run_id> [--issue-url <url>] [--agent-main <name>] [--agent-review <name>] [--run-kind <change|synthetic>]",
+			"Usage: specflow-run start <run_id> [--source-file <path>] [--agent-main <name>] [--agent-review <name>] [--run-kind <change|synthetic>]",
 		);
 	}
 
@@ -282,7 +252,7 @@ function cmdStart(
 		current_phase: "start",
 		status: "active",
 		allowed_events: allowedEventsFor(workflow, "start"),
-		issue: issueUrl ? parseIssueMetadata(issueUrl) : null,
+		source: sourceFile ? readSourceMetadataFile(sourceFile) : null,
 		project_id: detectProjectId(),
 		repo_name: detectProjectId(),
 		repo_path: gitOrFail(

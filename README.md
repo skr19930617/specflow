@@ -7,7 +7,7 @@
 
 [日本語](#セットアップ) | [English](#english)
 
-GitHub issue URL を入力にして、Claude + Codex による proposal → clarify → validate → design → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
+GitHub issue URL またはインライン仕様記述を入力にして、Claude + Codex による proposal → clarify → validate → design → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
 
 ## セットアップ
 
@@ -15,7 +15,7 @@ GitHub issue URL を入力にして、Claude + Codex による proposal → clar
 
 | ツール       | 用途                                     | インストール                             |
 | ------------ | ---------------------------------------- | ---------------------------------------- |
-| `gh`         | GitHub issue の取得                      | `brew install gh && gh auth login`       |
+| `gh`         | GitHub issue URL 入力時のみ必要         | `brew install gh && gh auth login`       |
 | `claude`     | proposal の clarify / design / implement | Claude Code CLI                          |
 | `git`        | リポジトリ操作                           | macOS 標準 or `brew install git`         |
 | OpenSpec CLI | proposal/design/tasks/implement 管理     | `npm install -g openspec` でインストール |
@@ -135,12 +135,18 @@ Claude Code 内で:
 
 Tech Stack、Commands、Code Style をインタラクティブに設定して CLAUDE.md を更新する。
 
-### 3. issue URL を渡して実行
+### 3. URL またはインライン仕様を渡して実行
 
 Claude Code 内で:
 
 ```
 /specflow https://github.com/OWNER/REPO/issues/123
+```
+
+または:
+
+```
+/specflow ユーザー認証の repo responsibility と non-goals を明文化する
 ```
 
 URL なしで起動してインタラクティブに入力:
@@ -154,7 +160,7 @@ URL なしで起動してインタラクティブに入力:
 各コマンドは1つのフェーズだけを担当し、終了時に handoff ボタンで次のステップに進む。
 
 ```
-/specflow           fetch → proposal 作成 → clarify → validate
+/specflow           input normalize → local proposal entry → clarify → validate
                     ┌─ [Design に進む]      → /specflow.design
                     ├─ [Explore]            → /specflow.explore
                     └─ [中止]              → /specflow.reject
@@ -194,7 +200,7 @@ URL なしで起動してインタラクティブに入力:
 
 #### フェーズの流れ
 
-1. `/specflow` — issue 取得 → proposal 作成 → clarify → validate（OpenSpec CLI 連携）
+1. `/specflow` — source 正規化 → local proposal entry → clarify → validate（OpenSpec CLI 連携）
 2. `/specflow.explore` — (任意) アイデア探索・問題調査・設計検討
 3. `/specflow.design` — design artifacts 生成 → Codex design review
 4. `/specflow.apply` — OpenSpec apply → tasks 実装 → Codex apply review
@@ -310,10 +316,15 @@ stateDiagram-v2
 
 ### run.json メタデータ
 
+change run の canonical boundary は `openspec/changes/<CHANGE_ID>/proposal.md`
+と `.specflow/runs/<run_id>/run.json`。スラッシュコマンドや GitHub issue URL
+はこのローカル entry flow を呼ぶ adapter として扱う。
+
 v3.0 の `run.json` は以下のフィールドを必須とします（`specflow-run start` 時に自動検出）:
 
 | フィールド          | ソース                                             |
 | ------------------- | -------------------------------------------------- |
+| `source`            | `--source-file` で渡された正規化 metadata または `null` |
 | `project_id`        | `git remote get-url origin` → `owner/repo`         |
 | `repo_name`         | `project_id` と同値                                |
 | `repo_path`         | `git rev-parse --show-toplevel`                    |
@@ -379,6 +390,7 @@ specflow/                        # このリポジトリ（ツール）
     specflow-filter-diff         #   diff フィルタリング
     specflow-init                #   プロジェクト初期化 / コマンド更新
     specflow-install             #   グローバルインストール（PATH, コマンド, 権限, テンプレート）
+    specflow-prepare-change      #   normalized source → proposal.md → run start
     specflow-run                 #   ワークフロー状態遷移 CLI (start/advance/status/update-field)
   assets/                        # build 入力テンプレート
     global/
@@ -440,7 +452,7 @@ npm run check
 
 # English
 
-An interactive tool that runs the full proposal → clarify → validate → design → implement → review workflow inside Claude Code, driven by GitHub issue URLs using Claude + Codex.
+An interactive tool that runs the full proposal → clarify → validate → design → implement → review workflow inside Claude Code from either GitHub issue URLs or inline source text, using Claude + Codex.
 
 ## Quick Start
 
@@ -470,7 +482,7 @@ node dist/bin/specflow-install.js
 
 | Tool         | Purpose                                    | Install                              |
 | ------------ | ------------------------------------------ | ------------------------------------ |
-| `gh`         | Fetch GitHub issues                        | `brew install gh && gh auth login`   |
+| `gh`         | Optional GitHub issue URL input            | `brew install gh && gh auth login`   |
 | `claude`     | Proposal clarify / design / implement      | Claude Code CLI                      |
 | `git`        | Repository operations                      | macOS built-in or `brew install git` |
 | OpenSpec CLI | Proposal/design/tasks/implement management | `npm install -g openspec`            |
@@ -491,9 +503,15 @@ node dist/bin/specflow-install.js
    /specflow.setup
    ```
 
-3. Start the workflow with a GitHub issue:
+3. Start the workflow with a GitHub issue URL or inline source text:
    ```
    /specflow https://github.com/OWNER/REPO/issues/123
+   ```
+
+   or
+
+   ```
+   /specflow Document repository responsibilities and non-goals
    ```
 
 ### Workflow

@@ -164,6 +164,8 @@ export type PromptTemplateValue =
 
 export type SchemaId =
 	| "issue-metadata"
+	| "source-metadata"
+	| "proposal-source"
 	| "diff-summary"
 	| "design-artifact-next"
 	| "design-artifact-validate"
@@ -200,6 +202,20 @@ export interface IssueMetadata extends JsonMap {
 	readonly state?: string;
 }
 
+export type SourceKind = "inline" | "url";
+export type SourceProvider = "generic" | "github";
+
+export interface SourceMetadata extends JsonMap {
+	readonly kind: SourceKind;
+	readonly provider: SourceProvider | null;
+	readonly reference: string;
+	readonly title: string | null;
+}
+
+export interface ProposalSource extends SourceMetadata {
+	readonly body: string;
+}
+
 export type RunKind = "change" | "synthetic";
 
 export interface RunHistoryEntry extends JsonMap {
@@ -220,7 +236,7 @@ export interface RunState extends JsonMap {
 	readonly current_phase: string;
 	readonly status: string;
 	readonly allowed_events: readonly string[];
-	readonly issue: JsonMap | null;
+	readonly source: SourceMetadata | null;
 	readonly project_id: string;
 	readonly repo_name: string;
 	readonly repo_path: string;

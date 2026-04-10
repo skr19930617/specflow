@@ -31,20 +31,13 @@ function command(
 export const commandContracts: readonly CommandContract[] = [
 	command(
 		"specflow",
-		"GitHub issue URL またはインライン仕様記述から proposal 作成 → scope → clarify → proposal review → validate を厳格に実行",
+		"URL またはインライン仕様記述から local proposal entry → scope → clarify → proposal review → validate を厳格に実行",
 		[],
 		[
 			hook(
-				"Run Initialization",
-				"After the change directory is created, initialize and enter the workflow state machine at proposal_draft.",
-				[
-					'if specflow-run status "<CHANGE_ID>" >/dev/null 2>&1; then',
-					'  echo "Run already exists for <CHANGE_ID>; keep current state"',
-					"else",
-					'  specflow-run start "<CHANGE_ID>" [--issue-url "<ISSUE_URL>"]',
-					"fi",
-					'specflow-run advance "<CHANGE_ID>" propose',
-				].join("\n"),
+				"Proposal Entry",
+				"Use the shared local helper to materialize proposal.md and enter proposal_draft.",
+				'specflow-prepare-change [<CHANGE_ID>] --source-file "/tmp/specflow-proposal-source.json"',
 			),
 		],
 	),

@@ -44,7 +44,12 @@ test("generated slash commands include run-state hook injections", () => {
 	);
 
 	assert.ok(specflow.includes("## Run State Hooks"));
-	assert.ok(specflow.includes("specflow-run start"));
+	assert.ok(specflow.includes("specflow-prepare-change"));
+	assert.ok(
+		specflow.includes(
+			"specflow-prepare-change [<CHANGE_ID>] --source-file /tmp/specflow-proposal-source.json",
+		),
+	);
 	assert.ok(apply.includes("accept_design"));
 	assert.ok(explore.includes("--run-kind synthetic"));
 	assert.ok(spec.includes("--run-kind synthetic"));

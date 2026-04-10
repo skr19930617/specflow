@@ -514,7 +514,7 @@ Initialize a new specflow + OpenSpec project.
 	log(`  Review agent: ${reviewAgent}`);
 	log("Next steps:");
 	log("  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style");
-	log("  2. Run '/specflow <issue-url>' to start your first feature");
+	log("  2. Run '/specflow <issue-url-or-text>' to start your first feature");
 	printSchemaJson("init-project", {
 		mode: "init",
 		project_name: projectName,
