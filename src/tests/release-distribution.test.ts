@@ -18,6 +18,10 @@ test("package metadata exposes release-install bins and packaged assets", () => 
 	assert.equal(pkg.bin["specflow-install"], "bin/specflow-install");
 	assert.equal(pkg.bin["specflow-run"], "bin/specflow-run");
 	assert.equal(
+		pkg.bin["specflow-prepare-change"],
+		"bin/specflow-prepare-change",
+	);
+	assert.equal(
 		pkg.bin["specflow-review-proposal"],
 		"bin/specflow-review-proposal",
 	);
@@ -42,8 +46,10 @@ test("npm pack dry-run includes the runtime bundle needed by release installs", 
 		const paths = new Set(packed[0]?.files.map((file) => file.path) ?? []);
 
 		assert.ok(paths.has("bin/specflow-install"));
+		assert.ok(paths.has("bin/specflow-prepare-change"));
 		assert.ok(paths.has("bin/.launcher.mjs"));
 		assert.ok(paths.has("dist/bin/specflow-install.js"));
+		assert.ok(paths.has("dist/bin/specflow-prepare-change.js"));
 		assert.ok(paths.has("dist/bin/specflow-run.js"));
 		assert.ok(paths.has("dist/package/global/workflow/state-machine.json"));
 		assert.ok(paths.has("dist/package/global/commands/specflow.md"));

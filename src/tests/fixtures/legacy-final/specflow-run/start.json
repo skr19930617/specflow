@@ -4,11 +4,11 @@
 	"current_phase": "start",
 	"status": "active",
 	"allowed_events": ["propose", "explore_start", "spec_bootstrap_start"],
-	"issue": {
-		"url": "https://github.com/test/repo/issues/71",
-		"number": 71,
-		"title": "Stub issue",
-		"repo": "test/repo"
+	"source": {
+		"kind": "url",
+		"provider": "github",
+		"reference": "https://github.com/test/repo/issues/71",
+		"title": "Stub issue"
 	},
 	"project_id": "test/repo",
 	"repo_name": "test/repo",

@@ -15,11 +15,13 @@ import type {
 	LedgerRoundSummary,
 	LedgerSeverityCounts,
 	LedgerSnapshot,
+	ProposalSource,
 	ReviewDiffSummary,
 	ReviewFinding,
 	ReviewPayload,
 	ReviewResult,
 	RereviewClassification,
+	SourceMetadata,
 	RunAgents,
 	RunHistoryEntry,
 	RunState,
@@ -172,6 +174,42 @@ function issueMetadataValidator(
 	optional(record.assignees, objectArrayValidator, `${path}.assignees`, errors);
 	optional(record.author, nullOrObjectValidator, `${path}.author`, errors);
 	optional(record.state, stringValidator, `${path}.state`, errors);
+}
+
+function sourceMetadataValidator(
+	value: unknown,
+	path: string,
+	errors: ValidationErrors,
+): void {
+	const record = expectRecord(value, path, errors);
+	if (!record) {
+		return;
+	}
+	if (record.kind !== "inline" && record.kind !== "url") {
+		push(errors, `${path}.kind`, "must be inline or url.");
+	}
+	if (
+		record.provider !== null &&
+		record.provider !== "generic" &&
+		record.provider !== "github"
+	) {
+		push(errors, `${path}.provider`, "must be generic, github, or null.");
+	}
+	stringValidator(record.reference, `${path}.reference`, errors);
+	nullOrStringValidator(record.title, `${path}.title`, errors);
+}
+
+function proposalSourceValidator(
+	value: unknown,
+	path: string,
+	errors: ValidationErrors,
+): void {
+	sourceMetadataValidator(value, path, errors);
+	const record = expectRecord(value, path, errors);
+	if (!record) {
+		return;
+	}
+	stringValidator(record.body, `${path}.body`, errors);
 }
 
 function diffSummaryValidator(
@@ -557,6 +595,7 @@ function reviewDiffSummaryValidator(
 		`${path}.diff_warning`,
 		errors,
 	);
+	optional(record.threshold, numberValidator, `${path}.threshold`, errors);
 }
 
 function rereviewClassificationValidator(
@@ -700,7 +739,11 @@ function runStateValidator(
 	stringValidator(record.current_phase, `${path}.current_phase`, errors);
 	stringValidator(record.status, `${path}.status`, errors);
 	stringArrayValidator(record.allowed_events, `${path}.allowed_events`, errors);
-	nullOrObjectValidator(record.issue, `${path}.issue`, errors);
+	if (record.source === null) {
+		// ok
+	} else {
+		sourceMetadataValidator(record.source, `${path}.source`, errors);
+	}
 	stringValidator(record.project_id, `${path}.project_id`, errors);
 	stringValidator(record.repo_name, `${path}.repo_name`, errors);
 	stringValidator(record.repo_path, `${path}.repo_path`, errors);
@@ -868,6 +911,8 @@ function createSubIssuesResultValidator(
 
 export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"issue-metadata": issueMetadataValidator,
+	"source-metadata": sourceMetadataValidator,
+	"proposal-source": proposalSourceValidator,
 	"diff-summary": diffSummaryValidator,
 	"design-artifact-next": designArtifactNextValidator,
 	"design-artifact-validate": designArtifactValidateValidator,
@@ -950,11 +995,13 @@ export type {
 	LedgerRoundSummary,
 	LedgerSeverityCounts,
 	LedgerSnapshot,
+	ProposalSource,
 	ReviewDiffSummary,
 	ReviewFinding,
 	ReviewPayload,
 	ReviewResult,
 	RereviewClassification,
+	SourceMetadata,
 	RunAgents,
 	RunHistoryEntry,
 	RunState,

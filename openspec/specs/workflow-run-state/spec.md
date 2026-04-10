@@ -37,7 +37,7 @@ exact states, events, and transitions declared in
 `specflow-run start` SHALL create `.specflow/runs/<run_id>/run.json` and SHALL
 populate the current workflow metadata for the new run.
 
-#### Scenario: Change runs require an existing OpenSpec change directory
+#### Scenario: Change runs require an existing local proposal artifact
 
 - **WHEN** `specflow-run start <run_id>` is invoked with the default run kind
 - **THEN** it SHALL require `openspec/changes/<run_id>/proposal.md` to exist
@@ -49,11 +49,13 @@ populate the current workflow metadata for the new run.
   `branch_name`, `worktree_path`, `agents`, `allowed_events`, `created_at`,
   and `updated_at`
 
-#### Scenario: Issue-linked runs fetch issue metadata
+#### Scenario: Started runs persist optional normalized source metadata
 
-- **WHEN** `specflow-run start <run_id> --issue-url <url>` succeeds
-- **THEN** the stored run state SHALL include an `issue` object derived from
-  `specflow-fetch-issue`
+- **WHEN** `specflow-run start <run_id> --source-file <path>` succeeds
+- **THEN** the stored run state SHALL include a `source` object loaded from the
+  provided file
+- **AND** the stored object SHALL include `kind`, `provider`, `reference`, and
+  `title`
 
 #### Scenario: Synthetic runs bypass change-directory lookup
 

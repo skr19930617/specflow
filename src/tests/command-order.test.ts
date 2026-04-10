@@ -20,6 +20,10 @@ test("generated /specflow command preserves detailed proposal step order", () =>
 		"## Step 1: Setup",
 		"## Step 2: Fetch Issue",
 		"## Step 3: Proposal Creation",
+		"/tmp/specflow-proposal-source.json",
+		"specflow-prepare-change [<CHANGE_ID>] --source-file /tmp/specflow-proposal-source.json",
+		"writes `openspec/changes/<CHANGE_ID>/proposal.md`",
+		'specflow-run start "<CHANGE_ID>" --source-file /tmp/specflow-proposal-source.json',
 		'specflow-run advance "<CHANGE_ID>" propose',
 		"## Step 4: Scope Check",
 		'specflow-run advance "<CHANGE_ID>" check_scope',
@@ -72,11 +76,31 @@ test("generated /specflow.approve command keeps archive before commit and condit
 		"utf8",
 	);
 	assertOrderedFragments(content, [
+		"git diff HEAD --name-only",
+		"git diff HEAD --stat",
 		"## Archive",
+		'openspec archive -y "<CHANGE_ID>"',
 		"## Commit",
 		"## Push & Pull Request",
+		'specflow-run update-field "<CHANGE_ID>" last_summary_path "$FINAL_SUMMARY_PATH"',
+		'specflow-run advance "<CHANGE_ID>" accept_apply',
 	]);
+	assert.equal(content.includes("git diff main...HEAD"), false);
 	assert.ok(content.includes("issue-linked run の場合"));
 	assert.ok(content.includes("inline-spec run で issue metadata が無い場合"));
 	assert.ok(content.includes("Closes <issue-url>"));
+});
+
+test("generated /specflow.review_apply command continues with --skip-diff-check only", () => {
+	const content = readFileSync(
+		"dist/package/global/commands/specflow.review_apply.md",
+		"utf8",
+	);
+	assert.ok(
+		content.includes(
+			"specflow-review-apply review <CHANGE_ID> --skip-diff-check",
+		),
+	);
+	assert.equal(content.includes("--force"), false);
+	assert.equal(content.includes("--no-diff-warning"), false);
 });

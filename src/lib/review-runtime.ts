@@ -38,6 +38,29 @@ function configValue(content: string, key: string): string | null {
 	return match ? match[1].trim() : null;
 }
 
+function readIntegerConfig(
+	content: string,
+	key: string,
+	fallback: number,
+	options: { min?: number; max?: number } = {},
+): number {
+	const raw = configValue(content, key);
+	if (raw === null || raw.length === 0) {
+		return fallback;
+	}
+	const parsed = Number(raw);
+	if (!Number.isInteger(parsed)) {
+		return fallback;
+	}
+	if (options.min !== undefined && parsed < options.min) {
+		return fallback;
+	}
+	if (options.max !== undefined && parsed > options.max) {
+		return fallback;
+	}
+	return parsed;
+}
+
 export function readReviewConfig(projectRoot: string): ReviewConfig {
 	const configPath = resolve(projectRoot, "openspec/config.yaml");
 	if (!existsSync(configPath)) {
@@ -47,18 +70,14 @@ export function readReviewConfig(projectRoot: string): ReviewConfig {
 		};
 	}
 	const content = readFileSync(configPath, "utf8");
-	const diffWarnThreshold = Number(configValue(content, "diff_warn_threshold"));
-	const maxAutofixRounds = Number(configValue(content, "max_autofix_rounds"));
 	return {
-		diffWarnThreshold: Number.isInteger(diffWarnThreshold)
-			? diffWarnThreshold
-			: 1000,
-		maxAutofixRounds:
-			Number.isInteger(maxAutofixRounds) &&
-			maxAutofixRounds >= 1 &&
-			maxAutofixRounds <= 10
-				? maxAutofixRounds
-				: 4,
+		diffWarnThreshold: readIntegerConfig(content, "diff_warn_threshold", 1000, {
+			min: 0,
+		}),
+		maxAutofixRounds: readIntegerConfig(content, "max_autofix_rounds", 4, {
+			min: 1,
+			max: 10,
+		}),
 	};
 }
 

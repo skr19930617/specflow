@@ -4,7 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
 	createBareHome,
-	createFetchIssueStub,
+	createSourceFile,
 	createFixtureRepo,
 	makeTempDir,
 	removeTempDir,
@@ -28,31 +28,34 @@ function advancePhase(
 	};
 }
 
-test("specflow-run supports lifecycle, issue metadata, and update-field", () => {
+test("specflow-run supports lifecycle, source metadata, and update-field", () => {
 	const tempRoot = makeTempDir("specflow-run-");
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
-		const stubPath = createFetchIssueStub(tempRoot);
+		const sourceFile = createSourceFile(tempRoot, {
+			kind: "url",
+			provider: "github",
+			reference: "https://github.com/test/repo/issues/71",
+			title: "Stub issue",
+		});
 
 		const start = runNodeCli(
 			"specflow-run",
-			[
-				"start",
-				changeId,
-				"--issue-url",
-				"https://github.com/test/repo/issues/71",
-			],
+			["start", changeId, "--source-file", sourceFile],
 			repoPath,
-			{ SPECFLOW_FETCH_ISSUE: stubPath },
 		);
 		assert.equal(start.status, 0, start.stderr);
 		const startJson = JSON.parse(start.stdout) as {
 			current_phase: string;
-			issue: { repo: string };
+			source: { provider: string; reference: string };
 			allowed_events: string[];
 		};
 		assert.equal(startJson.current_phase, "start");
-		assert.equal(startJson.issue.repo, "test/repo");
+		assert.equal(startJson.source.provider, "github");
+		assert.equal(
+			startJson.source.reference,
+			"https://github.com/test/repo/issues/71",
+		);
 		assert.ok(startJson.allowed_events.includes("propose"));
 
 		const advance = runNodeCli(
@@ -86,6 +89,48 @@ test("specflow-run supports lifecycle, issue metadata, and update-field", () => 
 		);
 		assert.equal(getField.status, 0, getField.stderr);
 		assert.equal(JSON.parse(getField.stdout), "proposal_draft");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run rejects change directories that lack proposal.md", () => {
+	const tempRoot = makeTempDir("specflow-run-missing-proposal-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		rmSync(join(repoPath, "openspec/changes", changeId, "proposal.md"), {
+			force: true,
+		});
+		writeFileSync(
+			join(repoPath, "openspec/changes", changeId, ".openspec.yaml"),
+			"schema: spec-driven\ncreated: 2026-04-10\n",
+			"utf8",
+		);
+
+		const start = runNodeCli("specflow-run", ["start", changeId], repoPath);
+		assert.notEqual(start.status, 0);
+		assert.match(start.stderr, /no OpenSpec proposal found/);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run start rejects removed --issue-url option", () => {
+	const tempRoot = makeTempDir("specflow-run-issue-url-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const start = runNodeCli(
+			"specflow-run",
+			[
+				"start",
+				changeId,
+				"--issue-url",
+				"https://github.com/test/repo/issues/71",
+			],
+			repoPath,
+		);
+		assert.notEqual(start.status, 0);
+		assert.match(start.stderr, /unknown option '--issue-url'/);
 	} finally {
 		removeTempDir(tempRoot);
 	}

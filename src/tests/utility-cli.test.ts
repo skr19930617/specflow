@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import {
 	existsSync,
 	mkdirSync,
+	readFileSync,
 	realpathSync,
 	unlinkSync,
 	writeFileSync,
@@ -15,6 +16,7 @@ import {
 	createGhStub,
 	createInstalledHome,
 	createOpenspecStub,
+	createSourceFile,
 	makeTempDir,
 	prependPath,
 	removeTempDir,
@@ -158,6 +160,157 @@ test("specflow-design-artifacts wraps openspec next and validate", () => {
 		);
 		assert.equal(validateResult.status, 0, validateResult.stderr);
 		assert.equal(JSON.parse(validateResult.stdout).status, "valid");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-prepare-change seeds proposal.md for scaffold-only changes and enters proposal_draft", () => {
+	const tempRoot = makeTempDir("prepare-change-existing-");
+	try {
+		const changeId = "scaffold-only-change";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		unlinkSync(join(repoPath, "openspec/changes", changeId, "proposal.md"));
+		writeFileSync(
+			join(repoPath, "openspec/changes", changeId, ".openspec.yaml"),
+			"schema: spec-driven\ncreated: 2026-04-10\n",
+			"utf8",
+		);
+		const stubDir = createOpenspecStub(
+			tempRoot,
+			[
+				"#!/usr/bin/env node",
+				"const args = process.argv.slice(2);",
+				"if (args[0] === 'instructions' && args[1] === 'proposal') {",
+				"  process.stdout.write(JSON.stringify({ outputPath: 'proposal.md', template: '# Proposal', instruction: 'Seed proposal' }));",
+				"  process.exit(0);",
+				"}",
+				"process.stderr.write('unexpected openspec args: ' + args.join(' '));",
+				"process.exit(1);",
+				"",
+			].join("\n"),
+		);
+		const sourceFile = createSourceFile(tempRoot, {
+			kind: "inline",
+			provider: "generic",
+			reference: "Add enterprise SSO support",
+			title: null,
+			body: [
+				"Add enterprise SSO support.",
+				"Require SAML configuration.",
+				"Capture failed login attempts in audit logs.",
+			].join("\n"),
+		});
+		const result = runNodeCli(
+			"specflow-prepare-change",
+			[changeId, "--source-file", sourceFile],
+			repoPath,
+			prependPath({}, stubDir),
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const state = JSON.parse(result.stdout) as {
+			change_name: string;
+			current_phase: string;
+			branch_name: string;
+			source: { provider: string; reference: string };
+		};
+		assert.equal(state.change_name, changeId);
+		assert.equal(state.current_phase, "proposal_draft");
+		assert.equal(state.branch_name, changeId);
+		assert.equal(state.source.provider, "generic");
+		assert.equal(state.source.reference, "Add enterprise SSO support");
+		const proposal = readFileSync(
+			join(repoPath, "openspec/changes", changeId, "proposal.md"),
+			"utf8",
+		);
+		assert.ok(proposal.includes("# Proposal"));
+		assert.ok(proposal.includes("Source provider: generic"));
+		assert.ok(proposal.includes("Require SAML configuration."));
+		assert.ok(
+			proposal.includes("Capture failed login attempts in audit logs."),
+		);
+		assert.ok(proposal.includes("Seed proposal"));
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-prepare-change derives change ids from GitHub sources and scaffolds missing changes", () => {
+	const tempRoot = makeTempDir("prepare-change-derived-");
+	try {
+		const { repoPath } = createFixtureRepo(tempRoot);
+		const stubDir = createOpenspecStub(
+			tempRoot,
+			[
+				"#!/usr/bin/env node",
+				"const fs = require('node:fs');",
+				"const path = require('node:path');",
+				"const args = process.argv.slice(2);",
+				"if (args[0] === 'new' && args[1] === 'change') {",
+				"  const changeId = args[2] || '';",
+				"  const changeDir = path.join(process.cwd(), 'openspec', 'changes', changeId);",
+				"  fs.mkdirSync(changeDir, { recursive: true });",
+				"  fs.writeFileSync(path.join(changeDir, '.openspec.yaml'), 'schema: spec-driven\\n', 'utf8');",
+				"  process.exit(0);",
+				"}",
+				"if (args[0] === 'instructions' && args[1] === 'proposal') {",
+				"  process.stdout.write(JSON.stringify({ outputPath: 'proposal.md', template: '# Proposal', instruction: 'Seed proposal' }));",
+				"  process.exit(0);",
+				"}",
+				"process.stderr.write('unexpected openspec args: ' + args.join(' '));",
+				"process.exit(1);",
+				"",
+			].join("\n"),
+		);
+		const sourceFile = createSourceFile(tempRoot, {
+			kind: "url",
+			provider: "github",
+			reference: "https://github.com/test/repo/issues/89",
+			title: "Repo responsibility nongoals",
+			body: "Clarify what the repository owns and what it explicitly does not own.",
+		});
+		const result = runNodeCli(
+			"specflow-prepare-change",
+			["--source-file", sourceFile],
+			repoPath,
+			prependPath({}, stubDir),
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const state = JSON.parse(result.stdout) as {
+			change_name: string;
+			current_phase: string;
+			branch_name: string;
+			source: { provider: string; reference: string; title: string };
+		};
+		assert.equal(state.change_name, "repo-responsibility-nongoals");
+		assert.equal(state.current_phase, "proposal_draft");
+		assert.equal(state.branch_name, "repo-responsibility-nongoals");
+		assert.equal(state.source.provider, "github");
+		assert.equal(
+			state.source.reference,
+			"https://github.com/test/repo/issues/89",
+		);
+		assert.equal(state.source.title, "Repo responsibility nongoals");
+		assert.ok(
+			existsSync(
+				join(
+					repoPath,
+					"openspec/changes/repo-responsibility-nongoals/.openspec.yaml",
+				),
+			),
+		);
+		const proposal = readFileSync(
+			join(
+				repoPath,
+				"openspec/changes/repo-responsibility-nongoals/proposal.md",
+			),
+			"utf8",
+		);
+		assert.ok(proposal.includes("# Proposal"));
+		assert.ok(proposal.includes("Source provider: github"));
+		assert.ok(proposal.includes("Repo responsibility nongoals"));
+		assert.ok(proposal.includes("https://github.com/test/repo/issues/89"));
+		assert.ok(proposal.includes("Seed proposal"));
 	} finally {
 		removeTempDir(tempRoot);
 	}

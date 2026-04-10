@@ -53,10 +53,13 @@ The generated guides for the main slash-command workflow SHALL encode the
 current phase order and SHALL not document bypasses around the implemented
 gates.
 
-#### Scenario: Proposal guide initializes run state and enters proposal flow
+#### Scenario: Proposal guide materializes local proposal artifacts before run start
 
 - **WHEN** generated `specflow.md` is read
-- **THEN** it SHALL include `specflow-run start "<CHANGE_ID>"`
+- **THEN** it SHALL include
+  `specflow-prepare-change [<CHANGE_ID>] --source-file /tmp/specflow-proposal-source.json`
+- **AND** it SHALL document writing `openspec/changes/<CHANGE_ID>/proposal.md`
+  before `specflow-run start`
 - **AND** it SHALL include `specflow-run advance "<CHANGE_ID>" propose`
 
 #### Scenario: Design validates before review

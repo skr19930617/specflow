@@ -58,6 +58,14 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
 		references: [],
 	},
 	{
+		id: "specflow-prepare-change",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-prepare-change",
+		entryModule: "dist/bin/specflow-prepare-change.js",
+		stdoutSchemaId: "run-state",
+		references: [],
+	},
+	{
 		id: "specflow-review-apply",
 		type: AssetType.Orchestrator,
 		filePath: "bin/specflow-review-apply",

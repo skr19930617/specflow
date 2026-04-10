@@ -3,7 +3,8 @@
 ## Purpose
 
 Describe the supporting CLI tools that provide project analysis, GitHub issue
-lookup, diff filtering, OpenSpec artifact discovery, and sub-issue creation.
+lookup, local proposal entry orchestration, diff filtering, OpenSpec artifact
+discovery, and sub-issue creation.
 
 ## Requirements
 
@@ -45,6 +46,34 @@ issue through `gh`, and return the validated issue payload.
 
 - **WHEN** the URL host is not `github.com`
 - **THEN** the CLI SHALL set `GH_HOST` before calling `gh issue view`
+
+### Requirement: `specflow-prepare-change` creates local proposal artifacts from normalized source input
+
+`specflow-prepare-change` SHALL accept a normalized source JSON file, create or
+reuse the target OpenSpec change, materialize `proposal.md`, and enter
+`proposal_draft`.
+
+#### Scenario: Existing scaffold-only changes receive a seeded proposal draft
+
+- **WHEN** `openspec/changes/<CHANGE_ID>/` exists with `.openspec.yaml` but no
+  `proposal.md`
+- **AND** `specflow-prepare-change <CHANGE_ID> --source-file <path>` succeeds
+- **THEN** it SHALL write `openspec/changes/<CHANGE_ID>/proposal.md`
+- **AND** it SHALL return a run state in `proposal_draft`
+
+#### Scenario: Missing change ids are derived from normalized source metadata
+
+- **WHEN** `specflow-prepare-change --source-file <path>` is invoked without a
+  positional change id
+- **THEN** the CLI SHALL derive `CHANGE_ID` from the normalized source
+- **AND** it SHALL call `openspec new change <CHANGE_ID>` when the change does
+  not yet exist
+
+#### Scenario: Run creation preserves reduced source metadata
+
+- **WHEN** `specflow-prepare-change` starts a new run
+- **THEN** it SHALL call `specflow-run start <CHANGE_ID> --source-file <path>`
+- **AND** the resulting run state SHALL persist `source`
 
 ### Requirement: `specflow-filter-diff` emits filtered review diffs and a summary contract
 

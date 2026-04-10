@@ -44,7 +44,12 @@ test("generated slash commands include run-state hook injections", () => {
 	);
 
 	assert.ok(specflow.includes("## Run State Hooks"));
-	assert.ok(specflow.includes("specflow-run start"));
+	assert.ok(specflow.includes("specflow-prepare-change"));
+	assert.ok(
+		specflow.includes(
+			"specflow-prepare-change [<CHANGE_ID>] --source-file /tmp/specflow-proposal-source.json",
+		),
+	);
 	assert.ok(apply.includes("accept_design"));
 	assert.ok(explore.includes("--run-kind synthetic"));
 	assert.ok(spec.includes("--run-kind synthetic"));
@@ -65,6 +70,20 @@ test("generated contracts no longer reference legacy asset paths", () => {
 	const archivedTree = ["legacy", "v1", ""].join("/");
 	const contractsJson = readFileSync("dist/contracts.json", "utf8");
 	assert.equal(contractsJson.includes(archivedTree), false);
+});
+
+test("generated contracts and guides do not reference src-based installed assets", () => {
+	const contractsJson = readFileSync("dist/contracts.json", "utf8");
+	const specflow = readFileSync(
+		"dist/package/global/commands/specflow.md",
+		"utf8",
+	);
+	for (const content of [contractsJson, specflow]) {
+		assert.equal(content.includes(".config/specflow/src"), false);
+		assert.equal(content.includes("src/global/commands"), false);
+		assert.equal(content.includes("src/global/prompts"), false);
+		assert.equal(content.includes("src/global/workflow"), false);
+	}
 });
 
 test("prompt templates render contract-driven output schemas", () => {

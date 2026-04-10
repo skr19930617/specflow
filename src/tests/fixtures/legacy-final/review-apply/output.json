@@ -71,7 +71,8 @@
 		"total_lines": 8,
 		"excluded_count": 0,
 		"included_count": 1,
-		"diff_warning": false
+		"diff_warning": false,
+		"threshold": 1000
 	},
 	"error": null
 }
