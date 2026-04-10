@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { contracts } from "../contracts/install.js";
+import {
+	mergeProjectGitignore,
+	renderProjectGitignore,
+} from "../lib/project-gitignore.js";
 import type { InstallPlan, Manifest } from "../types/contracts.js";
 
 test("generated manifest and install plan reflect contracts", () => {
@@ -88,9 +92,75 @@ test("build emits a dist package for installer assets", () => {
 	assert.ok(existsSync("dist/package/global/workflow/state-machine.json"));
 	assert.ok(existsSync("dist/package/global/prompts/review_design_prompt.md"));
 	assert.ok(existsSync("dist/package/global/commands/specflow.md"));
+	assert.ok(existsSync("dist/package/template/.gitignore"));
 	assert.ok(existsSync("dist/package/template/.mcp.json"));
+	assert.ok(existsSync("dist/package/template/.specflow/config.env"));
+	assert.ok(existsSync("dist/package/template/_gitignore"));
+	assert.ok(existsSync("dist/package/template/_mcp.json"));
+	assert.ok(existsSync("dist/package/template/_specflow/config.env"));
 	assert.ok(existsSync("dist/package/template/CLAUDE.md"));
 	assert.equal(existsSync("template"), false);
+});
+
+test("repo .gitignore matches the shared specflow ignore layout", () => {
+	const templateGitignore = readFileSync("assets/template/.gitignore", "utf8");
+	assert.equal(
+		readFileSync(".gitignore", "utf8"),
+		renderProjectGitignore(templateGitignore, {
+			claudeMode: "settings-only",
+			includeNodeArtifacts: true,
+		}),
+	);
+});
+
+test("project gitignore render includes specflow runtime state", () => {
+	const templateGitignore = readFileSync("assets/template/.gitignore", "utf8");
+	assert.equal(
+		renderProjectGitignore(templateGitignore, { claudeMode: "directory" }),
+		[
+			"# Claude Code - local settings",
+			".claude/",
+			"",
+			"# MCP server config (local paths/tools)",
+			"/.mcp.json",
+			"",
+			"# Specflow local env",
+			".specflow/config.env",
+			".specflow/runs/",
+			"",
+		].join("\n"),
+	);
+});
+
+test("project gitignore merge preserves custom content while appending missing entries", () => {
+	const templateGitignore = readFileSync("assets/template/.gitignore", "utf8");
+	const merged = mergeProjectGitignore(
+		["# Existing", "custom.log", "", ".specflow/config.env", ""].join("\n"),
+		templateGitignore,
+		{ claudeMode: "settings-only" },
+	);
+
+	assert.equal(merged.changed, true);
+	assert.equal(
+		merged.content,
+		[
+			"# Existing",
+			"custom.log",
+			"",
+			".specflow/config.env",
+			"",
+			"# Claude Code - local settings",
+			".claude/settings.json",
+			".claude/settings.local.json",
+			"",
+			"# MCP server config (local paths/tools)",
+			"/.mcp.json",
+			"",
+			"# Specflow local env",
+			".specflow/runs/",
+			"",
+		].join("\n"),
+	);
 });
 
 test("main branch no longer carries the in-tree legacy runtime", () => {

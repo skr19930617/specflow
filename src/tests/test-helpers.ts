@@ -116,6 +116,10 @@ export function createInstalledHome(root: string): string {
 		);
 	}
 	copyFileSync(
+		resolve(packageRoot, "template/.gitignore"),
+		join(templateTarget, ".gitignore"),
+	);
+	copyFileSync(
 		resolve(packageRoot, "template/.mcp.json"),
 		join(templateTarget, ".mcp.json"),
 	);

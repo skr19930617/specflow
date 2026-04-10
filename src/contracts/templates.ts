@@ -14,6 +14,12 @@ export const templateContracts: readonly TemplateAssetContract[] = [
 		sourcePath: "assets/template/.mcp.json",
 	},
 	{
+		id: "template-gitignore",
+		type: AssetType.Template,
+		filePath: "template/.gitignore",
+		sourcePath: "assets/template/.gitignore",
+	},
+	{
 		id: "template-specflow-config-env",
 		type: AssetType.Template,
 		filePath: "template/.specflow/config.env",

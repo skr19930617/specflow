@@ -43,7 +43,8 @@ template files when they do not already exist.
 #### Scenario: Init updates `.gitignore` for local-only files
 
 - **WHEN** `specflow-init` succeeds
-- **THEN** it SHALL add `.mcp.json` and `.specflow/config.env` to `.gitignore`
+- **THEN** it SHALL add `.mcp.json`, `.specflow/config.env`, and
+  `.specflow/runs/` to `.gitignore`
 - **AND** it SHALL either ignore `.claude/` or only the local Claude settings
   files based on the `track .claude/ in git` choice
 

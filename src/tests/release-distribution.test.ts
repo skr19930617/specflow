@@ -47,7 +47,9 @@ test("npm pack dry-run includes the runtime bundle needed by release installs", 
 		assert.ok(paths.has("dist/bin/specflow-run.js"));
 		assert.ok(paths.has("dist/package/global/workflow/state-machine.json"));
 		assert.ok(paths.has("dist/package/global/commands/specflow.md"));
-		assert.ok(paths.has("dist/package/template/.mcp.json"));
+		assert.ok(paths.has("dist/package/template/_gitignore"));
+		assert.ok(paths.has("dist/package/template/_mcp.json"));
+		assert.ok(paths.has("dist/package/template/_specflow/config.env"));
 		assert.ok(paths.has("scripts/postinstall.mjs"));
 	} finally {
 		removeTempDir(npmCache);

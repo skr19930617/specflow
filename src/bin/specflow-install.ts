@@ -12,6 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { moduleRepoRoot } from "../lib/process.js";
 import type { InstallPlan, Manifest } from "../types/contracts.js";
 import { copyPath } from "../lib/fs.js";
+import { templateFileAliases } from "../lib/template-files.js";
 
 function out(message: string): void {
 	process.stdout.write(`${message}\n`);
@@ -45,6 +46,32 @@ function mergeSettings(sourcePath: string, targetPath: string): void {
 	writeFileSync(targetPath, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
 }
 
+function restoreTemplateDotfiles(templateRoot: string): void {
+	const cleanupDirs = new Set<string>();
+	for (const alias of templateFileAliases) {
+		const sourcePath = resolve(
+			templateRoot,
+			alias.packagedPath.replace(/^template\//, ""),
+		);
+		if (!existsSync(sourcePath)) {
+			continue;
+		}
+		const targetPath = resolve(
+			templateRoot,
+			alias.logicalPath.replace(/^template\//, ""),
+		);
+		copyPath(sourcePath, targetPath);
+		rmSync(sourcePath, { force: true });
+		const packagedDir = dirname(sourcePath);
+		if (packagedDir !== templateRoot) {
+			cleanupDirs.add(packagedDir);
+		}
+	}
+	for (const dir of cleanupDirs) {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
+
 function install(): void {
 	const root = moduleRepoRoot(import.meta.url);
 	const packageRoot = resolve(root, "dist/package");
@@ -64,6 +91,9 @@ function install(): void {
 			rmSync(targetPath, { recursive: true, force: true });
 		}
 		copyPath(sourcePath, targetPath);
+		if (copy.sourcePath === "template") {
+			restoreTemplateDotfiles(targetPath);
+		}
 		out(`copied ${copy.sourcePath} -> ${copy.targetPath}`);
 	}
 

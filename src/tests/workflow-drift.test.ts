@@ -43,37 +43,28 @@ test("README workflow diagram stays aligned with the generated workflow block", 
 	assert.equal(actual, expected.trim());
 });
 
-test("workflow OpenSpec stays aligned with detailed states, strict validation gates, and proposal review runtime", () => {
+test("workflow OpenSpec stays aligned with current workflow, run-state, and review specs", () => {
 	const workflowSpec = readFileSync(
-		"openspec/specs/workflow-definition/spec.md",
+		"openspec/specs/workflow-run-state/spec.md",
 		"utf8",
 	);
-	const transitionSpec = readFileSync(
-		"openspec/specs/transition-core/spec.md",
+	const slashCommandSpec = readFileSync(
+		"openspec/specs/slash-command-guides/spec.md",
 		"utf8",
 	);
-	const runStateSpec = readFileSync(
-		"openspec/specs/run-state-management/spec.md",
-		"utf8",
-	);
-	const commandRuntimeSpec = readFileSync(
-		"openspec/specs/command-runtime-integration/spec.md",
+	const reviewSpec = readFileSync(
+		"openspec/specs/review-orchestration/spec.md",
 		"utf8",
 	);
 
-	assert.ok(workflowSpec.includes("proposal_draft"));
-	assert.ok(workflowSpec.includes("proposal_review"));
-	assert.ok(workflowSpec.includes("apply_ready"));
-	assert.ok(workflowSpec.includes('"3.0"'));
-	assert.ok(transitionSpec.includes("update-field"));
-	assert.ok(runStateSpec.includes("update-field <run_id> <field> <value>"));
-	assert.ok(runStateSpec.includes("run_kind"));
-	assert.ok(commandRuntimeSpec.includes("specflow-review-proposal"));
-	assert.ok(commandRuntimeSpec.includes("proposal_ready"));
-	assert.ok(
-		commandRuntimeSpec.includes(
-			"Do **not** continue despite validation errors",
-		),
-	);
-	assert.ok(commandRuntimeSpec.includes("--run-kind synthetic"));
+	assert.ok(workflowSpec.includes("version `3.0`"));
+	assert.ok(workflowSpec.includes("update-field <run_id> last_summary_path"));
+	assert.ok(workflowSpec.includes("run_kind"));
+	assert.ok(workflowSpec.includes("--run-kind synthetic"));
+	assert.ok(slashCommandSpec.includes("apply_ready"));
+	assert.ok(slashCommandSpec.includes("continue-on-validation-error path"));
+	assert.ok(slashCommandSpec.includes("specflow.explore.md"));
+	assert.ok(reviewSpec.includes("specflow-review-proposal"));
+	assert.ok(reviewSpec.includes("proposal ledger"));
+	assert.ok(reviewSpec.includes("current-phase.md"));
 });

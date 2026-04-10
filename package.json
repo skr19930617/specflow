@@ -21,6 +21,9 @@
 		"README.md",
 		"bin",
 		"dist",
+		"dist/package/template/_gitignore",
+		"dist/package/template/_mcp.json",
+		"dist/package/template/_specflow/config.env",
 		"scripts/postinstall.mjs"
 	],
 	"scripts": {

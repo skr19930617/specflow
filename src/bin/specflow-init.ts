@@ -17,6 +17,10 @@ import {
 	tryExec,
 } from "../lib/process.js";
 import { tryGit } from "../lib/git.js";
+import {
+	mergeProjectGitignore,
+	renderProjectGitignore,
+} from "../lib/project-gitignore.js";
 
 const CONFIG_DIR = resolve(process.env.HOME ?? "", ".config/specflow");
 const MAIN_AGENTS = ["claude"];
@@ -93,24 +97,41 @@ async function promptYesNo(
 	}
 }
 
-function ensureGitignoreEntry(targetPath: string, entry: string): boolean {
+function ensureProjectGitignore(
+	targetPath: string,
+	templateDir: string,
+	trackClaudeDir: boolean,
+): boolean {
 	const gitignore = resolve(targetPath, ".gitignore");
-	if (!existsSync(gitignore)) {
-		writeFileSync(gitignore, `${entry}\n`, "utf8");
-		log(`Created .gitignore with ${entry}`);
-		return true;
-	}
-	const content = readFileSync(gitignore, "utf8");
-	if (content.split("\n").includes(entry)) {
-		log(`.gitignore already contains ${entry}, skipped`);
+	const gitignoreTemplate = resolve(templateDir, ".gitignore");
+	const options = {
+		claudeMode: trackClaudeDir ? "settings-only" : "directory",
+	} as const;
+	if (!existsSync(gitignoreTemplate)) {
+		log(`Warning: ${gitignoreTemplate} not found, skipping .gitignore update`);
 		return false;
 	}
-	writeFileSync(
-		gitignore,
-		`${content}${content.endsWith("\n") ? "" : "\n"}${entry}\n`,
-		"utf8",
+	const templateContent = readFileSync(gitignoreTemplate, "utf8");
+	if (!existsSync(gitignore)) {
+		writeFileSync(
+			gitignore,
+			renderProjectGitignore(templateContent, options),
+			"utf8",
+		);
+		log("Created .gitignore with specflow-generated ignores");
+		return true;
+	}
+	const merged = mergeProjectGitignore(
+		readFileSync(gitignore, "utf8"),
+		templateContent,
+		options,
 	);
-	log(`Added ${entry} to .gitignore`);
+	if (!merged.changed) {
+		log(".gitignore already contains specflow-generated ignores, skipped");
+		return false;
+	}
+	writeFileSync(gitignore, merged.content, "utf8");
+	log("Updated .gitignore with specflow-generated ignores");
 	return true;
 }
 
@@ -413,25 +434,6 @@ Initialize a new specflow + OpenSpec project.
 	createdFiles.push(".specflow/config.env");
 	log("Created .specflow/config.env");
 
-	if (trackClaudeDir === "y") {
-		if (ensureGitignoreEntry(root, ".claude/settings.json")) {
-			updatedFiles.push(".gitignore");
-		}
-		if (ensureGitignoreEntry(root, ".claude/settings.local.json")) {
-			updatedFiles.push(".gitignore");
-		}
-	} else {
-		if (ensureGitignoreEntry(root, ".claude/")) {
-			updatedFiles.push(".gitignore");
-		}
-	}
-	if (ensureGitignoreEntry(root, ".mcp.json")) {
-		updatedFiles.push(".gitignore");
-	}
-	if (ensureGitignoreEntry(root, ".specflow/config.env")) {
-		updatedFiles.push(".gitignore");
-	}
-
 	let templateDir = resolve(CONFIG_DIR, "template");
 	if (process.env.SPECFLOW_TEMPLATE_REPO) {
 		const gh = resolveCommand("SPECFLOW_GH", "gh");
@@ -465,6 +467,10 @@ Initialize a new specflow + OpenSpec project.
 			);
 			log("Skipping .mcp.json and CLAUDE.md template copy.");
 		}
+	}
+
+	if (ensureProjectGitignore(root, templateDir, trackClaudeDir === "y")) {
+		updatedFiles.push(".gitignore");
 	}
 
 	const mcpTemplate = resolve(templateDir, ".mcp.json");
