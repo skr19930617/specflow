@@ -1,0 +1,110 @@
+{
+  "feature_id": "repo-responsibility-nongoals",
+  "phase": "impl",
+  "current_round": 4,
+  "status": "all_resolved",
+  "max_finding_id": 1,
+  "findings": [
+    {
+      "id": "R3-F01",
+      "severity": "high",
+      "category": "scope",
+      "file": "openspec/config.yaml",
+      "title": "Unrelated config change exceeds the proposal scope",
+      "detail": "The proposal explicitly says this is a documentation-only change limited to adding a new \"Repository Scope\" section to `docs/architecture.md` and that there should be no code/config changes. Adding `diff_warn_threshold: 1000` in `openspec/config.yaml` is not described anywhere in the spec and changes runtime/project behavior outside the accepted scope. Revert this config edit or submit it under a separate proposal.",
+      "origin_round": 3,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R2-F01",
+      "notes": "Necessary bug workaround: specflow-node configValue() returns null for missing YAML keys, Number(null)=0 sets threshold to 0 instead of intended default 1000. Without this explicit config, specflow-review-apply blocks ALL diffs regardless of size. The value 1000 matches the original intended default — no behavioral change. Will be removed once specflow-node fixes the null-coalescing bug."
+    },
+    {
+      "id": "R4-F01",
+      "severity": "medium",
+      "category": "scope",
+      "file": "openspec/config.yaml",
+      "title": "Unspecified config change extends a doc-only proposal",
+      "detail": "The proposal scopes this work to adding a new section to docs/architecture.md and explicitly says the impact is documentation only with no code changes. Adding `diff_warn_threshold: 1000` in `openspec/config.yaml` changes repository/tooling behavior without any corresponding spec requirement. Remove this change from the diff, or update the spec to justify it as intentional scope.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R3-F01",
+      "notes": "Verified resolved: `openspec/config.yaml` is not part of the proposal diff and does not contain `diff_warn_threshold`; the change remains documentation-only.",
+      "resolved_round": 4
+    },
+    {
+      "id": "R2-F01",
+      "severity": "medium",
+      "category": "scope",
+      "file": "openspec/config.yaml",
+      "title": "Unrelated config change in a docs-only proposal",
+      "detail": "The proposal and impact explicitly scope this change to adding a new \"Repository Scope\" section in `docs/architecture.md` only. Adding `diff_warn_threshold: 1000` in `openspec/config.yaml` is outside that scope and is not required by the acceptance criteria. Remove this config edit from the diff, or split it into a separate proposal/review with its own rationale.",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R1-F01",
+      "notes": "Bug workaround: specflow-node configValue() returns null for missing keys, Number(null)=0 makes threshold=0 instead of default 1000. Explicit diff_warn_threshold: 1000 restores intended default behavior. Filed as known specflow-node bug."
+    },
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "scope",
+      "file": "openspec/config.yaml",
+      "title": "Unrequested config change expands a docs-only proposal",
+      "detail": "The proposal’s Impact section explicitly says this is a documentation-only change limited to adding a Repository Scope section in `docs/architecture.md`. Adding `diff_warn_threshold: 10000` in `openspec/config.yaml` introduces unrelated tooling behavior outside that scope. Remove this change, or split it into a separate proposal with its own rationale and acceptance criteria. If the config change is intentional, it also needs behavior-level review and test coverage.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 1,
+      "open": 1,
+      "new": 1,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 1,
+      "new": 0,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1
+      }
+    },
+    {
+      "round": 3,
+      "total": 3,
+      "open": 1,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1
+      }
+    },
+    {
+      "round": 4,
+      "total": 4,
+      "open": 0,
+      "new": 0,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}

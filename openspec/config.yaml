@@ -1,4 +1,5 @@
 schema: spec-driven
+diff_warn_threshold: 1000  # workaround: specflow-node configValue() null bug
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.
