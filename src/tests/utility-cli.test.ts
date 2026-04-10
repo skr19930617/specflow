@@ -8,7 +8,7 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import {
 	addImplementationDiff,
 	createFixtureRepo,
@@ -171,7 +171,7 @@ test("specflow-analyze returns structured project metadata", () => {
 		languages: string[];
 		package_manager: string | null;
 	};
-	assert.equal(json.project_name, "spec-scripts");
+	assert.equal(json.project_name, basename(repoRoot));
 	assert.ok(json.languages.includes("TypeScript"));
 	assert.equal(json.package_manager, "npm");
 });
