@@ -12,6 +12,7 @@ Compare the git diff against the spec. Check for:
 - performance: flag obviously inefficient code (N+1 queries, unnecessary loops, missing indexes) only when clearly problematic
 
 Severity guide:
+
 - high: breaks functionality, security vulnerability, missing critical test, spec violation
 - medium: missing edge case handling, incomplete test coverage, minor spec deviation
 - low: style nit, minor improvement suggestion, optional optimization

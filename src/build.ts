@@ -12,41 +12,49 @@ import { fromRepo } from "./lib/paths.js";
 import { writeText } from "./lib/fs.js";
 
 function gitCommit(): string {
-  try {
-    return exec("git", ["rev-parse", "--short", "HEAD"], process.cwd()).trim();
-  } catch {
-    return "unknown";
-  }
+	try {
+		return exec("git", ["rev-parse", "--short", "HEAD"], process.cwd()).trim();
+	} catch {
+		return "unknown";
+	}
 }
 
 function main(): void {
-  const errors = validateContracts(contracts);
-  if (errors.length > 0) {
-    for (const error of errors) {
-      console.error(`[${error.check}] ${error.id} (${error.type}) at ${error.filePath}`);
-      console.error(`  ${error.message}`);
-    }
-    process.exit(1);
-  }
+	const errors = validateContracts(contracts);
+	if (errors.length > 0) {
+		for (const error of errors) {
+			console.error(
+				`[${error.check}] ${error.id} (${error.type}) at ${error.filePath}`,
+			);
+			console.error(`  ${error.message}`);
+		}
+		process.exit(1);
+	}
 
-  renderWorkflow(contracts.workflow);
-  renderPrompts(contracts.prompts);
-  renderCommands(contracts.commands);
-  renderTemplates(contracts.templates);
-  renderStaticAssets();
-  renderReleasePackage();
+	renderWorkflow(contracts.workflow);
+	renderPrompts(contracts.prompts);
+	renderCommands(contracts.commands);
+	renderTemplates(contracts.templates);
+	renderStaticAssets();
+	renderReleasePackage();
 
-  const installPlan = {
-    copies: contracts.installCopies,
-    links: contracts.installLinks,
-    settingsMerge: contracts.installSettingsMerge,
-  } as const;
-  renderInstallPlan(installPlan);
+	const installPlan = {
+		copies: contracts.installCopies,
+		links: contracts.installLinks,
+		settingsMerge: contracts.installSettingsMerge,
+	} as const;
+	renderInstallPlan(installPlan);
 
-  const generatedAt = new Date().toISOString();
-  const manifest = createManifest(contracts, generatedAt, gitCommit());
-  writeText(fromRepo("dist/manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-  writeText(fromRepo("dist/contracts.json"), `${JSON.stringify(contracts, null, 2)}\n`);
+	const generatedAt = new Date().toISOString();
+	const manifest = createManifest(contracts, generatedAt, gitCommit());
+	writeText(
+		fromRepo("dist/manifest.json"),
+		`${JSON.stringify(manifest, null, 2)}\n`,
+	);
+	writeText(
+		fromRepo("dist/contracts.json"),
+		`${JSON.stringify(contracts, null, 2)}\n`,
+	);
 }
 
 main();

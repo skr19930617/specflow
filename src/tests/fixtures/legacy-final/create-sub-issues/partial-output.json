@@ -1,19 +1,19 @@
 {
-  "created": [
-    {
-      "phase_number": 1,
-      "issue_number": 100,
-      "issue_url": "https://github.com/test/repo/issues/100",
-      "title": "Phase 1: Auth"
-    }
-  ],
-  "failed": [
-    {
-      "phase_number": 2,
-      "title": "Phase 2: Billing",
-      "error": "phase 2 failed"
-    }
-  ],
-  "summary_comment_posted": true,
-  "parent_issue_number": 71
+	"created": [
+		{
+			"phase_number": 1,
+			"issue_number": 100,
+			"issue_url": "https://github.com/test/repo/issues/100",
+			"title": "Phase 1: Auth"
+		}
+	],
+	"failed": [
+		{
+			"phase_number": 2,
+			"title": "Phase 2: Billing",
+			"error": "phase 2 failed"
+		}
+	],
+	"summary_comment_posted": true,
+	"parent_issue_number": 71
 }

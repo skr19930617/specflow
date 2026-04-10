@@ -24,6 +24,7 @@ openspec/
 
 - **Capability Spec** (`specs/<capability>/spec.md`): Describes a stable capability of the system as it exists today. Represents current truth.
 - **Change Record** (`changes/<change-id>/`): Proposes a modification to the system. Contains a proposal, optional design, tasks, and spec deltas.
+- Historical or superseded change records do not need to remain committed in-tree once `openspec/specs/` reflects the current truth. Git history is the long-term archive.
 
 ## Creating a New Change
 
@@ -34,5 +35,5 @@ openspec/
 
 ## Naming Convention
 
-- Change IDs: `<NNN>-<short-name>` (e.g., `001-user-auth`, `042-openspec-migration`)
+- Change IDs: descriptive kebab-case, optionally prefixed with a date (e.g., `2026-04-09-openspec-baseline-reset`, `add-user-auth`)
 - Capability names: descriptive slug (e.g., `review-system`, `migration-tools`)

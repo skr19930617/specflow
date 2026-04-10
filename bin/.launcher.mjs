@@ -9,14 +9,16 @@ const invokedName = basename(process.argv[1]);
 const target = resolve(here, "../dist/bin", `${invokedName}.js`);
 
 if (!existsSync(target)) {
-  process.stderr.write(`Error: ${target} not found. Run 'npm run build' first.\n`);
-  process.exit(1);
+	process.stderr.write(
+		`Error: ${target} not found. Run 'npm run build' first.\n`,
+	);
+	process.exit(1);
 }
 
 const result = spawnSync(process.execPath, [target, ...process.argv.slice(2)], {
-  cwd: process.cwd(),
-  stdio: "inherit",
-  env: process.env,
+	cwd: process.cwd(),
+	stdio: "inherit",
+	env: process.env,
 });
 
 process.exit(result.status ?? 1);
