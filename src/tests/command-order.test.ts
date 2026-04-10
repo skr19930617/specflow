@@ -12,19 +12,22 @@ function assertOrderedFragments(content: string, fragments: readonly string[]) {
 }
 
 test("generated /specflow command preserves detailed proposal step order", () => {
-	const content = readFileSync("dist/package/global/commands/specflow.md", "utf8");
+	const content = readFileSync(
+		"dist/package/global/commands/specflow.md",
+		"utf8",
+	);
 	assertOrderedFragments(content, [
 		"## Step 1: Setup",
 		"## Step 2: Fetch Issue",
 		"## Step 3: Proposal Creation",
-		"specflow-run advance \"<CHANGE_ID>\" propose",
+		'specflow-run advance "<CHANGE_ID>" propose',
 		"## Step 4: Scope Check",
-		"specflow-run advance \"<CHANGE_ID>\" check_scope",
+		'specflow-run advance "<CHANGE_ID>" check_scope',
 		"## Step 5: Clarify",
 		"## Step 6: Proposal Review",
 		"specflow-review-proposal review <CHANGE_ID>",
 		"## Step 7: Proposal Validate",
-		"openspec validate \"<CHANGE_ID>\" --type change --json",
+		'openspec validate "<CHANGE_ID>" --type change --json',
 		"## Step 8: Design Handoff",
 	]);
 	assert.equal(content.includes("このまま続行"), false);
@@ -38,11 +41,11 @@ test("generated /specflow.design command validates before review with no bypass"
 	assertOrderedFragments(content, [
 		"proposal_ready",
 		"## Step 4: Validate Before Review",
-		"specflow-run advance \"<CHANGE_ID>\" validate_design",
-		"openspec validate \"<CHANGE_ID>\" --type change --json",
+		'specflow-run advance "<CHANGE_ID>" validate_design',
+		'openspec validate "<CHANGE_ID>" --type change --json',
 		"## Step 5: Design Review Gate",
-		"specflow-run advance \"<CHANGE_ID>\" design_validated",
-		"specflow-run advance \"<CHANGE_ID>\" design_review_approved",
+		'specflow-run advance "<CHANGE_ID>" design_validated',
+		'specflow-run advance "<CHANGE_ID>" design_review_approved',
 	]);
 	assert.equal(content.includes("Proceed despite validation errors"), false);
 	assert.equal(content.includes("このまま続行"), false);
@@ -57,8 +60,8 @@ test("generated /specflow.apply command gates approve behind apply_ready", () =>
 		"design_ready",
 		"## Step 1: Apply Draft and Implement",
 		"## Step 2: Apply Review Gate",
-		"specflow-run advance \"<CHANGE_ID>\" review_apply",
-		"specflow-run advance \"<CHANGE_ID>\" apply_review_approved",
+		'specflow-run advance "<CHANGE_ID>" review_apply',
+		'specflow-run advance "<CHANGE_ID>" apply_review_approved',
 		"Only from `apply_ready`, offer `/specflow.approve`.",
 	]);
 });
@@ -68,7 +71,11 @@ test("generated /specflow.approve command keeps archive before commit and condit
 		"dist/package/global/commands/specflow.approve.md",
 		"utf8",
 	);
-	assertOrderedFragments(content, ["## Archive", "## Commit", "## Push & Pull Request"]);
+	assertOrderedFragments(content, [
+		"## Archive",
+		"## Commit",
+		"## Push & Pull Request",
+	]);
 	assert.ok(content.includes("issue-linked run の場合"));
 	assert.ok(content.includes("inline-spec run で issue metadata が無い場合"));
 	assert.ok(content.includes("Closes <issue-url>"));

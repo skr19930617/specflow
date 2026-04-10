@@ -187,7 +187,11 @@ test("workflow machine final states are terminal and reject coverage is explicit
 test("workflow mermaid diagram is generated from the machine", () => {
 	const diagram = renderWorkflowMermaid();
 	assert.ok(diagram.startsWith("stateDiagram-v2\n  [*] --> start"));
-	assert.ok(diagram.includes("proposal_review --> proposal_validate: proposal_review_approved"));
+	assert.ok(
+		diagram.includes(
+			"proposal_review --> proposal_validate: proposal_review_approved",
+		),
+	);
 	assert.ok(diagram.includes("apply_ready --> approved: accept_apply"));
 	assert.ok(diagram.includes("approved --> [*]"));
 });

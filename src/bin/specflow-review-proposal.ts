@@ -364,9 +364,7 @@ function main(): void {
 			);
 			return;
 		default:
-			die(
-				`Error: unknown subcommand '${subcommand}'. Use: review, fix-review`,
-			);
+			die(`Error: unknown subcommand '${subcommand}'. Use: review, fix-review`);
 	}
 	printSchemaJson("review-proposal-result", result);
 }

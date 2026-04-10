@@ -70,6 +70,10 @@ test("workflow OpenSpec stays aligned with detailed states, strict validation ga
 	assert.ok(runStateSpec.includes("run_kind"));
 	assert.ok(commandRuntimeSpec.includes("specflow-review-proposal"));
 	assert.ok(commandRuntimeSpec.includes("proposal_ready"));
-	assert.ok(commandRuntimeSpec.includes("Do **not** continue despite validation errors"));
+	assert.ok(
+		commandRuntimeSpec.includes(
+			"Do **not** continue despite validation errors",
+		),
+	);
 	assert.ok(commandRuntimeSpec.includes("--run-kind synthetic"));
 });

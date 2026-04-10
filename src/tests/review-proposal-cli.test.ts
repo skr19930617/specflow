@@ -72,7 +72,9 @@ test("specflow-review-proposal supports initial review success", () => {
 		);
 		assert.ok(currentPhase.includes("- Phase: proposal-review"));
 		assert.ok(currentPhase.includes("- Actionable Findings: 0"));
-		assert.ok(currentPhase.includes("- Next Recommended Action: /specflow.design"));
+		assert.ok(
+			currentPhase.includes("- Next Recommended Action: /specflow.design"),
+		);
 	} finally {
 		removeTempDir(tempRoot);
 	}
@@ -148,7 +150,10 @@ test("specflow-review-proposal applies rereview classification and updates curre
 		assert.ok(
 			ledger.findings.some((finding) => /^R2-F0[12]$/.test(finding.id)),
 		);
-		const currentPhase = readFileSync(join(changeDir, "current-phase.md"), "utf8");
+		const currentPhase = readFileSync(
+			join(changeDir, "current-phase.md"),
+			"utf8",
+		);
 		assert.ok(currentPhase.includes("- Phase: proposal-fix-review"));
 		assert.ok(currentPhase.includes("- Actionable Findings: 2"));
 		assert.ok(currentPhase.includes("- Next Recommended Action: /specflow"));

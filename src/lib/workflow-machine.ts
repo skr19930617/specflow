@@ -168,7 +168,9 @@ export interface WorkflowTransition {
 
 export const workflowMachine = createMachine(workflowMachineConfig);
 
-function normalizeTargets(target: WorkflowTarget | undefined): readonly string[] {
+function normalizeTargets(
+	target: WorkflowTarget | undefined,
+): readonly string[] {
 	if (!target) {
 		return [];
 	}
@@ -183,7 +185,7 @@ function normalizeTargets(target: WorkflowTarget | undefined): readonly string[]
 			item && typeof item === "object" && "target" in item
 				? normalizeTargets(item.target)
 				: [],
-			);
+		);
 	}
 	if (typeof target === "object" && "target" in target) {
 		return normalizeTargets(target.target);

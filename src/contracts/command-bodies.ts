@@ -199,7 +199,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Prerequisites",
 				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.design` を再度実行\n     ```\n     → **STOP**.\n2. Determine the current change id from the branch name. Set `CHANGE_ID` accordingly.\n3. `/specflow.design` starts only from `proposal_ready`.\n   ```bash\n   specflow-run get-field \"<CHANGE_ID>\" current_phase\n   ```\n   If the phase is `proposal_ready`, the run hook advances to `design_draft`. If the phase is already `design_draft`, `design_validate`, `design_review`, or `design_ready`, continue from the existing design state. Otherwise **STOP**.",
+					'\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.design` を再度実行\n     ```\n     → **STOP**.\n2. Determine the current change id from the branch name. Set `CHANGE_ID` accordingly.\n3. `/specflow.design` starts only from `proposal_ready`.\n   ```bash\n   specflow-run get-field "<CHANGE_ID>" current_phase\n   ```\n   If the phase is `proposal_ready`, the run hook advances to `design_draft`. If the phase is already `design_draft`, `design_validate`, `design_review`, or `design_ready`, continue from the existing design state. Otherwise **STOP**.',
 			},
 			{
 				title: "Step 1: Check Status",
@@ -505,7 +505,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 5: Clarify",
 				content:
-					"\nRun the clarify workflow on `openspec/changes/<CHANGE_ID>/proposal.md`.\n\nRequirements:\n- Ask clarification questions one at a time with `AskUserQuestion`\n- Integrate answers back into proposal.md\n- Keep the run in `proposal_clarify` while proposal revisions continue\n\nIf review findings or validation errors later require more proposal edits, return to this step after recording:\n```bash\nspecflow-run advance \"<CHANGE_ID>\" revise_proposal\n```\n\nReport: `Step 5 complete — clarify finished for the current proposal round`",
+					'\nRun the clarify workflow on `openspec/changes/<CHANGE_ID>/proposal.md`.\n\nRequirements:\n- Ask clarification questions one at a time with `AskUserQuestion`\n- Integrate answers back into proposal.md\n- Keep the run in `proposal_clarify` while proposal revisions continue\n\nIf review findings or validation errors later require more proposal edits, return to this step after recording:\n```bash\nspecflow-run advance "<CHANGE_ID>" revise_proposal\n```\n\nReport: `Step 5 complete — clarify finished for the current proposal round`',
 			},
 			{
 				title: "Step 6: Proposal Review",
@@ -520,7 +520,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 8: Design Handoff",
 				content:
-					'\nOnly when the run is in `proposal_ready`, offer the next action.\n\nRecommended handoff:\n- **Design に進む** → `/specflow.design`\n- **中止** → `/specflow.reject`\n\nDo not offer `/specflow.design` from `proposal_clarify`, `proposal_review`, or `proposal_validate`.',
+					"\nOnly when the run is in `proposal_ready`, offer the next action.\n\nRecommended handoff:\n- **Design に進む** → `/specflow.design`\n- **中止** → `/specflow.reject`\n\nDo not offer `/specflow.design` from `proposal_clarify`, `proposal_review`, or `proposal_validate`.",
 			},
 			{
 				title: "Important Rules",
