@@ -6,6 +6,9 @@ export function renderTemplates(
 	templates: readonly TemplateAssetContract[],
 ): void {
 	for (const template of templates) {
-		copyPath(fromRepo(template.sourcePath), fromRepo(template.filePath));
+		copyPath(
+			fromRepo(template.sourcePath),
+			fromRepo(`dist/package/${template.filePath}`),
+		);
 	}
 }

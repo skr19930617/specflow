@@ -343,7 +343,7 @@ Bash 時代の最終スナップショットは main ブランチには残して
 ```
 specflow/
 ├── bin/                           # 配布物: インストール・初期化スクリプト
-├── template/                      # 配布物ソース: プロジェクトブートストラップテンプレート
+├── assets/template/               # 配布物ソース: プロジェクトブートストラップテンプレート
 ├── dist/package/                  # 配布物: install が消費する bundle
 └── openspec/                      # 計画状態: OpenSpec 準拠のリポジトリ内部資産
     ├── specs/                     #   Capability specs (現在の真実) — 現在は空
@@ -382,8 +382,8 @@ specflow/                        # このリポジトリ（ツール）
   assets/                        # build 入力テンプレート
     global/
       prompts/                   #   prompt テンプレート（schema は contract から注入）
-  template/                      # プロジェクトテンプレート（init でコピーされる）
-    CLAUDE.md                    #   Claude Code 用プロジェクト設定テンプレート
+    template/                    #   init 用テンプレートソース
+      CLAUDE.md                  #     Claude Code 用プロジェクト設定テンプレート
   dist/
     package/                     #   install が消費する配布 bundle
       global/
@@ -392,7 +392,7 @@ specflow/                        # このリポジトリ（ツール）
         commands/                #       スラッシュコマンド定義
         prompts/                 #       レビュー・ワークフロープロンプト
         claude-settings.json     #       ~/.claude/settings.json 用権限テンプレート
-      template/
+      template/                  #       init が参照する配布済みテンプレート
   openspec/                      # このリポジトリの計画状態 (OpenSpec)
     specs/                       #   Capability specs
     changes/                     #   変更レコード

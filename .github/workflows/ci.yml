@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  typecheck:
-    name: Typecheck
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,59 +29,14 @@ jobs:
       - name: Run typecheck
         run: npm run typecheck
 
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Run lint
         run: npm run lint
-
-  format:
-    name: Format
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run format check
         run: npm run format:check
 
-  test:
-    name: Test Coverage
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Run contract validation
+        run: npm run validate:contracts
 
       - name: Run test coverage
         run: npm run test:coverage
@@ -96,33 +51,10 @@ jobs:
             coverage/lcov.info
             coverage/coverage-summary.json
 
-  validate_contracts:
-    name: Validate Contracts
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run contract validation
-        run: npm run validate:contracts
-
   coverage-badge:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
-      - typecheck
-      - lint
-      - format
-      - test
-      - validate_contracts
+      - verify
     permissions:
       contents: write
     runs-on: ubuntu-latest

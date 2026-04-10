@@ -88,7 +88,9 @@ test("build emits a dist package for installer assets", () => {
 	assert.ok(existsSync("dist/package/global/workflow/state-machine.json"));
 	assert.ok(existsSync("dist/package/global/prompts/review_design_prompt.md"));
 	assert.ok(existsSync("dist/package/global/commands/specflow.md"));
+	assert.ok(existsSync("dist/package/template/.mcp.json"));
 	assert.ok(existsSync("dist/package/template/CLAUDE.md"));
+	assert.equal(existsSync("template"), false);
 });
 
 test("main branch no longer carries the in-tree legacy runtime", () => {
