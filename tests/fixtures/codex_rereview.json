@@ -1,8 +1,0 @@
-{
-  "decision": "APPROVE",
-  "resolved_previous_findings": ["R1-F01"],
-  "still_open_previous_findings": ["R1-F02"],
-  "new_findings": [{"id":"F3","severity":"low","category":"style","file":"src/foo.sh","title":"New style issue","detail":"..."}],
-  "summary": "Improvements made",
-  "ledger_error": false
-}

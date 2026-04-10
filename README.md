@@ -1,5 +1,7 @@
 # specflow
 
+![CI](https://github.com/skr19930617/specflow/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/skr19930617/specflow/main/badges/coverage.json)
 ![Bash](https://img.shields.io/badge/Bash-4EAA25?logo=gnubash&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
@@ -11,14 +13,13 @@ GitHub issue URL を入力にして、Claude + Codex による proposal → clar
 
 ### 1. 前提ツール
 
-| ツール | 用途 | インストール |
-|--------|------|-------------|
-| `gh` | GitHub issue の取得 | `brew install gh && gh auth login` |
-| `claude` | proposal の clarify / design / implement | Claude Code CLI |
-| `git` | リポジトリ操作 | macOS 標準 or `brew install git` |
-| `jq` | 設定マージ（install 時） | `brew install jq` |
-| OpenSpec CLI | proposal/design/tasks/implement 管理 | `npm install -g openspec` でインストール |
-| `codex` | Codex CLI (レビュー用 MCP サーバー) | `npm install -g @openai/codex` |
+| ツール       | 用途                                     | インストール                             |
+| ------------ | ---------------------------------------- | ---------------------------------------- |
+| `gh`         | GitHub issue の取得                      | `brew install gh && gh auth login`       |
+| `claude`     | proposal の clarify / design / implement | Claude Code CLI                          |
+| `git`        | リポジトリ操作                           | macOS 標準 or `brew install git`         |
+| OpenSpec CLI | proposal/design/tasks/implement 管理     | `npm install -g openspec` でインストール |
+| `codex`      | Codex CLI (レビュー用 MCP サーバー)      | `npm install -g @openai/codex`           |
 
 ### 2. GitHub CLI 認証
 
@@ -30,25 +31,37 @@ gh auth status
 ### 3. インストール
 
 ```bash
+npm install -g --force https://github.com/skr19930617/specflow/releases/latest/download/specflow-node.tgz
+```
+
+このコマンドは build 済み release tarball を取得し、`postinstall` 経由で `specflow-install` を自動実行する。
+
+curl 版の bootstrap が必要な場合:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/skr19930617/specflow/main/install.sh | bash
 ```
 
-手動インストール:
+ソースからの開発用インストール:
 
 ```bash
 git clone https://github.com/skr19930617/specflow.git
 cd specflow
-./bin/specflow-install
+npm ci
+npm run build
+node dist/bin/specflow-install.js
 ```
 
 これで以下が自動で行われる:
 
-- `template/`, `global/` → `~/.config/specflow/` にコピー（init / update 時の参照元）
+- release tarball 内の `dist/package/` から配布用 bundle を展開
+- `dist/package/template`, `dist/package/global` → `~/.config/specflow/` にコピー（init / update 時の参照元）
 - `bin/specflow-*` → `~/bin/` にシンボリックリンク
-- `global/specflow*.md` → `~/.claude/commands/` にコピー（スラッシュコマンド）
-- `global/claude-settings.json` の権限 → `~/.claude/settings.json` に差分マージ
+- `dist/package/global/commands/specflow*.md` → `~/.claude/commands/` にコピー（スラッシュコマンド）
+- `dist/package/global/claude-settings.json` の権限 → `~/.claude/settings.json` に差分マージ
+- review prompt の JSON schema は prompt contract から build 時に生成
 
-curl コマンドを再実行すると全体が最新に更新される（idempotent）。手動インストールの場合は `specflow-install` を再実行する。スラッシュコマンドの更新（review-ledger 機能の追加等）を反映するには、再実行が必要。
+同じ npm コマンドを再実行すると latest release に更新される。ソースからの開発用インストールの場合は `npm run build && node dist/bin/specflow-install.js` を再実行する。スラッシュコマンドや review prompt の更新を反映するには、再 install が必要。
 
 `~/bin` が PATH に入っていない場合はシェル設定に追加:
 
@@ -73,20 +86,20 @@ export SPECFLOW_TEMPLATE_REPO="your-user/specflow-template"
 
 specflow コマンド実行時に以下のエラーが表示された場合、対応するコマンドを実行してください:
 
-| # | エラー状態 | 検出条件 | 対処コマンド | 結果 |
-|---|-----------|----------|-------------|------|
-| 1 | OpenSpec CLI 未インストール | `openspec/` ディレクトリが存在しない | `npm install -g openspec` | OpenSpec CLI がインストールされる |
-| 2 | specflow 未初期化 | `.specflow/config.env` が存在しない | `specflow-init` | `.specflow/config.env` が生成される |
+| #   | エラー状態                  | 検出条件                             | 対処コマンド              | 結果                                |
+| --- | --------------------------- | ------------------------------------ | ------------------------- | ----------------------------------- |
+| 1   | OpenSpec CLI 未インストール | `openspec/` ディレクトリが存在しない | `npm install -g openspec` | OpenSpec CLI がインストールされる   |
+| 2   | specflow 未初期化           | `.specflow/config.env` が存在しない  | `specflow-init`           | `.specflow/config.env` が生成される |
 
 **新規セットアップの流れ:**
 
-1. specflow をインストール: `./bin/specflow-install`
+1. specflow をインストール: `npm install -g --force https://github.com/skr19930617/specflow/releases/latest/download/specflow-node.tgz`
 2. OpenSpec CLI をインストール: `npm install -g openspec`
 3. 対象プロジェクトで specflow を初期化: `specflow-init`
 4. CLAUDE.md を設定: Claude Code 内で `/specflow.setup` を実行
 5. `/specflow` を実行して開始
 
-> **Note:** `specflow-init` は `.specflow/config.env`、`.mcp.json`、`CLAUDE.md` を生成します。`openspec/` ディレクトリは `/specflow` 初回実行時に OpenSpec CLI が自動作成します。`/specflow.setup` は既存の `CLAUDE.md` をインタラクティブに設定するコマンドです。
+> **Note:** `specflow-init` は `.specflow/config.env`、`.mcp.json`、`CLAUDE.md` を生成し、`.gitignore` に `.specflow/runs/` などのローカル生成物を追加します。`openspec/` ディレクトリは `/specflow` 初回実行時に OpenSpec CLI が自動作成します。`/specflow.setup` は既存の `CLAUDE.md` をインタラクティブに設定するコマンドです。
 
 ## 使い方
 
@@ -102,6 +115,7 @@ specflow-init
 - `.specflow/config.env` — エージェント設定
 - `.mcp.json` — Codex MCP サーバー設定
 - `CLAUDE.md` — Claude Code 用プロジェクト設定テンプレート
+- `.gitignore` の specflow 用 ignore エントリ — `.specflow/runs/`、`.mcp.json`、Claude local settings
 
 スラッシュコマンドを最新に更新したい場合:
 
@@ -187,10 +201,12 @@ URL なしで起動してインタラクティブに入力:
 5. `/specflow.approve` — commit → push → PR 作成
 
 修正ループ:
+
 - Design に問題 → `/specflow.fix_design` → design/tasks 修正 → Codex design/tasks re-review
 - 実装に問題 → `/specflow.fix_apply` → 修正 → Codex impl re-review
 
 ユーティリティ:
+
 - `/specflow.decompose` — spec の複雑さを分析し、issue-linked spec は GitHub sub-issue に分解
 - `/specflow.dashboard` — 全 feature のレビュー台帳を集計し、ダッシュボードとして表示・保存
 - `/specflow.license` — プロジェクト解析に基づいてライセンスファイルを生成
@@ -218,58 +234,95 @@ Codex CLI がインストール済みであれば追加設定は不要（Codex t
 
 ## 設定一覧
 
-| 設定 | 場所 | 設定方法 |
-|------|------|----------|
-| Codex MCP サーバー | プロジェクトルートの `.mcp.json` | `specflow-init` で自動コピー |
-| Codex CLI | `codex` コマンド | `npm install -g @openai/codex` |
-| スラッシュコマンド | `~/.claude/commands/specflow*.md` | `specflow-install` で自動インストール |
-| Claude Code 権限 | `~/.claude/settings.json` | `specflow-install` で自動マージ |
-| プロジェクト設定 | プロジェクトルートの `CLAUDE.md` | `/specflow.setup` でインタラクティブに設定 |
-| 外部テンプレート | 環境変数 `SPECFLOW_TEMPLATE_REPO` | 任意 — デフォルトはローカルテンプレート |
+| 設定               | 場所                              | 設定方法                                   |
+| ------------------ | --------------------------------- | ------------------------------------------ |
+| Codex MCP サーバー | プロジェクトルートの `.mcp.json`  | `specflow-init` で自動コピー               |
+| Codex CLI          | `codex` コマンド                  | `npm install -g @openai/codex`             |
+| スラッシュコマンド | `~/.claude/commands/specflow*.md` | `specflow-install` で自動インストール      |
+| Claude Code 権限   | `~/.claude/settings.json`         | `specflow-install` で自動マージ            |
+| プロジェクト設定   | プロジェクトルートの `CLAUDE.md`  | `/specflow.setup` でインタラクティブに設定 |
+| 外部テンプレート   | 環境変数 `SPECFLOW_TEMPLATE_REPO` | 任意 — デフォルトはローカルテンプレート    |
 
 ## ワークフローコア
 
 specflow のワークフローは以下の 3 つのコアコンポーネントで管理される。詳細は [docs/architecture.md](docs/architecture.md) を参照。
 
-| コンポーネント | ファイル | 役割 |
-|---------------|---------|------|
-| State Machine | `global/workflow/state-machine.json` | 状態・イベント・遷移の宣言的定義 (v2.0) |
-| Run CLI | `bin/specflow-run` | 状態遷移の実行・検証・per-run メタデータ管理 |
-| Run State | `.specflow/runs/<run_id>/run.json` | per-run の状態・メタデータ・履歴 |
+| コンポーネント | ファイル                                          | 役割                                         |
+| -------------- | ------------------------------------------------- | -------------------------------------------- |
+| State Machine  | `dist/package/global/workflow/state-machine.json` | XState 由来の状態・イベント・遷移定義 (v3.0) |
+| Run CLI        | `bin/specflow-run`                                | 状態遷移の実行・検証・per-run メタデータ管理 |
+| Run State      | `.specflow/runs/<run_id>/run.json`                | per-run の状態・メタデータ・履歴             |
 
 ### 状態遷移図
 
-```
-                        ┌─ explore_start ──→ [explore] ──→ explore_complete ─┐
-                        │                                                    │
-[start] ←──────────────┼────────────────────────────────────────────────────┘
-   │                    │
-   │                    └─ spec_bootstrap_start ──→ [spec_bootstrap] ──→ spec_bootstrap_complete ─→ [start]
-   │
-   └── propose ──→ [proposal] ──→ accept_proposal ──→ [design] ──→ accept_design ──→ [apply] ──→ accept_apply ──→ [approved]
-                       │                              │    ↺                        │    ↺                 
-                       │                              │ revise_design               │ revise_apply
-                       └── reject ──→ [rejected] ←────┘                            │
-                                           ↑───────────────────────────────────────┘
+<!-- BEGIN GENERATED WORKFLOW DIAGRAM -->
+
+```mermaid
+stateDiagram-v2
+  [*] --> start
+  start --> proposal_draft: propose
+  start --> explore: explore_start
+  start --> spec_bootstrap: spec_bootstrap_start
+  proposal_draft --> proposal_scope: check_scope
+  proposal_draft --> rejected: reject
+  proposal_scope --> proposal_clarify: continue_proposal
+  proposal_scope --> decomposed: decompose
+  proposal_scope --> rejected: reject
+  proposal_clarify --> proposal_review: review_proposal
+  proposal_clarify --> rejected: reject
+  proposal_review --> proposal_validate: proposal_review_approved
+  proposal_review --> proposal_clarify: revise_proposal
+  proposal_review --> rejected: reject
+  proposal_validate --> proposal_clarify: revise_proposal
+  proposal_validate --> proposal_ready: proposal_validated
+  proposal_validate --> rejected: reject
+  proposal_ready --> design_draft: accept_proposal
+  proposal_ready --> rejected: reject
+  design_draft --> design_validate: validate_design
+  design_draft --> rejected: reject
+  design_validate --> design_review: design_validated
+  design_validate --> design_draft: revise_design
+  design_validate --> rejected: reject
+  design_review --> design_draft: revise_design
+  design_review --> design_ready: design_review_approved
+  design_review --> rejected: reject
+  design_ready --> apply_draft: accept_design
+  design_ready --> rejected: reject
+  apply_draft --> apply_review: review_apply
+  apply_draft --> rejected: reject
+  apply_review --> apply_draft: revise_apply
+  apply_review --> apply_ready: apply_review_approved
+  apply_review --> rejected: reject
+  apply_ready --> approved: accept_apply
+  apply_ready --> rejected: reject
+  explore --> start: explore_complete
+  spec_bootstrap --> start: spec_bootstrap_complete
+  approved --> [*]
+  decomposed --> [*]
+  rejected --> [*]
 ```
 
-**v2.0 破壊的変更**: `revise` イベントは `revise_design` / `revise_apply` に分割されました。
+<!-- END GENERATED WORKFLOW DIAGRAM -->
 
-**ブランチパス**: `explore` と `spec_bootstrap` は state machine と specflow-run CLI で完全にサポートされていますが、現在のスラッシュコマンド（`/specflow.explore`, `/specflow.spec`）はこれらのイベントをまだ emit しません（非 change スコープのため run_id の戦略が未定）。
+**v3.0 破壊的変更**: proposal / design / apply の各ゲートが詳細状態として明示化され、workflow 定義と README の遷移図は同じ XState source から自動生成されます。
+
+**ブランチパス**: `explore` と `spec_bootstrap` は state machine・`specflow-run`・生成済みスラッシュコマンドでサポートされる。`/specflow.explore` と `/specflow.spec` は synthetic run (`specflow-run start "<RUN_ID>" --run-kind synthetic`) を使って branch path event を記録する。
 
 ### run.json メタデータ
 
-v2.0 の `run.json` は以下のフィールドを必須とします（`specflow-run start` 時に自動検出）:
+v3.0 の `run.json` は以下のフィールドを必須とします（`specflow-run start` 時に自動検出）:
 
-| フィールド | ソース |
-|-----------|--------|
-| `project_id` | `git remote get-url origin` → `owner/repo` |
-| `repo_name` | `project_id` と同値 |
-| `repo_path` | `git rev-parse --show-toplevel` |
-| `branch_name` | `git rev-parse --abbrev-ref HEAD` |
-| `worktree_path` | `git rev-parse --show-toplevel` |
-| `agents` | `{ main: "claude", review: "codex" }` (デフォルト) |
-| `last_summary_path` | `null` (approve 時に更新) |
+| フィールド          | ソース                                             |
+| ------------------- | -------------------------------------------------- |
+| `project_id`        | `git remote get-url origin` → `owner/repo`         |
+| `repo_name`         | `project_id` と同値                                |
+| `repo_path`         | `git rev-parse --show-toplevel`                    |
+| `branch_name`       | `git rev-parse --abbrev-ref HEAD`                  |
+| `worktree_path`     | `git rev-parse --show-toplevel`                    |
+| `agents`            | `{ main: "claude", review: "codex" }` (デフォルト) |
+| `last_summary_path` | `null` (approve 時に更新)                          |
+
+synthetic run (`--run-kind synthetic`) では `change_name` は `null` で、追加で `run_kind: "synthetic"` が保存される。synthetic run は `openspec/changes/<run_id>/proposal.md` を要求しない。
 
 **マイグレーション不要**: 既存の run.json は `.specflow/runs/` に gitignore されており、ローカルのみ。旧スキーマの run は破棄して `specflow-run start` で再作成。
 
@@ -279,6 +332,10 @@ v2.0 の `run.json` は以下のフィールドを必須とします（`specflow
 
 ## リポジトリアーキテクチャ
 
+### Legacy archive
+
+Bash 時代の最終スナップショットは main ブランチには残しておらず、git tag `legacy-v1-final` に固定している。現行の build、runtime、CI test は archive 内の script を実行しない。
+
 このリポジトリには 2 種類のコンテンツが含まれる:
 
 1. **配布物 (Distributable Assets)** — ユーザープロジェクトにインストールされるツール
@@ -287,8 +344,8 @@ v2.0 の `run.json` は以下のフィールドを必須とします（`specflow
 ```
 specflow/
 ├── bin/                           # 配布物: インストール・初期化スクリプト
-├── global/                        # 配布物: Claude Code スラッシュコマンド
-├── template/                      # 配布物: プロジェクトブートストラップテンプレート
+├── assets/template/               # 配布物ソース: プロジェクトブートストラップテンプレート
+├── dist/package/                  # 配布物: install が消費する bundle
 └── openspec/                      # 計画状態: OpenSpec 準拠のリポジトリ内部資産
     ├── specs/                     #   Capability specs (現在の真実) — 現在は空
     ├── changes/                   #   Change records (提案・変更履歴)
@@ -299,12 +356,12 @@ specflow/
 
 ### 配布物 vs 計画状態の区別
 
-| ディレクトリ | 種類 | 用途 |
-|-------------|------|------|
-| `bin/` | 配布物 | インストール・初期化・ユーティリティスクリプト |
-| `global/` | 配布物 | Claude Code スラッシュコマンド定義 |
-| `template/` | 配布物 | プロジェクトブートストラップ資産 |
-| `openspec/` | 計画状態 | specflow 自体の proposal / design / tasks |
+| ディレクトリ    | 種類     | 用途                                           |
+| --------------- | -------- | ---------------------------------------------- |
+| `assets/`       | ソース   | prompt/template のテンプレート                 |
+| `dist/package/` | 配布物   | installer が配布に使う bundle                  |
+| `bin/`          | 配布物   | インストール・初期化・ユーティリティスクリプト |
+| `openspec/`     | 計画状態 | specflow 自体の proposal / design / tasks      |
 
 ## ファイル構成
 
@@ -323,14 +380,20 @@ specflow/                        # このリポジトリ（ツール）
     specflow-init                #   プロジェクト初期化 / コマンド更新
     specflow-install             #   グローバルインストール（PATH, コマンド, 権限, テンプレート）
     specflow-run                 #   ワークフロー状態遷移 CLI (start/advance/status/update-field)
-  global/                        # グローバル設定・スラッシュコマンド
-    workflow/                    #   ワークフロー定義
-      state-machine.json         #     状態遷移定義 (v2.0)
-    commands/                    #   スラッシュコマンド定義
-    prompts/                     #   レビュー・ワークフロープロンプト
-    claude-settings.json         #   ~/.claude/settings.json 用権限テンプレート
-  template/                      # プロジェクトテンプレート（init でコピーされる）
-    CLAUDE.md                    #   Claude Code 用プロジェクト設定テンプレート
+  assets/                        # build 入力テンプレート
+    global/
+      prompts/                   #   prompt テンプレート（schema は contract から注入）
+    template/                    #   init 用テンプレートソース
+      CLAUDE.md                  #     Claude Code 用プロジェクト設定テンプレート
+  dist/
+    package/                     #   install が消費する配布 bundle
+      global/
+        workflow/
+          state-machine.json     #       状態遷移定義 (v3.0)
+        commands/                #       スラッシュコマンド定義
+        prompts/                 #       レビュー・ワークフロープロンプト
+        claude-settings.json     #       ~/.claude/settings.json 用権限テンプレート
+      template/                  #       init が参照する配布済みテンプレート
   openspec/                      # このリポジトリの計画状態 (OpenSpec)
     specs/                       #   Capability specs
     changes/                     #   変更レコード
@@ -350,6 +413,16 @@ specflow/                        # このリポジトリ（ツール）
 ## 貢献
 
 コントリビューション歓迎です。お気軽に Pull Request をお送りください。
+
+### 開発用コマンド
+
+```bash
+npm run lint
+npm run format
+npm run format:check
+npm run test:coverage
+npm run check
+```
 
 1. リポジトリをフォーク
 2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
@@ -372,37 +445,48 @@ An interactive tool that runs the full proposal → clarify → validate → des
 ## Quick Start
 
 ```bash
+npm install -g --force https://github.com/skr19930617/specflow/releases/latest/download/specflow-node.tgz
+```
+
+This installs the prebuilt release tarball and runs `specflow-install` automatically during `postinstall`.
+
+Bootstrap script fallback:
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/skr19930617/specflow/main/install.sh | bash
 ```
 
-Or install manually:
+Or install from source for development:
 
 ```bash
 git clone https://github.com/skr19930617/specflow.git
 cd specflow
-./bin/specflow-install
+npm ci
+npm run build
+node dist/bin/specflow-install.js
 ```
 
 ## Prerequisites
 
-| Tool | Purpose | Install |
-|------|---------|---------|
-| `gh` | Fetch GitHub issues | `brew install gh && gh auth login` |
-| `claude` | Proposal clarify / design / implement | Claude Code CLI |
-| `git` | Repository operations | macOS built-in or `brew install git` |
-| `jq` | Config merging (during install) | `brew install jq` |
-| OpenSpec CLI | Proposal/design/tasks/implement management | `npm install -g openspec` |
-| `codex` | Codex CLI (review MCP server) | `npm install -g @openai/codex` |
+| Tool         | Purpose                                    | Install                              |
+| ------------ | ------------------------------------------ | ------------------------------------ |
+| `gh`         | Fetch GitHub issues                        | `brew install gh && gh auth login`   |
+| `claude`     | Proposal clarify / design / implement      | Claude Code CLI                      |
+| `git`        | Repository operations                      | macOS built-in or `brew install git` |
+| OpenSpec CLI | Proposal/design/tasks/implement management | `npm install -g openspec`            |
+| `codex`      | Codex CLI (review MCP server)              | `npm install -g @openai/codex`       |
 
 ## Usage
 
 1. Initialize your project (first time only):
+
    ```bash
    cd /path/to/your-project
    specflow-init
    ```
 
 2. Set up CLAUDE.md interactively in Claude Code:
+
    ```
    /specflow.setup
    ```
@@ -428,6 +512,16 @@ Utilities: `/specflow.decompose` (split into sub-issues), `/specflow.dashboard` 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Development Commands
+
+```bash
+npm run lint
+npm run format
+npm run format:check
+npm run test:coverage
+npm run check
+```
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)

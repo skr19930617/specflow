@@ -1,0 +1,28 @@
+{
+	"run_id": "test-change",
+	"change_name": "test-change",
+	"current_phase": "proposal_draft",
+	"status": "active",
+	"allowed_events": ["check_scope", "reject"],
+	"issue": {
+		"url": "https://github.com/test/repo/issues/71",
+		"number": 71,
+		"title": "Stub issue",
+		"repo": "test/repo"
+	},
+	"project_id": "test/repo",
+	"repo_name": "test/repo",
+	"branch_name": "main",
+	"agents": {
+		"main": "claude",
+		"review": "codex"
+	},
+	"last_summary_path": null,
+	"history": [
+		{
+			"from": "start",
+			"to": "proposal_draft",
+			"event": "propose"
+		}
+	]
+}

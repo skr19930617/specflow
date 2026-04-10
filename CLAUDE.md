@@ -8,26 +8,27 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 
 - **OpenSpec CLI** — `npm install -g openspec` でインストール済みであること
 - **Codex CLI** — `codex` コマンドがインストール済みであること（`npm install -g @openai/codex`）
+
 ### specflow Slash Commands
 
-| コマンド | 役割 |
-|----------|------|
-| `/specflow <issue-url>` | issue → proposal → clarify → validate（OpenSpec CLI 連携） |
-| `/specflow.spec` | 既存コードベースを解析し、openspec/specs/ にベースライン spec を一括生成 |
-| `/specflow.explore` | OpenSpec explore ベースの自由対話 → GitHub issue 起票 |
-| `/specflow.design` | design → tasks → Codex design review（OpenSpec CLI 連携） |
-| `/specflow.review_design` | Codex design/tasks review を単独実行 |
-| `/specflow.fix_design` | design/tasks のレビュー指摘を修正 → Codex re-review |
-| `/specflow.apply` | implement → Codex impl review（OpenSpec CLI 連携） |
-| `/specflow.review_apply` | Codex impl review を単独実行（ledger 更新・auto-fix loop 含む） |
-| `/specflow.fix_apply` | impl のレビュー指摘を修正 → Codex impl re-review |
-| `/specflow.approve` | commit → push → PR 作成 |
-| `/specflow.reject` | 全変更破棄 |
-| `/specflow.setup` | CLAUDE.md をインタラクティブに設定 |
-| `/specflow.decompose` | spec の複雑さを分析し、issue-linked spec は GitHub sub-issue に分解 |
-| `/specflow.dashboard` | 全 feature のレビュー台帳を集計し、ダッシュボードとして表示・保存 |
-| `/specflow.license` | プロジェクト解析に基づいてライセンスファイルを生成 |
-| `/specflow.readme` | プロジェクト解析に基づいて OSS 風 README を生成・更新 |
+| コマンド                  | 役割                                                                     |
+| ------------------------- | ------------------------------------------------------------------------ |
+| `/specflow <issue-url>`   | issue → proposal → clarify → validate（OpenSpec CLI 連携）               |
+| `/specflow.spec`          | 既存コードベースを解析し、openspec/specs/ にベースライン spec を一括生成 |
+| `/specflow.explore`       | OpenSpec explore ベースの自由対話 → GitHub issue 起票                    |
+| `/specflow.design`        | design → tasks → Codex design review（OpenSpec CLI 連携）                |
+| `/specflow.review_design` | Codex design/tasks review を単独実行                                     |
+| `/specflow.fix_design`    | design/tasks のレビュー指摘を修正 → Codex re-review                      |
+| `/specflow.apply`         | implement → Codex impl review（OpenSpec CLI 連携）                       |
+| `/specflow.review_apply`  | Codex impl review を単独実行（ledger 更新・auto-fix loop 含む）          |
+| `/specflow.fix_apply`     | impl のレビュー指摘を修正 → Codex impl re-review                         |
+| `/specflow.approve`       | commit → push → PR 作成                                                  |
+| `/specflow.reject`        | 全変更破棄                                                               |
+| `/specflow.setup`         | CLAUDE.md をインタラクティブに設定                                       |
+| `/specflow.decompose`     | spec の複雑さを分析し、issue-linked spec は GitHub sub-issue に分解      |
+| `/specflow.dashboard`     | 全 feature のレビュー台帳を集計し、ダッシュボードとして表示・保存        |
+| `/specflow.license`       | プロジェクト解析に基づいてライセンスファイルを生成                       |
+| `/specflow.readme`        | プロジェクト解析に基づいて OSS 風 README を生成・更新                    |
 
 フロー: `/specflow` → `/specflow.design` → `/specflow.apply` → `/specflow.approve`
 初期セットアップ: `/specflow.spec`（既存プロジェクトでベースライン spec が未作成の場合）

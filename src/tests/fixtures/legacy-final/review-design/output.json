@@ -1,0 +1,72 @@
+{
+	"status": "success",
+	"action": "review",
+	"change_id": "test-change",
+	"review": {
+		"decision": "REVIEWED",
+		"summary": "design reviewed",
+		"findings": [
+			{
+				"title": "Clarify data flow",
+				"file": "design.md",
+				"category": "design",
+				"severity": "high"
+			}
+		],
+		"rereview_mode": false,
+		"parse_error": false,
+		"raw_response": null
+	},
+	"ledger": {
+		"round": 1,
+		"status": "has_open_high",
+		"counts": {
+			"total": 1,
+			"open": 0,
+			"new": 1,
+			"resolved": 0,
+			"overridden": 0
+		},
+		"by_severity": {
+			"high": {
+				"open": 0,
+				"new": 1,
+				"resolved": 0,
+				"overridden": 0
+			},
+			"medium": {
+				"open": 0,
+				"new": 0,
+				"resolved": 0,
+				"overridden": 0
+			},
+			"low": {
+				"open": 0,
+				"new": 0,
+				"resolved": 0,
+				"overridden": 0
+			}
+		},
+		"round_summaries": [
+			{
+				"round": 1,
+				"total": 1,
+				"open": 1,
+				"new": 1,
+				"resolved": 0,
+				"overridden": 0,
+				"by_severity": {
+					"high": 1
+				}
+			}
+		]
+	},
+	"autofix": null,
+	"handoff": {
+		"state": "review_with_findings",
+		"actionable_count": 1,
+		"severity_summary": "HIGH: 1"
+	},
+	"rereview_classification": null,
+	"error": null
+}

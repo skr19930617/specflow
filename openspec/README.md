@@ -1,38 +1,43 @@
 # OpenSpec Directory
 
-This directory follows the [OpenSpec](https://github.com/skr19930617/specflow) convention for managing planning and specification state.
+This directory holds the current baseline capability specs for the `specflow`
+codebase.
+
+The baseline was reset from the implementation that exists today in `src/`,
+`assets/`, and `src/tests/`. Legacy change records were intentionally cleared,
+so the committed tree keeps `openspec/changes/` empty except for a placeholder
+file.
 
 ## Structure
 
 ```
 openspec/
-├── specs/                          # Current truth (capability specs)
-│   └── <capability>/
-│       └── spec.md                 # Canonical spec for a stable capability
-├── changes/                        # Proposed changes (change records)
-│   └── <change-id>/
-│       ├── proposal.md             # Required: change proposal / feature spec
-│       ├── design.md               # Optional: implementation design / plan
-│       ├── tasks.md                # Optional: task breakdown
-│       └── specs/                  # Optional: spec deltas for affected capabilities
-│           └── <capability>/
-│               └── spec.md
-└── README.md                       # This file
+├── specs/
+│   ├── slash-command-guides/
+│   ├── contract-driven-distribution/
+│   ├── workflow-run-state/
+│   ├── review-orchestration/
+│   ├── project-bootstrap-installation/
+│   └── utility-cli-suite/
+├── changes/
+│   └── .gitkeep
+├── config.yaml
+└── README.md
 ```
 
 ## Concepts
 
-- **Capability Spec** (`specs/<capability>/spec.md`): Describes a stable capability of the system as it exists today. Represents current truth.
-- **Change Record** (`changes/<change-id>/`): Proposes a modification to the system. Contains a proposal, optional design, tasks, and spec deltas.
+- `specs/<capability>/spec.md` describes behavior implemented today and should
+  track the codebase, not historical proposals.
+- `changes/` is reserved for future OpenSpec change records. The repository
+  baseline keeps it empty.
+- `config.yaml` stores project-level OpenSpec settings and context. It is not
+  part of the baseline reset.
 
-## Creating a New Change
+## Maintenance Rules
 
-1. Create a directory: `openspec/changes/<change-id>/`
-2. Add `proposal.md` with your feature specification
-3. Optionally add `design.md` (implementation plan) and `tasks.md` (task breakdown)
-4. If modifying an existing capability, add spec deltas under `specs/<capability>/spec.md`
-
-## Naming Convention
-
-- Change IDs: `<NNN>-<short-name>` (e.g., `001-user-auth`, `042-openspec-migration`)
-- Capability names: descriptive slug (e.g., `review-system`, `migration-tools`)
+- Update the matching baseline spec when behavior in `src/`, `assets/`, or the
+  shipped CLI surface changes.
+- Prefer the implementation and tests over old spec text if they disagree.
+- Do not rebuild baseline specs from archived change records. Git history is the
+  archive.

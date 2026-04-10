@@ -1,0 +1,77 @@
+{
+	"status": "success",
+	"action": "review",
+	"change_id": "test-change",
+	"review": {
+		"decision": "REVIEWED",
+		"summary": "looks good",
+		"findings": [
+			{
+				"title": "Needs guard",
+				"file": "app.txt",
+				"category": "logic",
+				"severity": "high"
+			}
+		],
+		"rereview_mode": false,
+		"parse_error": false,
+		"raw_response": null
+	},
+	"ledger": {
+		"round": 1,
+		"status": "has_open_high",
+		"counts": {
+			"total": 1,
+			"open": 0,
+			"new": 1,
+			"resolved": 0,
+			"overridden": 0
+		},
+		"by_severity": {
+			"high": {
+				"open": 0,
+				"new": 1,
+				"resolved": 0,
+				"overridden": 0
+			},
+			"medium": {
+				"open": 0,
+				"new": 0,
+				"resolved": 0,
+				"overridden": 0
+			},
+			"low": {
+				"open": 0,
+				"new": 0,
+				"resolved": 0,
+				"overridden": 0
+			}
+		},
+		"round_summaries": [
+			{
+				"round": 1,
+				"total": 1,
+				"open": 1,
+				"new": 1,
+				"resolved": 0,
+				"overridden": 0,
+				"by_severity": {
+					"high": 1
+				}
+			}
+		]
+	},
+	"autofix": null,
+	"handoff": {
+		"state": "review_with_findings",
+		"actionable_count": 1,
+		"severity_summary": "HIGH: 1"
+	},
+	"diff_summary": {
+		"total_lines": 8,
+		"excluded_count": 0,
+		"included_count": 1,
+		"diff_warning": false
+	},
+	"error": null
+}

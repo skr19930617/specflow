@@ -1,0 +1,19 @@
+{
+	"created": [
+		{
+			"phase_number": 1,
+			"issue_number": 100,
+			"issue_url": "https://github.com/test/repo/issues/100",
+			"title": "Phase 1: Auth"
+		},
+		{
+			"phase_number": 2,
+			"issue_number": 101,
+			"issue_url": "https://github.com/test/repo/issues/101",
+			"title": "Phase 2: Billing"
+		}
+	],
+	"failed": [],
+	"summary_comment_posted": true,
+	"parent_issue_number": 71
+}

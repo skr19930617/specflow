@@ -3,8 +3,13 @@
 .claude/settings.local.json
 
 # MCP server config (local paths/tools)
-.mcp.json
+/.mcp.json
 
 # Specflow local env
 .specflow/config.env
 .specflow/runs/
+
+# Node
+node_modules/
+dist/
+coverage/

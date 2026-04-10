@@ -1,0 +1,37 @@
+{
+	"next_issue_number": 101,
+	"labels": [
+		{
+			"name": "phase-1",
+			"repo": "test/repo",
+			"color": "0e8a16",
+			"description": "Decomposition phase 1"
+		},
+		{
+			"name": "phase-2",
+			"repo": "test/repo",
+			"color": "1d76db",
+			"description": "Decomposition phase 2"
+		}
+	],
+	"issues": [
+		{
+			"number": 100,
+			"url": "https://github.com/test/repo/issues/100",
+			"title": "Phase 1: Auth",
+			"body": "## Phase 1 of 2: Auth\n\n**Parent Issue**: #71\n**Decomposition ID**: decompose-71-20260409-010203-phase-1\n\n## Description\nImplement auth\n\n## Requirements\n- FR-001\n\n## Acceptance Criteria\n- Login works",
+			"label": "phase-1",
+			"repo": "test/repo",
+			"decomposition_id": "decompose-71-20260409-010203-phase-1"
+		}
+	],
+	"comments": [
+		{
+			"issue_number": "71",
+			"repo": "test/repo",
+			"body": "## Decomposition Sub-Issues\n\nThis issue has been decomposed into the following sub-issues:\n\n- **Phase 1**: #100 — Phase 1: Auth\n\n_Decomposition run: 20260409-010203_"
+		}
+	],
+	"fail_create_phases": [2],
+	"fail_comment": false
+}
