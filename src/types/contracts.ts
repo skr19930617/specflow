@@ -271,6 +271,7 @@ export interface ReviewDiffSummary extends JsonMap {
 	readonly excluded_count: number;
 	readonly total_lines: number;
 	readonly diff_warning?: boolean;
+	readonly threshold?: number;
 }
 
 export interface ReviewFinding extends JsonMap {

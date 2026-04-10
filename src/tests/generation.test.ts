@@ -72,6 +72,20 @@ test("generated contracts no longer reference legacy asset paths", () => {
 	assert.equal(contractsJson.includes(archivedTree), false);
 });
 
+test("generated contracts and guides do not reference src-based installed assets", () => {
+	const contractsJson = readFileSync("dist/contracts.json", "utf8");
+	const specflow = readFileSync(
+		"dist/package/global/commands/specflow.md",
+		"utf8",
+	);
+	for (const content of [contractsJson, specflow]) {
+		assert.equal(content.includes(".config/specflow/src"), false);
+		assert.equal(content.includes("src/global/commands"), false);
+		assert.equal(content.includes("src/global/prompts"), false);
+		assert.equal(content.includes("src/global/workflow"), false);
+	}
+});
+
 test("prompt templates render contract-driven output schemas", () => {
 	const designPrompt = readFileSync(
 		"dist/package/global/prompts/review_design_prompt.md",

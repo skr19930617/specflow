@@ -595,6 +595,7 @@ function reviewDiffSummaryValidator(
 		`${path}.diff_warning`,
 		errors,
 	);
+	optional(record.threshold, numberValidator, `${path}.threshold`, errors);
 }
 
 function rereviewClassificationValidator(

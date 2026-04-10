@@ -177,12 +177,14 @@ function resultFromLedger(
 	rawResponse: string,
 	ledger: ReviewLedger,
 	diffSummary: DiffSummary,
+	diffWarnThreshold: number,
 ): ReviewResult {
 	const publicDiffSummary = {
 		total_lines: diffSummary.total_lines,
 		excluded_count: diffSummary.excluded_count,
 		included_count: diffSummary.included_count,
 		diff_warning: diffSummary.diff_warning,
+		threshold: diffWarnThreshold,
 	};
 	const actionable = actionableCount(ledger);
 	return {
@@ -209,6 +211,7 @@ function runReviewPipeline(
 	action: string,
 	changeId: string,
 	rereviewMode: boolean,
+	skipDiffCheck: boolean,
 ): ReviewResult {
 	process.stderr.write("Running diff filter...\n");
 	const rawDiff = diffFilter(runtimeRoot, projectRoot);
@@ -227,12 +230,13 @@ function runReviewPipeline(
 		rawDiff.summary,
 		config.diffWarnThreshold,
 	);
-	if (diffSummary.diff_warning) {
+	if (diffSummary.diff_warning && !skipDiffCheck) {
 		const publicDiffSummary = {
 			total_lines: diffSummary.total_lines,
 			excluded_count: diffSummary.excluded_count,
 			included_count: diffSummary.included_count,
 			diff_warning: diffSummary.diff_warning,
+			threshold: config.diffWarnThreshold,
 		};
 		return {
 			status: "warning",
@@ -372,6 +376,7 @@ function runReviewPipeline(
 		rawResponse,
 		ledger,
 		diffSummary,
+		config.diffWarnThreshold,
 	);
 }
 
@@ -429,6 +434,7 @@ function runAutofixLoop(
 			changeDir,
 			"fix_review",
 			changeId,
+			true,
 			true,
 		);
 		if (reviewResult.status === "error" || reviewResult.review?.parse_error) {
@@ -546,9 +552,25 @@ function cmdReview(
 	projectRoot: string,
 	args: readonly string[],
 ): ReviewResult {
-	const changeId = args[0];
+	let changeId = "";
+	let skipDiffCheck = false;
+	for (let index = 0; index < args.length; index += 1) {
+		const arg = args[index];
+		if (arg === "--skip-diff-check") {
+			skipDiffCheck = true;
+			continue;
+		}
+		if (arg.startsWith("-")) {
+			die(`Error: unknown option '${arg}'`);
+		}
+		if (!changeId) {
+			changeId = arg;
+			continue;
+		}
+		die(`Error: unexpected argument '${arg}'`);
+	}
 	if (!changeId) {
-		die("Usage: specflow-review-apply review <CHANGE_ID>");
+		die("Usage: specflow-review-apply review <CHANGE_ID> [--skip-diff-check]");
 	}
 	const changeDir = resolve(projectRoot, "openspec/changes", changeId);
 	if (
@@ -564,6 +586,7 @@ function cmdReview(
 		"review",
 		changeId,
 		false,
+		skipDiffCheck,
 	);
 }
 
@@ -573,9 +596,14 @@ function cmdFixReview(
 	args: readonly string[],
 ): ReviewResult {
 	let changeId = "";
+	let skipDiffCheck = false;
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
 		if (arg === "--autofix") {
+			continue;
+		}
+		if (arg === "--skip-diff-check") {
+			skipDiffCheck = true;
 			continue;
 		}
 		if (arg.startsWith("-")) {
@@ -588,7 +616,9 @@ function cmdFixReview(
 		die(`Error: unexpected argument '${arg}'`);
 	}
 	if (!changeId) {
-		die("Usage: specflow-review-apply fix-review <CHANGE_ID> [--autofix]");
+		die(
+			"Usage: specflow-review-apply fix-review <CHANGE_ID> [--autofix] [--skip-diff-check]",
+		);
 	}
 	const changeDir = resolve(projectRoot, "openspec/changes", changeId);
 	if (
@@ -604,6 +634,7 @@ function cmdFixReview(
 		"fix_review",
 		changeId,
 		true,
+		skipDiffCheck,
 	);
 }
 

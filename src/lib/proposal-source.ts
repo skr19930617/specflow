@@ -34,7 +34,7 @@ function splitBody(body: string): string[] {
 function slugify(value: string): string {
 	return value
 		.normalize("NFKD")
-		.replace(/[^\x00-\x7F]/g, "")
+		.replace(/[^\u0020-\u007E]/g, "")
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "")
@@ -68,7 +68,9 @@ export function toSourceMetadata(
 	};
 }
 
-export function deriveChangeId(source: SourceMetadata | ProposalSource): string {
+export function deriveChangeId(
+	source: SourceMetadata | ProposalSource,
+): string {
 	const candidates = [
 		source.title,
 		"body" in source && typeof source.body === "string" ? source.body : null,
@@ -114,9 +116,7 @@ export function renderSeededProposal(
 		...(bodySummary.length > 0
 			? ["", "Source context:", "", ...bodySummary.map((line) => `> ${line}`)]
 			: []),
-		...(guidance
-			? ["", "## OpenSpec Guidance", "", guidance]
-			: []),
+		...(guidance ? ["", "## OpenSpec Guidance", "", guidance] : []),
 		"",
 		"## What Changes",
 		"",

@@ -115,6 +115,27 @@ test("specflow-run rejects change directories that lack proposal.md", () => {
 	}
 });
 
+test("specflow-run start rejects removed --issue-url option", () => {
+	const tempRoot = makeTempDir("specflow-run-issue-url-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const start = runNodeCli(
+			"specflow-run",
+			[
+				"start",
+				changeId,
+				"--issue-url",
+				"https://github.com/test/repo/issues/71",
+			],
+			repoPath,
+		);
+		assert.notEqual(start.status, 0);
+		assert.match(start.stderr, /unknown option '--issue-url'/);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
 test("specflow-run supports the full happy path from start to approved", () => {
 	const tempRoot = makeTempDir("specflow-run-happy-");
 	try {

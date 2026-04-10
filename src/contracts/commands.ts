@@ -82,9 +82,11 @@ export const commandContracts: readonly CommandContract[] = [
 		[
 			hook(
 				"Apply Acceptance",
-				"When approve completes successfully, advance the run to approved and store the summary path.",
+				"When approve completes successfully, store the final summary path (archived when available) and advance the run to approved.",
 				[
-					'specflow-run update-field "<CHANGE_ID>" last_summary_path "<FEATURE_DIR>/approval-summary.md"',
+					'FINAL_SUMMARY_PATH="$' +
+						'{ARCHIVED_FEATURE_DIR:-$FEATURE_DIR}/approval-summary.md"',
+					'specflow-run update-field "<CHANGE_ID>" last_summary_path "$FINAL_SUMMARY_PATH"',
 					'specflow-run advance "<CHANGE_ID>" accept_apply',
 				].join("\n"),
 			),

@@ -89,7 +89,11 @@ function ensureChangeExists(root: string, changeId: string): void {
 	}
 	const result = openspec(["new", "change", changeId], root);
 	if (result.status !== 0) {
-		fail(result.stderr || result.stdout || `openspec new change ${changeId} failed`);
+		fail(
+			result.stderr ||
+				result.stdout ||
+				`openspec new change ${changeId} failed`,
+		);
 	}
 	if (!existsSync(changeDir(root, changeId))) {
 		fail(`Error: OpenSpec did not create change directory for '${changeId}'`);
@@ -101,9 +105,14 @@ function ensureBranch(root: string, changeId: string): void {
 	if (current === changeId) {
 		return;
 	}
-	const existing = git(["rev-parse", "--verify", `refs/heads/${changeId}`], root);
+	const existing = git(
+		["rev-parse", "--verify", `refs/heads/${changeId}`],
+		root,
+	);
 	const checkoutArgs =
-		existing.status === 0 ? ["checkout", changeId] : ["checkout", "-b", changeId];
+		existing.status === 0
+			? ["checkout", changeId]
+			: ["checkout", "-b", changeId];
 	const checkout = git(checkoutArgs, root);
 	if (checkout.status !== 0) {
 		fail(
@@ -118,7 +127,10 @@ function loadProposalInstructions(
 	root: string,
 	changeId: string,
 ): ProposalInstructions {
-	const result = openspec(["instructions", "proposal", "--change", changeId, "--json"], root);
+	const result = openspec(
+		["instructions", "proposal", "--change", changeId, "--json"],
+		root,
+	);
 	if (result.status !== 0) {
 		fail(
 			result.stderr ||
@@ -126,7 +138,10 @@ function loadProposalInstructions(
 				`openspec instructions proposal --change ${changeId} --json failed`,
 		);
 	}
-	return parseJson<ProposalInstructions>(result.stdout, "openspec proposal instructions");
+	return parseJson<ProposalInstructions>(
+		result.stdout,
+		"openspec proposal instructions",
+	);
 }
 
 function ensureProposalDraft(
@@ -145,7 +160,10 @@ function ensureProposalDraft(
 			`Error: expected OpenSpec proposal outputPath to be proposal.md, received '${outputPath}'`,
 		);
 	}
-	atomicWriteText(path, `${renderSeededProposal(changeId, source, instructions)}\n`);
+	atomicWriteText(
+		path,
+		`${renderSeededProposal(changeId, source, instructions)}\n`,
+	);
 }
 
 function ensureRunStarted(
@@ -172,7 +190,9 @@ function ensureRunStarted(
 	}
 	const start = specflowRun(args, root);
 	if (start.status !== 0) {
-		fail(start.stderr || start.stdout || `specflow-run start ${changeId} failed`);
+		fail(
+			start.stderr || start.stdout || `specflow-run start ${changeId} failed`,
+		);
 	}
 	return parseSchemaJson<RunState>(
 		"run-state",
@@ -181,7 +201,11 @@ function ensureRunStarted(
 	);
 }
 
-function ensureProposalPhase(root: string, changeId: string, state: RunState): RunState {
+function ensureProposalPhase(
+	root: string,
+	changeId: string,
+	state: RunState,
+): RunState {
 	if (state.current_phase !== "start") {
 		return state;
 	}

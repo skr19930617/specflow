@@ -63,6 +63,83 @@ test("specflow-review-apply returns diff warning before codex", () => {
 	}
 });
 
+test("specflow-review-apply defaults diff warning threshold to 1000 when config key is absent", () => {
+	const tempRoot = makeTempDir("review-apply-default-threshold-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addImplementationDiff(repoPath);
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "safe under default threshold",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-apply",
+			["review", changeId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			review: { summary: string };
+			diff_summary: { diff_warning: boolean; threshold: number };
+		};
+		assert.equal(json.status, "success");
+		assert.equal(json.review.summary, "safe under default threshold");
+		assert.equal(json.diff_summary.diff_warning, false);
+		assert.equal(json.diff_summary.threshold, 1000);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-apply review --skip-diff-check continues review while preserving warning metadata", () => {
+	const tempRoot = makeTempDir("review-apply-skip-diff-check-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addImplementationDiff(repoPath);
+		writeFileSync(
+			join(repoPath, "openspec/config.yaml"),
+			"diff_warn_threshold: 1\n",
+			"utf8",
+		);
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "continued after warning",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-apply",
+			["review", changeId, "--skip-diff-check"],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			review: { summary: string };
+			diff_summary: { diff_warning: boolean; threshold: number };
+		};
+		assert.equal(json.status, "success");
+		assert.equal(json.review.summary, "continued after warning");
+		assert.equal(json.diff_summary.diff_warning, true);
+		assert.equal(json.diff_summary.threshold, 1);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
 test("specflow-review-apply surfaces parse errors without mutating ledger", () => {
 	const tempRoot = makeTempDir("review-apply-parse-");
 	try {

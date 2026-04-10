@@ -1,126 +1,126 @@
 {
-  "feature_id": "repo-responsibility-nongoals",
-  "phase": "proposal",
-  "current_round": 4,
-  "status": "all_resolved",
-  "max_finding_id": 2,
-  "findings": [
-    {
-      "id": "R2-F01",
-      "severity": "high",
-      "category": "consistency",
-      "file": "proposal.md",
-      "title": "CLI contract is treated as both core contract and reference-implementation detail",
-      "detail": "The proposal says the bundled local reference implementation owns the `specflow-*` CLI surface, but later includes a `CLI entry-point contract` in the workflow core contract that external runtimes must satisfy. That changes the architectural boundary in a material way: designers cannot tell whether CLI compatibility is mandatory for all runtimes or just part of the local bundled adapter. Revise the proposal to make the contract boundary explicit and keep CLI either in the normative core contract or clearly in the replaceable reference layer, with rationale and examples.",
-      "origin_round": 2,
-      "latest_round": 3,
-      "status": "resolved",
-      "relation": "reframed",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R3-F01",
-      "severity": "medium",
-      "category": "consistency",
-      "file": "proposal.md",
-      "title": "Document target and authority model are ambiguous against the current repo",
-      "detail": "The proposal says `docs/architecture.md` will be newly created, but that file already exists and already documents architecture source-of-truth claims. As written, design cannot tell whether this change should extend the existing document, replace part of it, or move the repo-boundary content to a different path. Revise the proposal to name the actual target document strategy and explain how the new non-normative contract inventory will coexist with the existing architecture/source-of-truth content.",
-      "origin_round": 3,
-      "latest_round": 3,
-      "status": "resolved",
-      "relation": "reframed",
-      "supersedes": "R2-F01",
-      "notes": "",
-      "resolved_round": 4
-    },
-    {
-      "id": "R2-F02",
-      "severity": "medium",
-      "category": "scope",
-      "file": "proposal.md",
-      "title": "Contract-definition work is not bounded tightly enough for a documentation-only change",
-      "detail": "The proposal expands from documenting repo ownership to defining the minimum cross-repo workflow core contract, but it does not say whether `docs/architecture.md` is only an inventory of contract surfaces or the authoritative normative spec for them. Without that boundary, design can drift into a much larger protocol-spec effort. Add acceptance criteria that bound the contract section's depth, authority, and change ownership, or split normative contract specification into a follow-up proposal.",
-      "origin_round": 2,
-      "latest_round": 2,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F01",
-      "severity": "high",
-      "category": "completeness",
-      "file": "proposal.md",
-      "title": "Repo boundary rules are not actionable for mixed or shared components",
-      "detail": "The proposal names owned and non-owned areas, but it does not define how to classify borderline artifacts that will drive review decisions in practice, such as shared contracts/interfaces, test harnesses, migration tools, runtime-selection glue, or components that support both local and external runtimes. Add explicit decision rules and representative examples so the resulting architecture document can be used consistently during design and PR review.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F02",
-      "severity": "medium",
-      "category": "clarity",
-      "file": "proposal.md",
-      "title": "The referenced workflow core contract is undefined",
-      "detail": "The proposal says the bundled local reference implementation is replaceable if an external runtime conforms to the same workflow core contract, but it does not say whether that contract already exists, where it is documented, or what minimum elements must be captured in this new document. Add a concrete reference or enumerate the contract surface that architecture.md must define to avoid spec drift.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    }
-  ],
-  "round_summaries": [
-    {
-      "round": 1,
-      "total": 2,
-      "open": 2,
-      "new": 2,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "high": 1,
-        "medium": 1
-      }
-    },
-    {
-      "round": 2,
-      "total": 4,
-      "open": 2,
-      "new": 2,
-      "resolved": 2,
-      "overridden": 0,
-      "by_severity": {
-        "high": 1,
-        "medium": 1
-      }
-    },
-    {
-      "round": 3,
-      "total": 5,
-      "open": 1,
-      "new": 0,
-      "resolved": 4,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 1
-      }
-    },
-    {
-      "round": 4,
-      "total": 5,
-      "open": 0,
-      "new": 0,
-      "resolved": 5,
-      "overridden": 0,
-      "by_severity": {}
-    }
-  ]
+	"feature_id": "repo-responsibility-nongoals",
+	"phase": "proposal",
+	"current_round": 4,
+	"status": "all_resolved",
+	"max_finding_id": 2,
+	"findings": [
+		{
+			"id": "R2-F01",
+			"severity": "high",
+			"category": "consistency",
+			"file": "proposal.md",
+			"title": "CLI contract is treated as both core contract and reference-implementation detail",
+			"detail": "The proposal says the bundled local reference implementation owns the `specflow-*` CLI surface, but later includes a `CLI entry-point contract` in the workflow core contract that external runtimes must satisfy. That changes the architectural boundary in a material way: designers cannot tell whether CLI compatibility is mandatory for all runtimes or just part of the local bundled adapter. Revise the proposal to make the contract boundary explicit and keep CLI either in the normative core contract or clearly in the replaceable reference layer, with rationale and examples.",
+			"origin_round": 2,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "reframed",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R3-F01",
+			"severity": "medium",
+			"category": "consistency",
+			"file": "proposal.md",
+			"title": "Document target and authority model are ambiguous against the current repo",
+			"detail": "The proposal says `docs/architecture.md` will be newly created, but that file already exists and already documents architecture source-of-truth claims. As written, design cannot tell whether this change should extend the existing document, replace part of it, or move the repo-boundary content to a different path. Revise the proposal to name the actual target document strategy and explain how the new non-normative contract inventory will coexist with the existing architecture/source-of-truth content.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "reframed",
+			"supersedes": "R2-F01",
+			"notes": "",
+			"resolved_round": 4
+		},
+		{
+			"id": "R2-F02",
+			"severity": "medium",
+			"category": "scope",
+			"file": "proposal.md",
+			"title": "Contract-definition work is not bounded tightly enough for a documentation-only change",
+			"detail": "The proposal expands from documenting repo ownership to defining the minimum cross-repo workflow core contract, but it does not say whether `docs/architecture.md` is only an inventory of contract surfaces or the authoritative normative spec for them. Without that boundary, design can drift into a much larger protocol-spec effort. Add acceptance criteria that bound the contract section's depth, authority, and change ownership, or split normative contract specification into a follow-up proposal.",
+			"origin_round": 2,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "completeness",
+			"file": "proposal.md",
+			"title": "Repo boundary rules are not actionable for mixed or shared components",
+			"detail": "The proposal names owned and non-owned areas, but it does not define how to classify borderline artifacts that will drive review decisions in practice, such as shared contracts/interfaces, test harnesses, migration tools, runtime-selection glue, or components that support both local and external runtimes. Add explicit decision rules and representative examples so the resulting architecture document can be used consistently during design and PR review.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "medium",
+			"category": "clarity",
+			"file": "proposal.md",
+			"title": "The referenced workflow core contract is undefined",
+			"detail": "The proposal says the bundled local reference implementation is replaceable if an external runtime conforms to the same workflow core contract, but it does not say whether that contract already exists, where it is documented, or what minimum elements must be captured in this new document. Add a concrete reference or enumerate the contract surface that architecture.md must define to avoid spec drift.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 2,
+			"open": 2,
+			"new": 2,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		},
+		{
+			"round": 2,
+			"total": 4,
+			"open": 2,
+			"new": 2,
+			"resolved": 2,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		},
+		{
+			"round": 3,
+			"total": 5,
+			"open": 1,
+			"new": 0,
+			"resolved": 4,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 1
+			}
+		},
+		{
+			"round": 4,
+			"total": 5,
+			"open": 0,
+			"new": 0,
+			"resolved": 5,
+			"overridden": 0,
+			"by_severity": {}
+		}
+	]
 }
