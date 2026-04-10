@@ -266,9 +266,11 @@ export function renderWorkflowMermaid(): string {
 export function renderWorkflowReadmeBlock(): string {
 	return [
 		"<!-- BEGIN GENERATED WORKFLOW DIAGRAM -->",
+		"",
 		"```mermaid",
 		renderWorkflowMermaid(),
 		"```",
+		"",
 		"<!-- END GENERATED WORKFLOW DIAGRAM -->",
 	].join("\n");
 }

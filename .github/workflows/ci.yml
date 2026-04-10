@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,8 +26,65 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run checks
-        run: npm run check
+      - name: Run typecheck
+        run: npm run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run format check
+        run: npm run format:check
+
+  test:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test coverage
+        run: npm run test:coverage
 
       - name: Upload coverage artifacts
         if: always()
@@ -38,9 +96,33 @@ jobs:
             coverage/lcov.info
             coverage/coverage-summary.json
 
+  validate_contracts:
+    name: Validate Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run contract validation
+        run: npm run validate:contracts
+
   coverage-badge:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: ci
+    needs:
+      - typecheck
+      - lint
+      - format
+      - test
+      - validate_contracts
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -54,16 +136,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate coverage
-        run: npm run test:coverage
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: coverage-reports
+          path: coverage
 
       - name: Update badge payload
-        run: npm run coverage:badge
+        run: node scripts/update-coverage-badge.js
 
       - name: Commit badge update
         run: |
