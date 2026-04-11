@@ -32,19 +32,18 @@ exact states, events, and transitions declared in
 
 ### Requirement: `specflow-run start` initializes persisted run state
 
-`specflow-run start` SHALL create `.specflow/runs/<run_id>/run.json` and SHALL
-populate the current workflow metadata for the new run. The run_id SHALL be
-auto-generated in `<change_id>-<sequence>` format.
+`specflow-run start` SHALL create run state via the `RunArtifactStore` interface and SHALL populate the current workflow metadata for the new run. The run_id SHALL be auto-generated in `<change_id>-<sequence>` format.
 
 #### Scenario: Change runs require an existing local proposal artifact
 
 - **WHEN** `specflow-run start <change_id>` is invoked with the default run kind
-- **THEN** it SHALL require `openspec/changes/<change_id>/proposal.md` to exist
+- **THEN** it SHALL use the `ChangeArtifactStore` to verify that `(change_id, proposal)` exists
+- **AND** it SHALL fail with a typed missing-artifact error if the proposal does not exist
 
 #### Scenario: Started runs capture repository metadata
 
 - **WHEN** a run is started inside a git repository
-- **THEN** `run.json` SHALL include `run_id`, `change_name`, `project_id`,
+- **THEN** `run-state` SHALL include `run_id`, `change_name`, `project_id`,
   `repo_name`, `repo_path`, `branch_name`, `worktree_path`, `agents`,
   `allowed_events`, `created_at`, and `updated_at`
 
@@ -67,12 +66,11 @@ auto-generated in `<change_id>-<sequence>` format.
 - **WHEN** `specflow-run start <change_id>` is invoked
 - **THEN** the run_id SHALL be `<change_id>-<N>` where N is one greater
   than the highest existing sequence number for that change_id
-- **AND** the run_id SHALL be stored explicitly in run.json
+- **AND** the run_id SHALL be stored explicitly in the run-state document
 
 ### Requirement: `specflow-run advance` validates and records transitions
 
-`specflow-run advance <run_id> <event>` SHALL apply only declared transitions,
-recompute allowed events, and append immutable history entries.
+`specflow-run advance <run_id> <event>` SHALL apply only declared transitions, validate required artifacts via the artifact-phase gate matrix, recompute allowed events, and append immutable history entries.
 
 #### Scenario: Happy-path advancement reaches approved
 
@@ -110,41 +108,43 @@ recompute allowed events, and append immutable history entries.
 - **WHEN** `specflow-run advance <run_id> <event>` is invoked
 - **AND** the run status is `suspended`
 - **AND** the event is not `resume`
-- **THEN** the command SHALL fail with error "Run is suspended — resume first"
+- **THEN** the command SHALL fail with error "Run is suspended -- resume first"
+
+#### Scenario: Advance checks artifact-phase gate before transition
+
+- **WHEN** `specflow-run advance <run_id> <event>` is invoked
+- **AND** the gate matrix requires artifacts for the target transition
+- **THEN** the command SHALL verify artifact existence via the appropriate store interface
+- **AND** it SHALL fail with a typed missing-artifact error if any required artifact is absent
 
 ### Requirement: Run-state reads and writes are stable CLI operations
 
-The run-state CLI SHALL expose status reads and targeted field updates without
-changing the state-machine rules.
+The run-state CLI SHALL read and write run state through the `RunArtifactStore` interface, never through direct filesystem path construction.
 
 #### Scenario: `status` returns the stored run state
 
 - **WHEN** `specflow-run status <run_id>` is invoked
-- **THEN** it SHALL print the current `run.json` payload
+- **THEN** it SHALL read from `RunArtifactStore.read(runId, run-state)` and print the payload
 
 #### Scenario: `get-field` returns a single field value
 
 - **WHEN** `specflow-run get-field <run_id> current_phase` is invoked
-- **THEN** it SHALL print the stored `current_phase` value as JSON
+- **THEN** it SHALL read from `RunArtifactStore.read(runId, run-state)` and print the stored `current_phase` value as JSON
 
 #### Scenario: `update-field` persists targeted metadata
 
 - **WHEN** `specflow-run update-field <run_id> last_summary_path <value>` is
   invoked
-- **THEN** it SHALL update `last_summary_path` while preserving the rest of the
-  run state
+- **THEN** it SHALL read from `RunArtifactStore`, update the field, and write back via `RunArtifactStore.write(runId, run-state, content)`
 
 ### Requirement: Run-state files are written atomically and resolved from the workflow definition
 
-Run-state persistence SHALL use atomic file replacement and SHALL load the
-workflow definition from the current project before falling back to packaged or
-installed copies.
+Run-state persistence SHALL use the `RunArtifactStore` interface which guarantees atomic writes. The workflow definition SHALL be loaded from the current project before falling back to packaged or installed copies.
 
-#### Scenario: Writes use temp-file replacement
+#### Scenario: Writes use atomic replacement
 
-- **WHEN** `run.json` is written
-- **THEN** the command SHALL write to a temporary sibling path and rename it
-  into place
+- **WHEN** run state is written via `RunArtifactStore`
+- **THEN** the adapter SHALL ensure atomic replacement — no partial reads are possible
 
 #### Scenario: Workflow lookup prefers project-local assets
 

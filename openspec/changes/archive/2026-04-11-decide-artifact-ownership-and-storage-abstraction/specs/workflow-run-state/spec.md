@@ -38,7 +38,7 @@
   than the highest existing sequence number for that change_id
 - **AND** the run_id SHALL be stored explicitly in the run-state document
 
-### Requirement: `specflow-run advance` validates artifacts and records transitions
+### Requirement: `specflow-run advance` validates and records transitions
 
 `specflow-run advance <run_id> <event>` SHALL apply only declared transitions, validate required artifacts via the artifact-phase gate matrix, recompute allowed events, and append immutable history entries.
 
@@ -87,7 +87,7 @@
 - **THEN** the command SHALL verify artifact existence via the appropriate store interface
 - **AND** it SHALL fail with a typed missing-artifact error if any required artifact is absent
 
-### Requirement: Run-state reads and writes use the RunArtifactStore interface
+### Requirement: Run-state reads and writes are stable CLI operations
 
 The run-state CLI SHALL read and write run state through the `RunArtifactStore` interface, never through direct filesystem path construction.
 
