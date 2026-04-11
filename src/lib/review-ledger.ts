@@ -24,6 +24,16 @@ export interface LedgerReadResult {
 	readonly status: LedgerReadStatus;
 }
 
+export interface ProposalRoundMetadata {
+	readonly decision?: string;
+	readonly proposalHash?: string;
+	readonly blockingCount?: number;
+	readonly blockingSignature?: string;
+	readonly stagnantRounds?: number;
+	readonly maxRounds?: number;
+	readonly stopReason?: string | null;
+}
+
 function findingStatus(finding: ReviewFinding): ReviewFindingStatus {
 	return String(finding.status ?? "");
 }
@@ -471,9 +481,46 @@ export function clearLedgerFindings(ledger: ReviewLedger): ReviewLedger {
 	};
 }
 
+export function setProposalReviewMetadata(
+	ledger: ReviewLedger,
+	metadata: ProposalRoundMetadata,
+): ReviewLedger {
+	const stopReason =
+		metadata.stopReason === undefined
+			? ledger.stop_reason
+			: metadata.stopReason;
+	return {
+		...ledger,
+		latest_decision:
+			metadata.decision === undefined
+				? ledger.latest_decision
+				: metadata.decision,
+		proposal_hash:
+			metadata.proposalHash === undefined
+				? ledger.proposal_hash
+				: metadata.proposalHash,
+		blocking_count:
+			metadata.blockingCount === undefined
+				? ledger.blocking_count
+				: metadata.blockingCount,
+		blocking_signature:
+			metadata.blockingSignature === undefined
+				? ledger.blocking_signature
+				: metadata.blockingSignature,
+		stagnant_rounds:
+			metadata.stagnantRounds === undefined
+				? ledger.stagnant_rounds
+				: metadata.stagnantRounds,
+		max_rounds:
+			metadata.maxRounds === undefined ? ledger.max_rounds : metadata.maxRounds,
+		stop_reason: stopReason,
+	};
+}
+
 export function computeSummary(
 	ledger: ReviewLedger,
 	currentRound: number,
+	metadata: ProposalRoundMetadata = {},
 ): ReviewLedger {
 	const findings = normalizeFindings(ledger.findings);
 	const actionable = findings.filter((finding) => {
@@ -495,11 +542,33 @@ export function computeSummary(
 		).length,
 		overridden: findings.filter((finding) => isOverride(finding)).length,
 		by_severity: bySeverity,
+		...(metadata.decision !== undefined ? { decision: metadata.decision } : {}),
+		...(metadata.proposalHash !== undefined
+			? { proposal_hash: metadata.proposalHash }
+			: {}),
+		...(metadata.blockingCount !== undefined
+			? { blocking_count: metadata.blockingCount }
+			: {}),
+		...(metadata.blockingSignature !== undefined
+			? { blocking_signature: metadata.blockingSignature }
+			: {}),
+		...(metadata.stagnantRounds !== undefined
+			? { stagnant_rounds: metadata.stagnantRounds }
+			: {}),
+		...(metadata.maxRounds !== undefined
+			? { max_rounds: metadata.maxRounds }
+			: {}),
+		...(metadata.stopReason !== undefined
+			? { stop_reason: metadata.stopReason }
+			: {}),
 	};
-	return {
-		...ledger,
-		round_summaries: [...(ledger.round_summaries ?? []), summary],
-	};
+	return setProposalReviewMetadata(
+		{
+			...ledger,
+			round_summaries: [...(ledger.round_summaries ?? []), summary],
+		},
+		metadata,
+	);
 }
 
 export function computeStatus(ledger: ReviewLedger): ReviewLedger {

@@ -298,6 +298,13 @@ export interface LedgerRoundSummary extends JsonMap {
 	readonly resolved: number;
 	readonly overridden: number;
 	readonly by_severity: Readonly<Record<string, number>>;
+	readonly decision?: string;
+	readonly proposal_hash?: string;
+	readonly blocking_count?: number;
+	readonly blocking_signature?: string;
+	readonly stagnant_rounds?: number;
+	readonly max_rounds?: number;
+	readonly stop_reason?: string | null;
 }
 
 export interface ReviewLedger extends JsonMap {
@@ -308,6 +315,13 @@ export interface ReviewLedger extends JsonMap {
 	readonly max_finding_id: number;
 	readonly findings: readonly ReviewFinding[];
 	readonly round_summaries: readonly LedgerRoundSummary[];
+	readonly latest_decision?: string;
+	readonly proposal_hash?: string;
+	readonly blocking_count?: number;
+	readonly blocking_signature?: string;
+	readonly stagnant_rounds?: number;
+	readonly max_rounds?: number;
+	readonly stop_reason?: string | null;
 }
 
 export interface ReviewPayload extends JsonMap {
@@ -346,6 +360,10 @@ export interface HandoffSummary extends JsonMap {
 	readonly state: string;
 	readonly actionable_count: number;
 	readonly severity_summary: string;
+	readonly decision?: string;
+	readonly blocking_count?: number;
+	readonly max_rounds?: number;
+	readonly stop_reason?: string | null;
 }
 
 export interface AutofixRoundScore extends JsonMap {

@@ -32,6 +32,7 @@ Review rules:
 - Merge related findings when possible
 - Prefer a short, high-signal finding list
 - If the proposal is good enough to proceed, choose APPROVE
+- If only minor or non-blocking issues remain, prefer APPROVE and do not turn them into loop-driving findings
 
 Severity rules:
 
