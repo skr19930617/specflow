@@ -1,79 +1,79 @@
 {
-  "feature_id": "define-reusable-agent-context-template-and-repo-setup-generator",
-  "phase": "impl",
-  "current_round": 1,
-  "status": "has_open_high",
-  "max_finding_id": 4,
-  "findings": [
-    {
-      "id": "R1-F01",
-      "severity": "high",
-      "category": "correctness",
-      "file": "src/bin/specflow-init.ts",
-      "title": "Invalid profile reads are downgraded to warnings instead of aborting",
-      "detail": "When `.specflow/profile.json` exists and `readProfileStrict()` fails, the new branch at `runUpdateMode()` only logs a warning and then continues to a successful exit. The spec requires every profile read entry point to abort on schema/version errors and tell the user to rerun setup; continuing here can leave the repo partially updated while hiding a broken shared artifact. Treat strict-read failure as a hard error once the profile file exists.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F02",
-      "severity": "high",
-      "category": "completeness",
-      "file": "src/bin/specflow-init.ts",
-      "title": "The diff references new profile/renderer modules but does not actually ship them",
-      "detail": "This change adds imports and behavior for `profile-schema`/`claude-renderer` (`src/bin/specflow-init.ts`, and `src/lib/schemas.ts` also imports `profile-schema`), but those new core/adapter files are not part of the reviewed git diff. The proposal explicitly requires new profile-schema, renderer, and context-layering support; as submitted, the diff does not actually deliver that implementation. Add the new files to the change and ensure they are included in build/package outputs.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F03",
-      "severity": "medium",
-      "category": "testing",
-      "file": "src/tests/utility-cli.test.ts",
-      "title": "No tests cover the new profile-driven update behavior",
-      "detail": "The existing `specflow-init --update` test still only asserts slash-command and `.mcp.json` refresh. There is no coverage for valid-profile re-rendering, invalid-profile aborts, legacy `CLAUDE.md` confirmation flow, or the no-profile skip path introduced by this diff. Add CLI and/or unit tests for the new `readProfileStrict` + renderer integration before merging.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F04",
-      "severity": "medium",
-      "category": "scope",
-      "file": "CLAUDE.md",
-      "title": "Repository CLAUDE.md is rewritten outside the managed migration contract",
-      "detail": "The spec requires marker-based managed/unmanaged boundaries and legacy-file preservation via the renderer with confirmation. This diff directly replaces the repo's tracked `CLAUDE.md` with an unmarked static fragment, dropping the previous sections instead of migrating them through the new adapter flow. Either remove this repo-local file rewrite or regenerate it through the renderer so it matches the contract.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    }
-  ],
-  "round_summaries": [
-    {
-      "round": 1,
-      "total": 4,
-      "open": 4,
-      "new": 4,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "high": 2,
-        "medium": 2
-      }
-    }
-  ]
+	"feature_id": "define-reusable-agent-context-template-and-repo-setup-generator",
+	"phase": "impl",
+	"current_round": 1,
+	"status": "has_open_high",
+	"max_finding_id": 4,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "correctness",
+			"file": "src/bin/specflow-init.ts",
+			"title": "Invalid profile reads are downgraded to warnings instead of aborting",
+			"detail": "When `.specflow/profile.json` exists and `readProfileStrict()` fails, the new branch at `runUpdateMode()` only logs a warning and then continues to a successful exit. The spec requires every profile read entry point to abort on schema/version errors and tell the user to rerun setup; continuing here can leave the repo partially updated while hiding a broken shared artifact. Treat strict-read failure as a hard error once the profile file exists.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "high",
+			"category": "completeness",
+			"file": "src/bin/specflow-init.ts",
+			"title": "The diff references new profile/renderer modules but does not actually ship them",
+			"detail": "This change adds imports and behavior for `profile-schema`/`claude-renderer` (`src/bin/specflow-init.ts`, and `src/lib/schemas.ts` also imports `profile-schema`), but those new core/adapter files are not part of the reviewed git diff. The proposal explicitly requires new profile-schema, renderer, and context-layering support; as submitted, the diff does not actually deliver that implementation. Add the new files to the change and ensure they are included in build/package outputs.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F03",
+			"severity": "medium",
+			"category": "testing",
+			"file": "src/tests/utility-cli.test.ts",
+			"title": "No tests cover the new profile-driven update behavior",
+			"detail": "The existing `specflow-init --update` test still only asserts slash-command and `.mcp.json` refresh. There is no coverage for valid-profile re-rendering, invalid-profile aborts, legacy `CLAUDE.md` confirmation flow, or the no-profile skip path introduced by this diff. Add CLI and/or unit tests for the new `readProfileStrict` + renderer integration before merging.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F04",
+			"severity": "medium",
+			"category": "scope",
+			"file": "CLAUDE.md",
+			"title": "Repository CLAUDE.md is rewritten outside the managed migration contract",
+			"detail": "The spec requires marker-based managed/unmanaged boundaries and legacy-file preservation via the renderer with confirmation. This diff directly replaces the repo's tracked `CLAUDE.md` with an unmarked static fragment, dropping the previous sections instead of migrating them through the new adapter flow. Either remove this repo-local file rewrite or regenerate it through the renderer so it matches the contract.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 4,
+			"open": 4,
+			"new": 4,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 2,
+				"medium": 2
+			}
+		}
+	]
 }
