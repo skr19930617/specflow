@@ -57,14 +57,17 @@ test("workflow OpenSpec stays aligned with current workflow, run-state, and revi
 		"utf8",
 	);
 
-	assert.ok(workflowSpec.includes("version `3.0`"));
+	assert.ok(workflowSpec.includes("version `4.0`"));
 	assert.ok(workflowSpec.includes("update-field <run_id> last_summary_path"));
 	assert.ok(workflowSpec.includes("run_kind"));
 	assert.ok(workflowSpec.includes("--run-kind synthetic"));
 	assert.ok(slashCommandSpec.includes("apply_ready"));
-	assert.ok(slashCommandSpec.includes("continue-on-validation-error path"));
+	assert.ok(slashCommandSpec.includes("validate_spec"));
+	assert.ok(slashCommandSpec.includes("spec_ready"));
 	assert.ok(slashCommandSpec.includes("specflow.explore.md"));
 	assert.ok(reviewSpec.includes("specflow-review-proposal"));
 	assert.ok(reviewSpec.includes("proposal ledger"));
 	assert.ok(reviewSpec.includes("current-phase.md"));
+	assert.ok(reviewSpec.includes("recommend `/specflow`"));
+	assert.equal(reviewSpec.includes("recommend `/specflow.design`"), false);
 });

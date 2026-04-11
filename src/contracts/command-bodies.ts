@@ -189,7 +189,7 @@ export const commandBodies: Record<string, CommandBody> = {
 	},
 	"specflow.design": {
 		frontmatter: {
-			description: "specflow で Design artifacts を生成し、Codex でレビュー",
+			description: "specflow で design/tasks artifacts を生成し、Codex でレビュー",
 		},
 		sections: [
 			{
@@ -199,12 +199,12 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Prerequisites",
 				content:
-					'\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.design` を再度実行\n     ```\n     → **STOP**.\n2. Determine the current change id from the branch name. Set `CHANGE_ID` accordingly.\n3. `/specflow.design` starts only from `proposal_ready`.\n   ```bash\n   specflow-run get-field "<CHANGE_ID>" current_phase\n   ```\n   If the phase is `proposal_ready`, the run hook advances to `design_draft`. If the phase is already `design_draft`, `design_validate`, `design_review`, or `design_ready`, continue from the existing design state. Otherwise **STOP**.',
+					'\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.design` を再度実行\n     ```\n     → **STOP**.\n2. Determine the current change id from the branch name. Set `CHANGE_ID` accordingly.\n3. `/specflow.design` starts only from `spec_ready`.\n   ```bash\n   specflow-run get-field "<CHANGE_ID>" current_phase\n   ```\n   If the phase is `spec_ready`, the run hook advances to `design_draft`. If the phase is already `design_draft`, `design_review`, or `design_ready`, continue from the existing design state. Otherwise **STOP**.',
 			},
 			{
 				title: "Step 1: Check Status",
 				content:
-					'\nRun:\n```bash\nopenspec status --change "<CHANGE_ID>" --json\n```\n\nParse the JSON output to get:\n- `applyRequires`: array of artifact IDs needed before implementation\n- `artifacts`: list with status and dependencies\n\nIf the command fails, report the error and **STOP**.',
+					'\nRun:\n```bash\nopenspec status --change "<CHANGE_ID>" --json\n```\n\nParse the JSON output to get:\n- `applyRequires`: array of artifact IDs needed before implementation\n- `artifacts`: list with status and dependencies\n\nBefore continuing, confirm the planning handoff already completed:\n- `proposal` artifact status is `done`\n- `specs` artifact status is `done`\n\nIf `specs` is not `done`, stop and tell the user to return to `/specflow` to finish spec delta generation and validation first.\n\nIf the command fails, report the error and **STOP**.',
 			},
 			{
 				title: "Step 2: Generate Artifacts in Dependency Order",
@@ -214,22 +214,17 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 3: Verify Completion",
 				content:
-					'\nRun:\n```bash\nopenspec status --change "<CHANGE_ID>" --json\n```\n\nVerify that every artifact listed in `applyRequires` has `status: "done"`.\nIf any are incomplete, report which artifacts are missing and ask the user how to proceed.',
+					'\nRun:\n```bash\nopenspec status --change "<CHANGE_ID>" --json\n```\n\nVerify that:\n- `design` artifact has `status: "done"`\n- `tasks` artifact has `status: "done"`\n- every artifact listed in `applyRequires` also has `status: "done"`\n\nIf any are incomplete, report which artifacts are missing and ask the user how to proceed.',
 			},
 			{
-				title: "Step 4: Validate Before Review",
+				title: "Step 4: Design Review Gate",
 				content:
-					'\n1. Enter the validation gate:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" validate_design\n   ```\n2. Run:\n   ```bash\n   openspec validate "<CHANGE_ID>" --type change --json\n   ```\n3. Parse the JSON response:\n   - If `valid: true`, continue to review.\n   - If `valid: false`, display the issues table, fix the design artifacts, and loop back to `design_draft`:\n     ```bash\n     specflow-run advance "<CHANGE_ID>" revise_design\n     ```\n\nStrict gate rules:\n- Do **not** continue despite validation errors\n- Do **not** hand off to `/specflow.apply` while validation issues remain',
-			},
-			{
-				title: "Step 5: Design Review Gate",
-				content:
-					'\n1. Move from `design_validate` to `design_review` only after validation succeeds:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" design_validated\n   ```\n2. Invoke the design review workflow:\n   ```\n   Skill(skill: "specflow.review_design")\n   ```\n3. If review findings remain, revise design artifacts and loop back to `design_draft`:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" revise_design\n   ```\n4. If review is approved, enter `design_ready`:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" design_review_approved\n   ```\n5. Only from `design_ready`, offer `/specflow.apply`.\n\nRemove any path that allows `/specflow.apply` while findings remain.',
+					'\n1. Enter the design review gate:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" review_design\n   ```\n2. Invoke the design review workflow:\n   ```\n   Skill(skill: "specflow.review_design")\n   ```\n3. If review findings remain, revise design artifacts and loop back to `design_draft`:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" revise_design\n   ```\n4. If review is approved, enter `design_ready`:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" design_review_approved\n   ```\n5. Only from `design_ready`, offer `/specflow.apply`.\n\nRemove any path that allows `/specflow.apply` while findings remain.',
 			},
 			{
 				title: "Important Rules",
 				content:
-					'\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- Artifact generation (Step 2) is driven by calling `specflow-design-artifacts next` in a loop. The LLM generates artifact content; the orchestrator manages the dependency graph and readiness.\n- Validation (Step 4) uses `openspec validate "<CHANGE_ID>" --type change --json`.',
+					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- Artifact generation (Step 2) is driven by calling `specflow-design-artifacts next` in a loop. The LLM generates artifact content; the orchestrator manages the dependency graph and readiness.\n- `/specflow.design` does not run OpenSpec change validation; that validation belongs to the spec phase in `/specflow`.",
 			},
 		],
 	},
@@ -465,7 +460,7 @@ export const commandBodies: Record<string, CommandBody> = {
 	specflow: {
 		frontmatter: {
 			description:
-				"URL またはインライン仕様記述から local proposal entry → clarify → Codex proposal review を実行",
+				"URL またはインライン仕様記述から local proposal entry → clarify → proposal review → spec delta validate を実行",
 		},
 		sections: [
 			{
@@ -510,17 +505,22 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 6: Proposal Review",
 				content:
-					'\n1. Enter the proposal review gate:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" review_proposal\n   ```\n2. Run the internal proposal review runtime:\n   ```bash\n   specflow-review-proposal review <CHANGE_ID>\n   ```\n3. If the review reports actionable findings, parse errors, or ledger recovery that requires user intervention:\n   - return to `proposal_clarify`\n   - do **not** offer `/specflow.design`\n   - record the loop explicitly:\n     ```bash\n     specflow-run advance "<CHANGE_ID>" revise_proposal\n     ```\n4. If the proposal review is approved, move into `proposal_validate`:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" proposal_review_approved\n   ```\n\nReport: `Step 6 complete — proposal review passed or looped back to proposal_clarify`',
+					'\n1. Enter the proposal review gate:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" review_proposal\n   ```\n2. Run the internal proposal review runtime:\n   ```bash\n   specflow-review-proposal review <CHANGE_ID>\n   ```\n3. If the review reports actionable findings, parse errors, or ledger recovery that requires user intervention:\n   - return to `proposal_clarify`\n   - do **not** offer `/specflow.design`\n   - record the loop explicitly:\n     ```bash\n     specflow-run advance "<CHANGE_ID>" revise_proposal\n     ```\n4. If the proposal review is approved, move into `spec_draft`:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" proposal_review_approved\n   ```\n\nReport: `Step 6 complete — proposal review passed or looped back to proposal_clarify`',
 			},
 			{
-				title: "Step 7: Proposal Validate",
+				title: "Step 7: Spec Delta Draft",
 				content:
-					'\nRun structural validation only after proposal review approval:\n\n```bash\nopenspec validate "<CHANGE_ID>" --type change --json\n```\n\nParse the JSON response:\n- If `valid: true`, advance to `proposal_ready`:\n  ```bash\n  specflow-run advance "<CHANGE_ID>" proposal_validated\n  ```\n- If `valid: false`, display the issues table, fix proposal.md, and return to Step 5:\n  ```bash\n  specflow-run advance "<CHANGE_ID>" revise_proposal\n  ```\n\nStrict gate rules:\n- Do **not** continue despite validation errors\n- Do **not** hand off to `/specflow.design` while validation issues remain\n- Reuse `max_autofix_rounds` from `openspec/config.yaml` as the maximum proposal review/validate loop count; when the cap is reached with unresolved findings, stop in the current proposal state without bypassing the gate',
+					'\nGenerate spec delta placeholders only after proposal review approval.\n\n1. Run:\n   ```bash\n   openspec instructions specs --change "<CHANGE_ID>" --json\n   ```\n2. Read `openspec/changes/<CHANGE_ID>/proposal.md` and parse the `Capabilities` section as the source of truth for spec targets.\n3. For each capability entry:\n   - `New Capabilities` → create or refresh `openspec/changes/<CHANGE_ID>/specs/<capability>/spec.md`\n   - `Modified Capabilities` → first confirm `openspec/specs/<capability>/spec.md` exists, then create or refresh `openspec/changes/<CHANGE_ID>/specs/<capability>/spec.md`\n4. Use the OpenSpec `template` and `instruction` from Step 1 to scaffold each spec delta file, then fill it with actual delta content.\n5. If the `Capabilities` section still contains placeholders, unresolved entries, or a modified capability without a matching baseline spec, return to `proposal_clarify` instead of continuing:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" revise_proposal\n   ```\n6. Report which spec delta files were created or refreshed.\n\nReport: `Step 7 complete — spec delta drafts created under openspec/changes/<CHANGE_ID>/specs/`',
 			},
 			{
-				title: "Step 8: Design Handoff",
+				title: "Step 8: Spec Validate",
 				content:
-					"\nOnly when the run is in `proposal_ready`, offer the next action.\n\nRecommended handoff:\n- **Design に進む** → `/specflow.design`\n- **中止** → `/specflow.reject`\n\nDo not offer `/specflow.design` from `proposal_clarify`, `proposal_review`, or `proposal_validate`.",
+					'\nRun structural validation only after spec delta files are drafted:\n\n1. Enter the spec validation gate:\n   ```bash\n   specflow-run advance "<CHANGE_ID>" validate_spec\n   ```\n2. Run:\n   ```bash\n   openspec validate "<CHANGE_ID>" --type change --json\n   ```\n3. Parse the JSON response:\n   - If `valid: true`, advance to `spec_ready`:\n     ```bash\n     specflow-run advance "<CHANGE_ID>" spec_validated\n     ```\n   - If `valid: false`, display the issues table, fix only the spec delta files under `openspec/changes/<CHANGE_ID>/specs/`, and loop back to `spec_draft`:\n     ```bash\n     specflow-run advance "<CHANGE_ID>" revise_spec\n     ```\n\nStrict gate rules:\n- Do **not** continue despite validation errors\n- Do **not** hand off to `/specflow.design` while validation issues remain\n- Reuse `max_autofix_rounds` from `openspec/config.yaml` as the maximum proposal/spec loop count; when the cap is reached with unresolved findings, stop in the current state without bypassing the gate',
+			},
+			{
+				title: "Step 9: Design Handoff",
+				content:
+					"\nOnly when the run is in `spec_ready`, offer the next action.\n\nRecommended handoff:\n- **Design に進む** → `/specflow.design`\n- **中止** → `/specflow.reject`\n\nDo not offer `/specflow.design` from `proposal_clarify`, `proposal_review`, `spec_draft`, or `spec_validate`.",
 			},
 			{
 				title: "Important Rules",

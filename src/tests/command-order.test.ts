@@ -30,28 +30,33 @@ test("generated /specflow command preserves detailed proposal step order", () =>
 		"## Step 5: Clarify",
 		"## Step 6: Proposal Review",
 		"specflow-review-proposal review <CHANGE_ID>",
-		"## Step 7: Proposal Validate",
+		"## Step 7: Spec Delta Draft",
+		'openspec instructions specs --change "<CHANGE_ID>" --json',
+		"Capabilities",
+		"## Step 8: Spec Validate",
+		'specflow-run advance "<CHANGE_ID>" validate_spec',
 		'openspec validate "<CHANGE_ID>" --type change --json',
-		"## Step 8: Design Handoff",
+		'specflow-run advance "<CHANGE_ID>" spec_validated',
+		"## Step 9: Design Handoff",
 	]);
 	assert.equal(content.includes("このまま続行"), false);
 });
 
-test("generated /specflow.design command validates before review with no bypass", () => {
+test("generated /specflow.design command starts from spec_ready and enters review directly", () => {
 	const content = readFileSync(
 		"dist/package/global/commands/specflow.design.md",
 		"utf8",
 	);
 	assertOrderedFragments(content, [
-		"proposal_ready",
-		"## Step 4: Validate Before Review",
-		'specflow-run advance "<CHANGE_ID>" validate_design',
-		'openspec validate "<CHANGE_ID>" --type change --json',
-		"## Step 5: Design Review Gate",
-		'specflow-run advance "<CHANGE_ID>" design_validated',
+		"spec_ready",
+		"## Step 4: Design Review Gate",
+		'specflow-run advance "<CHANGE_ID>" review_design',
 		'specflow-run advance "<CHANGE_ID>" design_review_approved',
 	]);
-	assert.equal(content.includes("Proceed despite validation errors"), false);
+	assert.equal(
+		content.includes('openspec validate "<CHANGE_ID>" --type change --json'),
+		false,
+	);
 	assert.equal(content.includes("このまま続行"), false);
 });
 

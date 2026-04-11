@@ -9,7 +9,7 @@ CLI used by `specflow`.
 
 ### Requirement: The workflow machine defines the authoritative phase graph
 
-The system SHALL expose a flat workflow machine with version `3.0` and the
+The system SHALL expose a flat workflow machine with version `4.0` and the
 exact states, events, and transitions declared in
 `src/lib/workflow-machine.ts`.
 
@@ -75,9 +75,22 @@ recompute allowed events, and append immutable history entries.
 - **THEN** the run SHALL reach `approved`
 - **AND** `allowed_events` SHALL become an empty array
 
+#### Scenario: Proposal review approval enters the spec phase
+
+- **WHEN** `proposal_review_approved` is applied in `proposal_review`
+- **THEN** the run SHALL transition to `spec_draft`
+
+#### Scenario: Successful spec validation gates access to design work
+
+- **WHEN** `validate_spec` then `spec_validated` are applied in order
+- **THEN** the run SHALL transition from `spec_draft` to `spec_validate`
+- **AND** then to `spec_ready`
+- **AND** only then SHALL `accept_spec` be available to enter `design_draft`
+
 #### Scenario: Revision events return to the phase draft state
 
-- **WHEN** `revise_proposal`, `revise_design`, or `revise_apply` is applied in
+- **WHEN** `revise_proposal`, `revise_spec`, `revise_design`, or
+  `revise_apply` is applied in
   an allowed review or validation state
 - **THEN** the run SHALL transition back to the matching draft phase
 
