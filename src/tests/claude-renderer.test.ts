@@ -51,7 +51,9 @@ test("renderClaudeMd preserves unmanaged content on both sides of the managed bl
 	assert.equal(result.warning, null);
 	assert.ok(result.nextContent.includes("## Project Profile"));
 	assert.ok(
-		result.nextContent.startsWith("# Repository Notes\n\nKeep this preface.\n\n"),
+		result.nextContent.startsWith(
+			"# Repository Notes\n\nKeep this preface.\n\n",
+		),
 	);
 	assert.ok(result.nextContent.includes("## Manual Notes\n\nkeep me\n"));
 	assert.ok(

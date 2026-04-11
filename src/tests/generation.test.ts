@@ -125,7 +125,10 @@ test("build emits a dist package for installer assets", () => {
 });
 
 test("packaged CLAUDE.md template ships managed markers and an unmanaged notes section", () => {
-	const templateClaude = readFileSync("dist/package/template/CLAUDE.md", "utf8");
+	const templateClaude = readFileSync(
+		"dist/package/template/CLAUDE.md",
+		"utf8",
+	);
 
 	assert.ok(templateClaude.startsWith("<!-- specflow:managed:start -->"));
 	assert.ok(templateClaude.includes("<!-- specflow:managed:end -->"));
