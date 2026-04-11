@@ -1,9 +1,14 @@
 {
-	"run_id": "test-change",
+	"run_id": "test-change-1",
 	"change_name": "test-change",
 	"current_phase": "start",
 	"status": "active",
-	"allowed_events": ["propose", "explore_start", "spec_bootstrap_start"],
+	"allowed_events": [
+		"propose",
+		"explore_start",
+		"spec_bootstrap_start",
+		"suspend"
+	],
 	"source": {
 		"kind": "url",
 		"provider": "github",
@@ -18,5 +23,6 @@
 		"review": "codex"
 	},
 	"last_summary_path": null,
-	"history": []
+	"history": [],
+	"previous_run_id": null
 }

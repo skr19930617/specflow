@@ -1,0 +1,132 @@
+{
+  "feature_id": "decide-run-identity-and-lifecycle-boundary",
+  "phase": "proposal",
+  "current_round": 3,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "proposal.md",
+      "title": "Acceptance criteria are missing for the core behavior change",
+      "detail": "The proposal describes intended refactors and abstractions, but it does not define concrete conditions that make the work complete. Design cannot tell what must be true for CLI behavior, run.json schema, ID resolution, or cross-runtime compatibility. Add explicit acceptance criteria for the new identity model, required lifecycle transitions, expected local runtime behavior, and what external-runtime interoperability must be guaranteed.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Identity and lifecycle invariants remain ambiguous",
+      "detail": "The proposal introduces run_id, change_id, and artifact identity, but it never defines the canonical relationship and ownership rules between them. The lifecycle section also names suspend/resume/retry without specifying key semantics such as whether retry creates a new run_id, whether artifacts are reused or forked, and which states are terminal versus resumable. Add explicit entity definitions and transition/invariant rules so design can model storage and state behavior correctly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "risk",
+      "file": "proposal.md",
+      "title": "Backward-compatibility and scope boundaries are not captured",
+      "detail": "The impact section implies changes to `.specflow/runs/`, `run.json`, and existing commands, but the proposal does not state whether existing on-disk runs must remain readable, whether migration is required, or whether compatibility can be broken. It also mixes cross-runtime semantic work with local CLI/runtime refactoring without saying what external-runtime interface or adapter work is in scope versus deferred. Add migration/compatibility requirements and clear in-scope/out-of-scope boundaries before design starts.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R3-F04",
+      "severity": "high",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Run creation and retry bootstrap rules are still underspecified",
+      "detail": "The proposal now defines identity ownership, but it still does not state the full invariant for creating a new run when a change already has a suspended run, nor what state a retry run inherits from the prior run. Because artifacts are shared across runs and only concurrent active runs are forbidden, an implementation cannot tell whether `start` is allowed while another run is suspended, whether suspended runs must be resumed/closed first, or whether `retry` restarts from the initial phase versus cloning phase/checkpoint/history from the previous run. Add explicit preconditions for `start` and `retry`, define whether the real invariant is 'one active run' or 'one non-terminal run' per change, and specify exactly which fields/state are copied or reset when a retry creates a new run, including whether excluding `rejected` is intentional.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      },
+      "decision": "REQUEST_CHANGES",
+      "proposal_hash": "d8d2fb19eed303f6e1fe0daadaebec46a1162ce5d2d9d11409847d4756e5e9ff",
+      "blocking_count": 3,
+      "blocking_signature": "REQUEST_CHANGES||R1-F01|proposal.md|completeness|high|Acceptance criteria are missing for the core behavior change||R1-F02|proposal.md|clarity|high|Identity and lifecycle invariants remain ambiguous||R1-F03|proposal.md|risk|medium|Backward-compatibility and scope boundaries are not captured",
+      "stagnant_rounds": 0,
+      "max_rounds": 4,
+      "stop_reason": null
+    },
+    {
+      "round": 2,
+      "total": 3,
+      "open": 1,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1
+      },
+      "decision": "REQUEST_CHANGES",
+      "proposal_hash": "aa5605fba9083e0a831b3213ea8ecd699d2f597e25f1c555675a726b7a2052ed",
+      "blocking_count": 1,
+      "blocking_signature": "REQUEST_CHANGES||R1-F02|proposal.md|clarity|high|Identity and lifecycle invariants remain ambiguous",
+      "stagnant_rounds": 0,
+      "max_rounds": 4,
+      "stop_reason": null
+    },
+    {
+      "round": 3,
+      "total": 4,
+      "open": 1,
+      "new": 1,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1
+      },
+      "decision": "REQUEST_CHANGES",
+      "proposal_hash": "fc3ba0b037a397fa9aa1a5d76085cab8a2e7f9b0214a7be5157fb40b68a76035",
+      "blocking_count": 1,
+      "blocking_signature": "REQUEST_CHANGES||R3-F04|proposal.md|clarity|high|Run creation and retry bootstrap rules are still underspecified",
+      "stagnant_rounds": 0,
+      "max_rounds": 4,
+      "stop_reason": null
+    }
+  ],
+  "latest_decision": "REQUEST_CHANGES",
+  "proposal_hash": "fc3ba0b037a397fa9aa1a5d76085cab8a2e7f9b0214a7be5157fb40b68a76035",
+  "blocking_count": 1,
+  "blocking_signature": "REQUEST_CHANGES||R3-F04|proposal.md|clarity|high|Run creation and retry bootstrap rules are still underspecified",
+  "stagnant_rounds": 0,
+  "max_rounds": 4,
+  "stop_reason": null
+}

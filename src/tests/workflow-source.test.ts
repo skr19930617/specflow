@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import {
 	allowedEventsForState,
 	renderWorkflowMermaid,
@@ -12,7 +12,7 @@ import {
 } from "../lib/workflow-machine.js";
 
 test("workflow machine exports the exact detailed state graph", () => {
-	assert.equal(workflowVersion, "4.0");
+	assert.equal(workflowVersion, "5.0");
 	assert.deepEqual(workflowStates, [
 		"start",
 		"proposal_draft",

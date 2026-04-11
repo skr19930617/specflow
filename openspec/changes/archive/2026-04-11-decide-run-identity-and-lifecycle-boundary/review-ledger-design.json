@@ -1,0 +1,62 @@
+{
+	"feature_id": "decide-run-identity-and-lifecycle-boundary",
+	"phase": "design",
+	"current_round": 1,
+	"status": "has_open_high",
+	"max_finding_id": 3,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "completeness",
+			"title": "Start contract no longer covers synthetic runs and run-kind-specific invariants",
+			"detail": "The design/tasks refactor `specflow-run start` into a change_id-only path that always auto-generates `<change_id>-<sequence>`, but the spec still requires `--run-kind synthetic` to bypass change-directory lookup and persist `change_name = null`, while change runs must continue to require `openspec/changes/<change_id>/proposal.md`. As written, the implementation path for synthetic runs is undefined and the change-run artifact precondition is easy to drop. Define the start contract separately for `change` and `synthetic` runs, including how synthetic run IDs are generated or accepted, and add explicit tasks/tests for `change_name`, proposal existence, and synthetic bypass behavior.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "medium",
+			"category": "consistency",
+			"title": "Plain start versus retry preconditions are not fully specified in the tasks",
+			"detail": "The proposal requires `specflow-run start <change_id>` to be rejected once prior runs for that change are all terminal unless `--retry` is supplied, but the task list only adds the non-terminal invariant check and `--retry` validation. That leaves a gap where a normal `start` could create another run after an approved/decomposed terminal run without enforcing retry semantics or lineage. Add an explicit `start` rejection path for 'existing terminal runs + no --retry' and cover it with tests.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F03",
+			"severity": "medium",
+			"category": "consistency",
+			"title": "Suspend and resume are implemented at the CLI layer but not in the shared lifecycle contract",
+			"detail": "The proposal treats `suspend` and `resume` as run-level lifecycle events that should be shared across local and external runtimes, yet Phase 2 only bumps the workflow-machine version and says the machine is otherwise unchanged. The task list likewise updates CLI commands but does not update the machine/event contract, serialized machine metadata, or event typing that `allowed_events` and history depend on. Specify where these run-level events live when they are orthogonal to `current_phase`, then add tasks to update that contract alongside the CLI behavior.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 3,
+			"open": 3,
+			"new": 3,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 2
+			}
+		}
+	]
+}

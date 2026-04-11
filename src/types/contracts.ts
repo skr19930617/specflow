@@ -231,11 +231,13 @@ export interface RunAgents extends JsonMap {
 	readonly review: string;
 }
 
+export type RunStatus = "active" | "suspended" | "terminal";
+
 export interface RunState extends JsonMap {
 	readonly run_id: string;
 	readonly change_name: string | null;
 	readonly current_phase: string;
-	readonly status: string;
+	readonly status: RunStatus | string;
 	readonly allowed_events: readonly string[];
 	readonly source: SourceMetadata | null;
 	readonly project_id: string;
@@ -249,6 +251,7 @@ export interface RunState extends JsonMap {
 	readonly updated_at: string;
 	readonly history: readonly RunHistoryEntry[];
 	readonly run_kind?: RunKind;
+	readonly previous_run_id?: string | null;
 }
 
 export interface DiffExcludedEntry extends JsonMap {

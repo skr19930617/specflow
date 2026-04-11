@@ -1,6 +1,6 @@
 import { createMachine } from "xstate";
 
-export const workflowVersion = "4.0";
+export const workflowVersion = "5.0";
 
 const workflowMachineConfig = {
 	id: "specflow-workflow",
@@ -274,4 +274,51 @@ export function renderWorkflowReadmeBlock(): string {
 		"",
 		"<!-- END GENERATED WORKFLOW DIAGRAM -->",
 	].join("\n");
+}
+
+// --- Lifecycle Contract ---
+// suspend/resume are status-based lifecycle events, orthogonal to the phase graph.
+// They do not add states to the machine; instead they gate phase events via status.
+
+export type RunStatus = "active" | "suspended" | "terminal";
+
+export const lifecycleEvents = ["suspend", "resume"] as const;
+export type LifecycleEvent = (typeof lifecycleEvents)[number];
+
+export interface LifecycleTransitionRule {
+	readonly event: LifecycleEvent;
+	readonly fromStatus: RunStatus;
+	readonly toStatus: RunStatus;
+}
+
+export const lifecycleTransitionRules: readonly LifecycleTransitionRule[] = [
+	{ event: "suspend", fromStatus: "active", toStatus: "suspended" },
+	{ event: "resume", fromStatus: "suspended", toStatus: "active" },
+];
+
+/**
+ * Derive allowed_events from (status, current_phase).
+ * - active: phase events from the workflow machine + "suspend"
+ * - suspended: only "resume"
+ * - terminal: empty
+ */
+export function deriveAllowedEvents(
+	status: RunStatus,
+	currentPhase: string,
+): string[] {
+	switch (status) {
+		case "active":
+			return [...allowedEventsForState(currentPhase), "suspend"];
+		case "suspended":
+			return ["resume"];
+		case "terminal":
+			return [];
+	}
+}
+
+/**
+ * Check if a phase is terminal (no outgoing transitions in the machine).
+ */
+export function isTerminalPhase(phase: string): boolean {
+	return workflowFinalStates.includes(phase);
 }
