@@ -1,75 +1,75 @@
 {
-  "feature_id": "decide-artifact-ownership-and-storage-abstraction",
-  "phase": "design",
-  "current_round": 1,
-  "status": "has_open_high",
-  "max_finding_id": 4,
-  "findings": [
-    {
-      "id": "R1-F01",
-      "severity": "high",
-      "category": "feasibility",
-      "title": "Concrete ArtifactRef types are used where only queries/templates exist",
-      "detail": "The design applies `ChangeArtifactRef`/`RunArtifactRef` to `list` and to the static phase gate matrix, but those contexts do not have a concrete artifact identity yet. `ChangeArtifactStore.list` needs `(changeId, artifactType)` before a qualifier exists, `RunArtifactStore.list(changeId?)` has no `runId`, and a static gate matrix cannot embed runtime `changeId` values. Split these into separate query/requirement descriptor types and keep `*ArtifactRef` only for already-identified artifacts.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F02",
-      "severity": "high",
-      "category": "consistency",
-      "title": "Review-ledger backup is incorrectly made caller-optional",
-      "detail": "The spec requires every overwrite of an existing `review-ledger` artifact to create a backup before writing. `WriteOptions.backupIfClean` weakens that contract and lets callers skip required backups. Remove the caller-controlled flag from the store contract and make ledger backup unconditional inside `ChangeArtifactStore.write`, or keep any cleanliness check entirely outside the backup guarantee.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F03",
-      "severity": "medium",
-      "category": "completeness",
-      "title": "Adapter invariant enforcement is not covered by the design/tasks",
-      "detail": "Acceptance criteria require adapters to reject unknown artifact types with a typed error and to validate `review-ledger` and `run-state` JSON against their schemas. D2 explicitly rejects runtime validation, and the tasks never add adapter-side runtime guards or schema-validation steps/tests. Add explicit validation behavior and tests in the adapter or shared validation layer so these invariants are actually implemented, not just typed in TypeScript.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F04",
-      "severity": "medium",
-      "category": "completeness",
-      "title": "Ownership, lifecycle, and adapter-specific documentation are missing from the task plan",
-      "detail": "The proposal and acceptance criteria require a canonical model that enumerates each artifact's storage domain, ownership, lifecycle, and that the filesystem layout is documented as an adapter concern rather than a core contract. The tasks only cover code structures and migrations. Add explicit work to produce the ownership/lifecycle table and document the LocalFs layout boundary in the spec/docs so the implementation can satisfy those acceptance criteria.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    }
-  ],
-  "round_summaries": [
-    {
-      "round": 1,
-      "total": 4,
-      "open": 4,
-      "new": 4,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "high": 2,
-        "medium": 2
-      }
-    }
-  ]
+	"feature_id": "decide-artifact-ownership-and-storage-abstraction",
+	"phase": "design",
+	"current_round": 1,
+	"status": "has_open_high",
+	"max_finding_id": 4,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "feasibility",
+			"title": "Concrete ArtifactRef types are used where only queries/templates exist",
+			"detail": "The design applies `ChangeArtifactRef`/`RunArtifactRef` to `list` and to the static phase gate matrix, but those contexts do not have a concrete artifact identity yet. `ChangeArtifactStore.list` needs `(changeId, artifactType)` before a qualifier exists, `RunArtifactStore.list(changeId?)` has no `runId`, and a static gate matrix cannot embed runtime `changeId` values. Split these into separate query/requirement descriptor types and keep `*ArtifactRef` only for already-identified artifacts.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "high",
+			"category": "consistency",
+			"title": "Review-ledger backup is incorrectly made caller-optional",
+			"detail": "The spec requires every overwrite of an existing `review-ledger` artifact to create a backup before writing. `WriteOptions.backupIfClean` weakens that contract and lets callers skip required backups. Remove the caller-controlled flag from the store contract and make ledger backup unconditional inside `ChangeArtifactStore.write`, or keep any cleanliness check entirely outside the backup guarantee.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F03",
+			"severity": "medium",
+			"category": "completeness",
+			"title": "Adapter invariant enforcement is not covered by the design/tasks",
+			"detail": "Acceptance criteria require adapters to reject unknown artifact types with a typed error and to validate `review-ledger` and `run-state` JSON against their schemas. D2 explicitly rejects runtime validation, and the tasks never add adapter-side runtime guards or schema-validation steps/tests. Add explicit validation behavior and tests in the adapter or shared validation layer so these invariants are actually implemented, not just typed in TypeScript.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F04",
+			"severity": "medium",
+			"category": "completeness",
+			"title": "Ownership, lifecycle, and adapter-specific documentation are missing from the task plan",
+			"detail": "The proposal and acceptance criteria require a canonical model that enumerates each artifact's storage domain, ownership, lifecycle, and that the filesystem layout is documented as an adapter concern rather than a core contract. The tasks only cover code structures and migrations. Add explicit work to produce the ownership/lifecycle table and document the LocalFs layout boundary in the spec/docs so the implementation can satisfy those acceptance criteria.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 4,
+			"open": 4,
+			"new": 4,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 2,
+				"medium": 2
+			}
+		}
+	]
 }
