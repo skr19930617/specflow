@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import test from "node:test";
 import { makeTempDir, removeTempDir, repoRoot } from "./test-helpers.js";
 
 const releaseUrl =
@@ -51,6 +51,9 @@ test("npm pack dry-run includes the runtime bundle needed by release installs", 
 		assert.ok(paths.has("dist/bin/specflow-install.js"));
 		assert.ok(paths.has("dist/bin/specflow-prepare-change.js"));
 		assert.ok(paths.has("dist/bin/specflow-run.js"));
+		assert.ok(paths.has("dist/lib/agent-context-template.js"));
+		assert.ok(paths.has("dist/lib/profile-schema.js"));
+		assert.ok(paths.has("dist/lib/claude-renderer.js"));
 		assert.ok(paths.has("dist/package/global/workflow/state-machine.json"));
 		assert.ok(paths.has("dist/package/global/commands/specflow.md"));
 		assert.ok(paths.has("dist/package/template/_gitignore"));

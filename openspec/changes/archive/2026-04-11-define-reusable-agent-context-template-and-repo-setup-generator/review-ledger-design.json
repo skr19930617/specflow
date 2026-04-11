@@ -1,0 +1,62 @@
+{
+	"feature_id": "define-reusable-agent-context-template-and-repo-setup-generator",
+	"phase": "design",
+	"current_round": 1,
+	"status": "has_open_high",
+	"max_finding_id": 3,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "completeness",
+			"title": "Five-layer core model is not mapped to an implementation artifact",
+			"detail": "The design and tasks cover profile schema, detection, diffing, and the Claude adapter, but they do not identify any core contract/module that actually defines the required five-layer model, namespace separation, and Layer 1 > 3 > 2 > 4 > 5 conflict priority. The design even defers Layer 3-5 composition as an open question, which leaves the new `agent-context-template` capability only partially specified for implementation. Add a surface-neutral core artifact and tasks for the layer definitions, precedence rules, and adapter-facing interface so future surfaces can depend on core without reworking this feature.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "high",
+			"category": "consistency",
+			"title": "Profile migration flow conflicts with validate-on-read design",
+			"detail": "D7 and task 1.4 require schema validation on every profile read, but task 7.3 also requires `setup` to load older schema versions and migrate them. With the current design, an outdated profile would fail current-schema validation before migration can run; bypassing validation would violate the stated read contract. Define a version-aware load path now: raw read -> minimal schemaVersion sniff -> migrate if older -> validate current schema -> continue. Non-setup readers can remain strict-abort on mismatch. Add tests for outdated-profile rerun and for renderer/update behavior on older/newer versions.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F03",
+			"severity": "medium",
+			"category": "risk",
+			"title": "Legacy CLAUDE.md confirmation flow is not designed through the write paths",
+			"detail": "The spec requires marker-less `CLAUDE.md` migration to warn, show a diff, and require user confirmation before modifying the file. The design notes legacy preservation, but the tasks only implement renderer-side migration logic and do not assign the warning/confirmation behavior to `setup` or `specflow-init --update`, both of which auto-render after profile changes. That leaves a real risk of silently rewriting user-authored files. Add an explicit interaction contract and tasks so the renderer returns a migration result/diff and the calling flows gate the write on user confirmation.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 3,
+			"open": 3,
+			"new": 3,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 2,
+				"medium": 1
+			}
+		}
+	]
+}

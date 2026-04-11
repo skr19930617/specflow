@@ -1,4 +1,3 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -10,6 +9,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
+import test from "node:test";
 import {
 	addImplementationDiff,
 	createFixtureRepo,
@@ -23,6 +23,71 @@ import {
 	repoRoot,
 	runNodeCli,
 } from "./test-helpers.js";
+
+function createUpdateRepo(tempRoot: string): {
+	home: string;
+	repoPath: string;
+} {
+	const home = createInstalledHome(tempRoot);
+	const repoPath = join(tempRoot, "repo");
+	mkdirSync(repoPath, { recursive: true });
+	spawnSync("git", ["init", "--quiet"], { cwd: repoPath, stdio: "ignore" });
+	return { home, repoPath };
+}
+
+function createProfileJson(
+	overrides: Partial<{
+		schemaVersion: string;
+		languages: string[];
+		toolchain: string;
+		commands: {
+			build: string | null;
+			test: string | null;
+			lint: string | null;
+			format: string | null;
+		};
+		directories: {
+			source: string[] | null;
+			test: string[] | null;
+			generated: string[] | null;
+		};
+		forbiddenEditZones: string[] | null;
+		contractSensitiveModules: string[] | null;
+		codingConventions: string[] | null;
+		verificationExpectations: string[] | null;
+	}> = {},
+): string {
+	return `${JSON.stringify(
+		{
+			schemaVersion: "1",
+			languages: ["typescript"],
+			toolchain: "npm",
+			commands: {
+				build: "npm run build",
+				test: "npm test",
+				lint: "npm run lint",
+				format: "npm run format",
+			},
+			directories: {
+				source: ["src/"],
+				test: ["tests/"],
+				generated: ["dist/"],
+			},
+			forbiddenEditZones: null,
+			contractSensitiveModules: ["src/contracts/**"],
+			codingConventions: ["Keep contracts explicit."],
+			verificationExpectations: ["npm test"],
+			...overrides,
+		},
+		null,
+		2,
+	)}\n`;
+}
+
+function writeProfileFile(repoPath: string, rawProfile: string): void {
+	mkdirSync(join(repoPath, ".specflow"), { recursive: true });
+	writeFileSync(join(repoPath, ".specflow/profile.json"), rawProfile, "utf8");
+}
 
 test("specflow-fetch-issue returns the expected issue payload", () => {
 	const tempRoot = makeTempDir("fetch-issue-");
@@ -329,13 +394,10 @@ test("specflow-analyze returns structured project metadata", () => {
 	assert.equal(json.package_manager, "npm");
 });
 
-test("specflow-init --update refreshes installed commands from manifest", () => {
+test("specflow-init --update refreshes installed commands and skips profile rendering when no profile exists", () => {
 	const tempRoot = makeTempDir("specflow-init-update-");
 	try {
-		const home = createInstalledHome(tempRoot);
-		const repoPath = join(tempRoot, "repo");
-		mkdirSync(repoPath, { recursive: true });
-		spawnSync("git", ["init", "--quiet"], { cwd: repoPath, stdio: "ignore" });
+		const { home, repoPath } = createUpdateRepo(tempRoot);
 		writeFileSync(join(repoPath, "CLAUDE.md"), "custom\n", "utf8");
 		const result = runNodeCli(
 			"specflow-init",
@@ -355,6 +417,124 @@ test("specflow-init --update refreshes installed commands from manifest", () => 
 		assert.ok(json.installed_commands.includes("specflow"));
 		assert.ok(existsSync(join(repoPath, ".mcp.json")));
 		assert.ok(existsSync(join(home, ".claude/commands/specflow.md")));
+		assert.equal(readFileSync(join(repoPath, "CLAUDE.md"), "utf8"), "custom\n");
+		assert.match(
+			result.stderr,
+			/No \.specflow\/profile\.json found\. Run `specflow\.setup` to generate a project profile\./,
+		);
+		assert.equal(
+			result.stderr.includes("Rendered CLAUDE.md from profile"),
+			false,
+		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-init --update rerenders CLAUDE.md from a valid profile", () => {
+	const tempRoot = makeTempDir("specflow-init-profile-render-");
+	try {
+		const { home, repoPath } = createUpdateRepo(tempRoot);
+		writeProfileFile(repoPath, createProfileJson());
+		writeFileSync(
+			join(repoPath, "CLAUDE.md"),
+			[
+				"<!-- specflow:managed:start -->",
+				"## Contract Discipline",
+				"",
+				"- stale rule",
+				"<!-- specflow:managed:end -->",
+				"",
+				"## Manual Notes",
+				"",
+				"keep me",
+				"",
+			].join("\n"),
+			"utf8",
+		);
+
+		const result = runNodeCli("specflow-init", ["--update"], repoPath, {
+			HOME: home,
+		});
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.equal(
+			result.stderr.includes("Overwrite CLAUDE.md with template?"),
+			false,
+		);
+		assert.match(result.stderr, /Rendered CLAUDE\.md from profile/);
+		const claude = readFileSync(join(repoPath, "CLAUDE.md"), "utf8");
+		assert.ok(claude.startsWith("<!-- specflow:managed:start -->"));
+		assert.ok(claude.includes("## Project Profile"));
+		assert.ok(claude.includes("- **Toolchain:** npm"));
+		assert.ok(claude.includes("- **Build:** `npm run build`"));
+		assert.ok(claude.includes("## Contract-Sensitive Modules"));
+		assert.ok(claude.includes("## Verification Expectations"));
+		assert.ok(claude.includes("## Manual Notes\n\nkeep me"));
+		const json = JSON.parse(result.stdout) as { updated_files: string[] };
+		assert.ok(json.updated_files.includes("CLAUDE.md (profile-rendered)"));
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-init --update aborts when the profile is invalid", () => {
+	const tempRoot = makeTempDir("specflow-init-invalid-profile-");
+	try {
+		const { home, repoPath } = createUpdateRepo(tempRoot);
+		writeProfileFile(
+			repoPath,
+			`${JSON.stringify({ schemaVersion: "1", languages: ["typescript"] })}\n`,
+		);
+		writeFileSync(join(repoPath, "CLAUDE.md"), "custom\n", "utf8");
+
+		const result = runNodeCli("specflow-init", ["--update"], repoPath, {
+			HOME: home,
+		});
+
+		assert.notEqual(result.status, 0);
+		assert.match(result.stderr, /Profile validation failed:/);
+		assert.match(result.stderr, /Run 'specflow\.setup' to fix the profile\./);
+		assert.equal(
+			result.stderr.includes("Overwrite CLAUDE.md with template?"),
+			false,
+		);
+		assert.equal(readFileSync(join(repoPath, "CLAUDE.md"), "utf8"), "custom\n");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-init --update asks for confirmation before migrating a legacy CLAUDE.md", () => {
+	const tempRoot = makeTempDir("specflow-init-legacy-claude-");
+	try {
+		const { home, repoPath } = createUpdateRepo(tempRoot);
+		writeProfileFile(repoPath, createProfileJson());
+		writeFileSync(
+			join(repoPath, "CLAUDE.md"),
+			"# Legacy CLAUDE\n\nKeep this section.\n",
+			"utf8",
+		);
+
+		const result = runNodeCli(
+			"specflow-init",
+			["--update"],
+			repoPath,
+			{ HOME: home },
+			"y\n",
+		);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stderr, /Apply profile-rendered CLAUDE\.md changes\?/);
+		assert.match(result.stderr, /has no specflow markers/i);
+		assert.equal(
+			result.stderr.includes("Overwrite CLAUDE.md with template?"),
+			false,
+		);
+		const claude = readFileSync(join(repoPath, "CLAUDE.md"), "utf8");
+		assert.ok(claude.startsWith("<!-- specflow:managed:start -->"));
+		assert.ok(claude.includes("## Project Profile"));
+		assert.ok(claude.includes("# Legacy CLAUDE\n\nKeep this section."));
 	} finally {
 		removeTempDir(tempRoot);
 	}

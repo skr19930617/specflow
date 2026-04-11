@@ -1,30 +1,4 @@
-# project-bootstrap-installation Specification
-
-## Purpose
-
-Describe how `specflow` initializes a project and installs the packaged runtime
-bundle into a user environment.
-## Requirements
-### Requirement: `specflow-init` bootstraps a project root and OpenSpec context
-
-`specflow-init` SHALL initialize a project root, gather the selected agents, and
-prepare the local OpenSpec and specflow configuration files.
-
-#### Scenario: No-argument init targets the current git repository root
-
-- **WHEN** `specflow-init` is invoked without arguments inside a git repository
-- **THEN** it SHALL use the repository root as the target path
-
-#### Scenario: Init creates a repository when the target is not already one
-
-- **WHEN** the target directory is not an initialized git repository
-- **THEN** `specflow-init` SHALL run `git init`
-
-#### Scenario: OpenSpec init injects project context when config exists
-
-- **WHEN** `openspec init` succeeds during `specflow-init`
-- **THEN** the command SHALL add `Project: <project name>` to
-  `openspec/config.yaml` if the file does not already contain a `context:` entry
+## MODIFIED Requirements
 
 ### Requirement: `specflow-init` writes local project scaffolding and ignore rules
 
@@ -81,31 +55,7 @@ installed slash commands and template-backed project files. When a valid profile
 - **AND** `.specflow/profile.json` does not exist
 - **THEN** update mode SHALL skip adapter rendering and display a suggestion to run `setup`
 
-### Requirement: `specflow-install` deploys the packaged runtime bundle from the manifest and install plan
-
-`specflow-install` SHALL use `dist/install-plan.json` and `dist/manifest.json`
-to copy runtime assets, install slash-command markdown, and expose CLI links.
-
-#### Scenario: Install copies packaged runtime directories
-
-- **WHEN** `specflow-install` runs
-- **THEN** it SHALL copy the packaged template directory and the packaged
-  `global/prompts`, `global/workflow`, `global/commands`, and
-  `global/claude-settings.json` trees into `$HOME/.config/specflow/`
-
-#### Scenario: Install symlinks each published CLI
-
-- **WHEN** `specflow-install` runs
-- **THEN** it SHALL create symlinks for every orchestrator-defined CLI in
-  `$HOME/bin/`
-- **AND** it SHALL remove stale `specflow*` symlinks that are no longer expected
-
-#### Scenario: Install publishes slash commands and merges Claude permissions
-
-- **WHEN** `specflow-install` runs
-- **THEN** it SHALL copy generated command markdown into `$HOME/.claude/commands`
-- **AND** it SHALL merge the packaged Claude permission allow-list into
-  `$HOME/.claude/settings.json` without dropping existing entries
+## ADDED Requirements
 
 ### Requirement: `setup` command analyzes the repository and generates a structured profile
 
@@ -197,4 +147,3 @@ When `setup` encounters a profile with an older `schemaVersion`, it SHALL migrat
 - **WHEN** `setup` reads a profile with `schemaVersion` less than the current expected version
 - **THEN** it SHALL transform the profile to the new schema format
 - **AND** it SHALL present the migration changes to the user for confirmation before writing
-

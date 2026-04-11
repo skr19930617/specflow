@@ -16,17 +16,18 @@ import type {
 	LedgerSeverityCounts,
 	LedgerSnapshot,
 	ProposalSource,
+	RereviewClassification,
 	ReviewDiffSummary,
 	ReviewFinding,
 	ReviewPayload,
 	ReviewResult,
-	RereviewClassification,
-	SourceMetadata,
 	RunAgents,
 	RunHistoryEntry,
 	RunState,
 	SchemaId,
+	SourceMetadata,
 } from "../types/contracts.js";
+import { validateProfile as validateProfileImpl } from "./profile-schema.js";
 
 type ValidationErrors = string[];
 type SchemaValidator = (
@@ -909,6 +910,17 @@ function createSubIssuesResultValidator(
 	);
 }
 
+function profileValidator(
+	value: unknown,
+	_path: string,
+	errors: ValidationErrors,
+): void {
+	const profileErrors = validateProfileImpl(value);
+	for (const error of profileErrors) {
+		errors.push(error);
+	}
+}
+
 export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"issue-metadata": issueMetadataValidator,
 	"source-metadata": sourceMetadataValidator,
@@ -924,6 +936,7 @@ export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"run-state": runStateValidator,
 	"create-sub-issues-input": createSubIssuesInputValidator,
 	"create-sub-issues-result": createSubIssuesResultValidator,
+	profile: profileValidator,
 };
 
 export function schemaIds(): readonly SchemaId[] {
@@ -996,13 +1009,13 @@ export type {
 	LedgerSeverityCounts,
 	LedgerSnapshot,
 	ProposalSource,
+	RereviewClassification,
 	ReviewDiffSummary,
 	ReviewFinding,
 	ReviewPayload,
 	ReviewResult,
-	RereviewClassification,
-	SourceMetadata,
 	RunAgents,
 	RunHistoryEntry,
 	RunState,
+	SourceMetadata,
 };

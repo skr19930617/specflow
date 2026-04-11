@@ -2,25 +2,27 @@ import {
 	copyFileSync,
 	existsSync,
 	mkdirSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import readline from "node:readline/promises";
 import { stdin as input } from "node:process";
-import type { InitProjectResult, Manifest } from "../types/contracts.js";
+import readline from "node:readline/promises";
+import { renderClaudeMdStrict } from "../lib/claude-renderer.js";
+import { tryGit } from "../lib/git.js";
 import {
 	moduleRepoRoot,
 	printSchemaJson,
 	resolveCommand,
 	tryExec,
 } from "../lib/process.js";
-import { tryGit } from "../lib/git.js";
+import { readProfileStrict } from "../lib/profile-schema.js";
 import {
 	mergeProjectGitignore,
 	renderProjectGitignore,
 } from "../lib/project-gitignore.js";
+import type { InitProjectResult, Manifest } from "../types/contracts.js";
 
 const CONFIG_DIR = resolve(process.env.HOME ?? "", ".config/specflow");
 const MAIN_AGENTS = ["claude"];
@@ -194,6 +196,126 @@ function verifyPrompts(globalDir: string, warnings: string[]): void {
 	log(`Verified ${count} prompt(s) in ${promptsDir}/`);
 }
 
+function recordClaudeWrite(
+	existedBeforeWrite: boolean,
+	createdFiles: string[],
+	updatedFiles: string[],
+	label: string,
+): void {
+	if (existedBeforeWrite) {
+		updatedFiles.push(label);
+		return;
+	}
+	createdFiles.push(label);
+}
+
+async function updateClaudeTemplateOnly(
+	templateClaude: string,
+	createdFiles: string[],
+	updatedFiles: string[],
+): Promise<void> {
+	if (!existsSync(templateClaude)) {
+		return;
+	}
+
+	if (!existsSync("CLAUDE.md")) {
+		copyFileSync(templateClaude, "CLAUDE.md");
+		createdFiles.push("CLAUDE.md");
+		log("Created CLAUDE.md");
+		return;
+	}
+
+	if (
+		readFileSync(templateClaude, "utf8") === readFileSync("CLAUDE.md", "utf8")
+	) {
+		log("CLAUDE.md is up to date");
+		return;
+	}
+
+	log("CLAUDE.md differs from the template:");
+	const diff = tryExec(
+		"diff",
+		["-u", "CLAUDE.md", templateClaude],
+		process.cwd(),
+	);
+	const preview = diff.stdout.split("\n").slice(0, 40).join("\n");
+	if (preview.trim()) {
+		process.stderr.write(`${preview}\n\n`);
+	}
+	const rl = readline.createInterface({ input, output: process.stderr });
+	const overwrite = await promptYesNo(
+		rl,
+		"Overwrite CLAUDE.md with template? (your changes will be lost)",
+		"n",
+	);
+	rl.close();
+	if (overwrite === "y") {
+		copyFileSync(templateClaude, "CLAUDE.md");
+		updatedFiles.push("CLAUDE.md");
+		log("Updated CLAUDE.md");
+		return;
+	}
+	log("Skipped CLAUDE.md");
+}
+
+async function updateClaudeFromProfile(
+	profilePath: string,
+	createdFiles: string[],
+	updatedFiles: string[],
+): Promise<void> {
+	const profileResult = readProfileStrict(profilePath);
+	if ("error" in profileResult) {
+		die(
+			`Error: ${profileResult.error}\nRun 'specflow.setup' to fix the profile.`,
+		);
+	}
+
+	const claudeExists = existsSync("CLAUDE.md");
+	const claudeContent = claudeExists ? readFileSync("CLAUDE.md", "utf8") : null;
+	const renderResult = renderClaudeMdStrict(
+		profileResult.profile,
+		claudeContent,
+	);
+
+	if (renderResult.writeDisposition === "abort") {
+		die(
+			renderResult.warning
+				? `Error: ${renderResult.warning}`
+				: "Error: CLAUDE.md rendering aborted due to marker/version issue.",
+		);
+	}
+
+	if (renderResult.warning) {
+		log(`Warning: ${renderResult.warning}`);
+	}
+	if (renderResult.diffPreview) {
+		process.stderr.write(`${renderResult.diffPreview}\n\n`);
+	}
+
+	if (renderResult.writeDisposition === "confirmation-required") {
+		const rl = readline.createInterface({ input, output: process.stderr });
+		const accept = await promptYesNo(
+			rl,
+			"Apply profile-rendered CLAUDE.md changes?",
+			"n",
+		);
+		rl.close();
+		if (accept !== "y") {
+			log("Skipped profile-based CLAUDE.md rendering");
+			return;
+		}
+	}
+
+	writeFileSync("CLAUDE.md", renderResult.nextContent, "utf8");
+	recordClaudeWrite(
+		claudeExists,
+		createdFiles,
+		updatedFiles,
+		"CLAUDE.md (profile-rendered)",
+	);
+	log("Rendered CLAUDE.md from profile");
+}
+
 async function runUpdateMode(runtimeRoot: string): Promise<never> {
 	const updateRoot =
 		tryGit(["rev-parse", "--show-toplevel"], process.cwd()).stdout.trim() ||
@@ -228,42 +350,15 @@ async function runUpdateMode(runtimeRoot: string): Promise<never> {
 		log("Warning: template/.mcp.json not found, skipping");
 	}
 
+	const profilePath = resolve(updateRoot, ".specflow/profile.json");
 	const templateClaude = resolve(templateDir, "CLAUDE.md");
-	if (existsSync(templateClaude)) {
-		if (!existsSync("CLAUDE.md")) {
-			copyFileSync(templateClaude, "CLAUDE.md");
-			createdFiles.push("CLAUDE.md");
-			log("Created CLAUDE.md");
-		} else if (
-			readFileSync(templateClaude, "utf8") !== readFileSync("CLAUDE.md", "utf8")
-		) {
-			log("CLAUDE.md differs from the template:");
-			const diff = tryExec(
-				"diff",
-				["-u", "CLAUDE.md", templateClaude],
-				process.cwd(),
-			);
-			const preview = diff.stdout.split("\n").slice(0, 40).join("\n");
-			if (preview.trim()) {
-				process.stderr.write(`${preview}\n\n`);
-			}
-			const rl = readline.createInterface({ input, output: process.stderr });
-			const overwrite = await promptYesNo(
-				rl,
-				"Overwrite CLAUDE.md with template? (your changes will be lost)",
-				"n",
-			);
-			rl.close();
-			if (overwrite === "y") {
-				copyFileSync(templateClaude, "CLAUDE.md");
-				updatedFiles.push("CLAUDE.md");
-				log("Updated CLAUDE.md");
-			} else {
-				log("Skipped CLAUDE.md");
-			}
-		} else {
-			log("CLAUDE.md is up to date");
-		}
+	if (existsSync(profilePath)) {
+		await updateClaudeFromProfile(profilePath, createdFiles, updatedFiles);
+	} else {
+		await updateClaudeTemplateOnly(templateClaude, createdFiles, updatedFiles);
+		log(
+			"No .specflow/profile.json found. Run `specflow.setup` to generate a project profile.",
+		);
 	}
 
 	log("Done. All templates updated.");
@@ -486,7 +581,9 @@ Initialize a new specflow + OpenSpec project.
 	if (!existsSync(resolve(root, "CLAUDE.md")) && existsSync(claudeTemplate)) {
 		copyFileSync(claudeTemplate, resolve(root, "CLAUDE.md"));
 		createdFiles.push("CLAUDE.md");
-		log("Created CLAUDE.md — edit to match your project");
+		log(
+			"Created CLAUDE.md — run '/specflow.setup' to generate a project profile and render managed sections",
+		);
 	} else if (existsSync(resolve(root, "CLAUDE.md"))) {
 		log("CLAUDE.md already exists, skipped");
 	}
@@ -513,8 +610,13 @@ Initialize a new specflow + OpenSpec project.
 	log(`  Main agent: ${mainAgent}`);
 	log(`  Review agent: ${reviewAgent}`);
 	log("Next steps:");
-	log("  1. Edit CLAUDE.md — fill in Tech Stack, Commands, Code Style");
-	log("  2. Run '/specflow <issue-url-or-text>' to start your first feature");
+	log(
+		"  1. Run '/specflow.setup' to generate .specflow/profile.json and render CLAUDE.md",
+	);
+	log(
+		"  2. Add any repository-specific notes below the managed block in CLAUDE.md if needed",
+	);
+	log("  3. Run '/specflow <issue-url-or-text>' to start your first feature");
 	printSchemaJson("init-project", {
 		mode: "init",
 		project_name: projectName,
