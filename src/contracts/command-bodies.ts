@@ -189,7 +189,8 @@ export const commandBodies: Record<string, CommandBody> = {
 	},
 	"specflow.design": {
 		frontmatter: {
-			description: "specflow で design/tasks artifacts を生成し、Codex でレビュー",
+			description:
+				"specflow で design/tasks artifacts を生成し、Codex でレビュー",
 		},
 		sections: [
 			{

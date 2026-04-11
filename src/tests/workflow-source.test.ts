@@ -189,7 +189,9 @@ test("workflow mermaid diagram is generated from the machine", () => {
 	const diagram = renderWorkflowMermaid();
 	assert.ok(diagram.startsWith("stateDiagram-v2\n  [*] --> start"));
 	assert.ok(
-		diagram.includes("proposal_review --> spec_draft: proposal_review_approved"),
+		diagram.includes(
+			"proposal_review --> spec_draft: proposal_review_approved",
+		),
 	);
 	assert.ok(diagram.includes("apply_ready --> approved: accept_apply"));
 	assert.ok(diagram.includes("approved --> [*]"));
