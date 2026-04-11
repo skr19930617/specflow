@@ -1,0 +1,381 @@
+{
+  "feature_id": "core-dependency-boundary",
+  "phase": "proposal",
+  "current_round": 10,
+  "status": "all_resolved",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R9-F01",
+      "severity": "high",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "Persistence contract is simultaneously deferred and implied to be designed now",
+      "detail": "The proposal says this is a documentation-only change and repeatedly marks persistence as not yet a stable external-runtime contract, but it also says the design phase of this change will split `RunState` into core and local-adapter fields. At the same time, `src/types/contracts.ts` is fully allowlisted for core even though it currently contains those mixed persistence fields. Designers cannot tell whether they must define the field-level persistence contract in this proposal or only document that it remains unsupported. Fix by choosing one scope: either make the `RunState` split an explicit in-scope deliverable with field-level acceptance criteria, or defer it entirely and mark persistence-related exports in `src/types/contracts.ts` as transitional/non-core until a follow-up proposal defines the split.",
+      "origin_round": 9,
+      "latest_round": 9,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 10
+    },
+    {
+      "id": "R9-F02",
+      "severity": "medium",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Internal core classification is not cleanly separated from externally supported contracts",
+      "detail": "The proposal classifies modules such as `workflow-machine.ts` as core to enable reuse, but later says external runtimes can reliably depend only on `state-machine.json` today. Without an explicit rule that 'core' is an internal architectural classification and does not by itself mean 'supported external API', the design handoff can overstate what external runtimes may import or depend on. Fix by adding a clear support-status mapping for each core/core-adjacent surface, or an explicit statement that module classification and external support status are separate concepts.",
+      "origin_round": 9,
+      "latest_round": 9,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 10
+    },
+    {
+      "id": "R8-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "proposal.md",
+      "title": "Required persistence contract remains underspecified",
+      "detail": "The proposal says run-state persistence is a required, currently supported external-runtime contract, but it also defers the key split inside `RunState` between core fields and local-adapter-only fields to the design phase. That leaves the only required adapter contract partially undefined, so design cannot state what external runtimes must persist versus may omit or replace. Either enumerate the normative persistence fields in this proposal, or move persistence into the deferred set until that contract is defined.",
+      "origin_round": 8,
+      "latest_round": 8,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R8-F02",
+      "severity": "medium",
+      "category": "validation",
+      "file": "proposal.md",
+      "title": "Known-violation tracking references are not actionable yet",
+      "detail": "The proposal requires a 'Known Boundary Violations' table with a tracking reference for each mixed module, but it does not identify the follow-up proposals/issues those references should point to or define an acceptable placeholder if they do not exist yet. That makes the documentation deliverable incomplete and likely to drift at handoff. Specify the required tracking artifacts now, or explicitly allow a defined placeholder/reference format until the follow-up work is created.",
+      "origin_round": 8,
+      "latest_round": 8,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R6-F02",
+      "severity": "high",
+      "category": "consistency",
+      "file": "proposal.md",
+      "title": "Authoritative external-runtime contract is still ambiguous",
+      "detail": "The proposal says external runtimes should rely on the `Workflow Core Contract Surface` inventory as canonical/interim canonical, but the existing section is explicitly non-normative, and the proposal does not explicitly state that this status will change. It also narrows supported external-runtime scope to exclude review orchestration until review transport is defined, while the current `Repository Scope` says all runtimes must implement review orchestration. This leaves design with conflicting sources of truth. Fix by explicitly amending the existing architecture sections so they distinguish target-state ownership from currently supported external-runtime contracts and identify one normative place for the contract surface.",
+      "origin_round": 6,
+      "latest_round": 7,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R7-F01",
+      "severity": "medium",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "The core-adjacent allowlist misstates `src/types/contracts.ts` as type-only",
+      "detail": "The proposal describes `src/types/contracts.ts` as a pure type module, but the current codebase exports runtime values from it and value-imports them elsewhere. If design or enforcement work treats it as type-only, it will produce the wrong boundary rules. Fix by clarifying that value imports from this module are allowed, or by splitting runtime constants from type-only definitions before using this document as the boundary source of truth.",
+      "origin_round": 7,
+      "latest_round": 7,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R6-F01",
+      "severity": "high",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "Boundary scope excludes source trees that current core already depends on",
+      "detail": "The proposal defines the dependency boundary only as a classification of modules under `src/lib/`, but one of the proposed core modules (`schemas.ts`) already depends on `src/types/contracts.ts`, and the current architecture document treats `src/contracts/` as source-of-truth for workflow/build contracts. As written, the allowlist would make the declared core inventory immediately inconsistent while only `mixed` modules are tracked as violations. Fix by explicitly deciding how `src/types/*` and any relevant `src/contracts/*` modules relate to the boundary: include them in the boundary model, allowlist them as core-adjacent dependencies, or reclassify affected `src/lib` modules and record them as violations.",
+      "origin_round": 6,
+      "latest_round": 6,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F01",
+      "severity": "high",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Core dependency allowlist is not precise enough to enforce",
+      "detail": "The proposal's main contract is the core boundary, but the allowed/forbidden dependency rules are still ambiguous. It allows 'standard JavaScript built-ins' while only forbidding some Node modules (`fs`/`path`/`os`) and references 'explicitly allowed third-party libraries' without fully enumerating them. That leaves unclear whether other Node built-ins or future package imports are allowed in core, which directly affects portability and any later lint/enforcement design. Fix by making the rule exhaustive: explicitly distinguish ECMAScript globals from Node built-in modules, forbid all non-core local imports unless listed, and enumerate the complete third-party allowlist.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R4-F01",
+      "notes": ""
+    },
+    {
+      "id": "R5-F02",
+      "severity": "medium",
+      "category": "validation",
+      "file": "proposal.md",
+      "title": "Authoritative module inventory can drift without a maintenance rule",
+      "detail": "The proposal says the `src/lib/` inventory is 'authoritative' and lists every module 'as of this proposal', but it does not define how that inventory stays valid after adds/removes/renames. The default classification rule only covers new core modules, not whether all `src/lib/` changes must update the documented inventory or what counts as a validation failure when the list drifts. Fix by stating whether the inventory must always be kept in sync for any `src/lib/` change, or by reframing it as a snapshot plus separate normative classification rules.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "proposal.md",
+      "title": "Near-term external runtime scope is still underspecified",
+      "detail": "The proposal presents this boundary as a contract external runtimes can rely on, but one of the core adapter seams, review transport, is explicitly deferred and non-canonical. That leaves unclear what external runtimes are actually expected to support before the follow-up proposal lands: full workflow execution, only state persistence/state-machine use, or some temporary local-only review path. Fix by explicitly bounding the supported external-runtime scenarios until the review transport contract is defined.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F01",
+      "severity": "medium",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Mixed-module handling remains ambiguous",
+      "detail": "The proposal lists several modules as 'mixed' known violations, but it does not define their interim usage rules. It is unclear whether new core code may import mixed modules, whether they should be treated as adapter-side internals, or whether external runtimes must treat them as unsupported transitional code. Add explicit interim rules for mixed modules so the boundary is actionable before follow-up refactors land.",
+      "origin_round": 4,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R3-F01",
+      "notes": ""
+    },
+    {
+      "id": "R4-F02",
+      "severity": "high",
+      "category": "consistency",
+      "file": "proposal.md",
+      "title": "Required review transport has no stable contract",
+      "detail": "The proposal says every runtime must implement review transport, but the Impact section also says that transport is not yet a canonical contract and external runtimes should not rely on the current subprocess-based mechanism. That leaves a required adapter boundary undefined enough that design cannot state what external runtimes are expected to implement. Either remove review transport from the required runtime categories in this proposal, or define the minimal canonical request/response/lifecycle contract here.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F01",
+      "severity": "high",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Core boundary definition is internally ambiguous",
+      "detail": "The proposal says the boundary is directory/module-based and that core consists of modules in `src/lib/`, but it also lists adapter and mixed modules that appear to live in the same directory. It is also unclear whether the listed core/adapter/mixed modules are exhaustive. That leaves the canonical core surface underdefined, which is the main thing downstream design would need to anchor on. Fix by defining the boundary as an explicit module classification within `src/lib/` and making the current inventory authoritative, or by stating exactly how any unlisted module is classified.",
+      "origin_round": 3,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R2-F02",
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "proposal.md",
+      "title": "Adapter contracts are too high-level for design handoff",
+      "detail": "The proposal assigns broad responsibilities to local and external adapters, but it does not identify the minimum core-side interfaces needed around persistence, run state, review transport, or process lifecycle. Since vendor-specific storage is forbidden in core, this leaves a key design seam open to interpretation. Fix by naming the required contract categories or explicitly deferring those interface definitions as out of scope.",
+      "origin_round": 1,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F02",
+      "severity": "medium",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "The claimed external contract surface is still too abstract",
+      "detail": "The impact section says external runtime authors gain a clear contract surface, but formal interfaces are deferred and `contracts.ts` is itself listed as a mixed-module violation. As written, the proposal defines categories but not the authoritative artifact or location external runtimes should depend on. Either identify the interim canonical contract surface in the docs or narrow the claim to a conceptual boundary until follow-up interface work lands.",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F01",
+      "severity": "high",
+      "category": "consistency",
+      "file": "proposal.md",
+      "title": "Type-only import exception undermines the boundary",
+      "detail": "Allowing core to take type-only imports from any module conflicts with the stated goal of keeping Git/FS/CLI/vendor concerns out of core. Core could still be typed against `src/bin/*`, adapter modules, or DB-specific types, which would leak local-runtime semantics into the core contract. Tighten the rule so forbidden surfaces are also forbidden for type-only imports, or define a narrow shared-types exception that is explicitly boundary-safe.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "validation",
+      "file": "proposal.md",
+      "title": "Boundary status versus current implementation is undefined",
+      "detail": "The proposal creates a normative core dependency contract while also stating that Git/FS/CLI concerns currently leak into core, but it never says whether the architecture update should describe current state, target state, or target state with known exceptions. That would make the document immediately drift from the codebase and leave validation unable to tell whether a violation is expected. Fix by stating the boundary status model and how existing leaks are recorded or exempted until follow-up refactors land.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "\"Workflow core\" is not scoped precisely enough",
+      "detail": "The draft names example modules and concepts, but it never defines the authoritative surface the boundary governs: which modules count as core, whether the boundary is package-, directory-, or concept-based, and how mixed modules are handled. Designers cannot consistently apply or extend the boundary without that scope. Fix by defining the canonical core surface and clear inclusion/exclusion rules.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 3,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "high": 1
+      }
+    },
+    {
+      "round": 3,
+      "total": 6,
+      "open": 2,
+      "new": 0,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "high": 1
+      }
+    },
+    {
+      "round": 4,
+      "total": 8,
+      "open": 2,
+      "new": 1,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "high": 1
+      }
+    },
+    {
+      "round": 5,
+      "total": 11,
+      "open": 3,
+      "new": 2,
+      "resolved": 8,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      }
+    },
+    {
+      "round": 6,
+      "total": 13,
+      "open": 2,
+      "new": 2,
+      "resolved": 11,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2
+      }
+    },
+    {
+      "round": 7,
+      "total": 14,
+      "open": 2,
+      "new": 1,
+      "resolved": 12,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 8,
+      "total": 16,
+      "open": 2,
+      "new": 2,
+      "resolved": 14,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 9,
+      "total": 18,
+      "open": 2,
+      "new": 2,
+      "resolved": 16,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 10,
+      "total": 18,
+      "open": 0,
+      "new": 0,
+      "resolved": 18,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}
