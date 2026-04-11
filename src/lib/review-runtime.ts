@@ -187,6 +187,10 @@ export function renderCurrentPhase(
 	cwd: string,
 ): void {
 	const currentRound = Number(ledger.current_round ?? 1);
+	const latestRoundSummary =
+		Array.isArray(ledger.round_summaries) && ledger.round_summaries.length > 0
+			? ledger.round_summaries[ledger.round_summaries.length - 1]
+			: null;
 	const phase =
 		kind === "proposal"
 			? currentRound <= 1
@@ -220,6 +224,25 @@ export function renderCurrentPhase(
 			)
 			.join("\n") || "none";
 	const actionable = actionableCount(ledger);
+	const proposalMaxRounds = Number(
+		ledger.max_rounds ?? latestRoundSummary?.max_rounds ?? 0,
+	);
+	const proposalDecision = String(
+		ledger.latest_decision ?? latestRoundSummary?.decision ?? "UNKNOWN",
+	);
+	const proposalBlockingCount = Number(
+		ledger.blocking_count ?? latestRoundSummary?.blocking_count ?? 0,
+	);
+	const proposalStopReasonValue =
+		ledger.stop_reason ?? latestRoundSummary?.stop_reason ?? null;
+	const proposalStopReason =
+		proposalStopReasonValue == null ||
+		String(proposalStopReasonValue).length === 0
+			? "none"
+			: String(proposalStopReasonValue);
+	const proposalCapReached =
+		proposalStopReason === "max_rounds_reached" ||
+		(proposalMaxRounds > 0 && currentRound >= proposalMaxRounds);
 	const nextAction =
 		kind === "proposal"
 			? actionable > 0
@@ -240,6 +263,15 @@ export function renderCurrentPhase(
 			"",
 			`- Phase: ${phase}`,
 			`- Round: ${currentRound}`,
+			...(kind === "proposal"
+				? [
+						`- Configured Round Cap: ${proposalMaxRounds > 0 ? proposalMaxRounds : "n/a"}`,
+						`- Latest Decision: ${proposalDecision}`,
+						`- Gate Blocking Findings: ${proposalBlockingCount}`,
+						`- Cap Reached: ${proposalCapReached ? "yes" : "no"}`,
+						`- Stop Reason: ${proposalStopReason}`,
+					]
+				: []),
 			`- Status: ${String(ledger.status ?? "in_progress")}`,
 			`- Open High Findings: ${openHighStr}`,
 			`- Actionable Findings: ${actionable}`,

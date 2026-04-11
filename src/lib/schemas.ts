@@ -523,6 +523,38 @@ function ledgerRoundSummaryValidator(
 	for (const [key, valueItem] of Object.entries(bySeverity)) {
 		numberValidator(valueItem, `${path}.by_severity.${key}`, errors);
 	}
+	optional(record.decision, stringValidator, `${path}.decision`, errors);
+	optional(
+		record.proposal_hash,
+		stringValidator,
+		`${path}.proposal_hash`,
+		errors,
+	);
+	optional(
+		record.blocking_count,
+		numberValidator,
+		`${path}.blocking_count`,
+		errors,
+	);
+	optional(
+		record.blocking_signature,
+		stringValidator,
+		`${path}.blocking_signature`,
+		errors,
+	);
+	optional(
+		record.stagnant_rounds,
+		numberValidator,
+		`${path}.stagnant_rounds`,
+		errors,
+	);
+	optional(record.max_rounds, numberValidator, `${path}.max_rounds`, errors);
+	optional(
+		record.stop_reason,
+		nullOrStringValidator,
+		`${path}.stop_reason`,
+		errors,
+	);
 }
 
 function ledgerSnapshotValidator(
@@ -576,6 +608,20 @@ function handoffSummaryValidator(
 	stringValidator(record.state, `${path}.state`, errors);
 	numberValidator(record.actionable_count, `${path}.actionable_count`, errors);
 	stringValidator(record.severity_summary, `${path}.severity_summary`, errors);
+	optional(record.decision, stringValidator, `${path}.decision`, errors);
+	optional(
+		record.blocking_count,
+		numberValidator,
+		`${path}.blocking_count`,
+		errors,
+	);
+	optional(record.max_rounds, numberValidator, `${path}.max_rounds`, errors);
+	optional(
+		record.stop_reason,
+		nullOrStringValidator,
+		`${path}.stop_reason`,
+		errors,
+	);
 }
 
 function reviewDiffSummaryValidator(

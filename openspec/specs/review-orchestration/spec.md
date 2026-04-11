@@ -26,6 +26,30 @@ review state in `review-ledger-proposal.json`.
 - **THEN** the ledger SHALL preserve matched findings by id
 - **AND** it SHALL record newly introduced findings for the new round
 
+#### Scenario: Proposal review uses the configured round cap
+
+- **WHEN** proposal review remains blocked through `max_autofix_rounds`
+- **THEN** the runtime SHALL stop with `handoff.state = "max_rounds_reached"`
+- **AND** it SHALL not increment the proposal review round past the configured cap
+
+#### Scenario: Proposal review uses decision-first gating with a high-severity backstop
+
+- **WHEN** the review decision is `APPROVE` and no unresolved `high` findings remain
+- **THEN** the runtime SHALL return `handoff.state = "review_approved"`
+- **AND** non-blocking findings MAY remain advisory only
+
+#### Scenario: Proposal review blocks approval when unresolved high findings remain
+
+- **WHEN** the review decision is `APPROVE` but unresolved `high` findings remain
+- **THEN** the runtime SHALL keep the proposal blocked in place
+- **AND** it SHALL report a non-approved handoff state
+
+#### Scenario: Proposal review detects no-progress after repeated stagnant re-reviews
+
+- **WHEN** proposal re-review is stagnant for two consecutive rounds
+- **THEN** the runtime SHALL stop with `handoff.state = "no_progress"`
+- **AND** it SHALL not append an additional proposal review round
+
 #### Scenario: Proposal parse errors do not mutate the ledger
 
 - **WHEN** Codex output cannot be parsed as review JSON
@@ -120,6 +144,12 @@ and SHALL recommend the next slash command for the current review outcome.
 
 - **WHEN** the proposal ledger still has actionable findings after re-review
 - **THEN** `current-phase.md` SHALL recommend `/specflow`
+
+#### Scenario: Proposal current-phase output includes cap and stop metadata
+
+- **WHEN** proposal review updates `current-phase.md`
+- **THEN** the file SHALL include the current round, configured round cap,
+  latest decision, gate-blocking finding count, and any explicit stop reason
 
 #### Scenario: Design and apply ledgers recommend the next phase-specific action
 
