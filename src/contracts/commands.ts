@@ -31,7 +31,7 @@ function command(
 export const commandContracts: readonly CommandContract[] = [
 	command(
 		"specflow",
-		"URL またはインライン仕様記述から local proposal entry → scope → clarify → proposal review → validate を厳格に実行",
+		"URL またはインライン仕様記述から local proposal entry → scope → clarify → proposal review → spec delta draft → validate を厳格に実行",
 		[],
 		[
 			hook(
@@ -43,16 +43,16 @@ export const commandContracts: readonly CommandContract[] = [
 	),
 	command(
 		"specflow.design",
-		"proposal_ready から design artifacts を生成し、validate → review の strict gate で進める",
+		"spec_ready から design/tasks artifacts を生成し、design review gate を通して design_ready に進める",
 		["specflow.review_design"],
 		[
 			hook(
-				"Proposal Acceptance",
-				"Before generating design artifacts, only advance the run when proposal has reached proposal_ready.",
+				"Spec Acceptance",
+				"Before generating design artifacts, only advance the run when spec validation has reached spec_ready.",
 				[
 					'CURRENT_PHASE="$(specflow-run get-field "<CHANGE_ID>" current_phase 2>/dev/null || true)"',
-					'if [[ "$CURRENT_PHASE" == "proposal_ready" ]]; then',
-					'  specflow-run advance "<CHANGE_ID>" accept_proposal',
+					'if [[ "$CURRENT_PHASE" == "spec_ready" ]]; then',
+					'  specflow-run advance "<CHANGE_ID>" accept_spec',
 					"fi",
 				].join("\n"),
 			),

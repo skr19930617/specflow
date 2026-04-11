@@ -62,12 +62,22 @@ gates.
   before `specflow-run start`
 - **AND** it SHALL include `specflow-run advance "<CHANGE_ID>" propose`
 
-#### Scenario: Design validates before review
+#### Scenario: Proposal guide drafts and validates spec deltas before design
+
+- **WHEN** generated `specflow.md` is read
+- **THEN** it SHALL place `openspec instructions specs --change "<CHANGE_ID>" --json`
+  before `openspec validate "<CHANGE_ID>" --type change --json`
+- **AND** it SHALL include `specflow-run advance "<CHANGE_ID>" validate_spec`
+- **AND** it SHALL not offer `/specflow.design` before the run reaches
+  `spec_ready`
+
+#### Scenario: Design starts from spec_ready and enters review directly
 
 - **WHEN** generated `specflow.design.md` is read
-- **THEN** it SHALL place `openspec validate "<CHANGE_ID>" --type change --json`
-  before the design review gate
-- **AND** it SHALL not document a continue-on-validation-error path
+- **THEN** it SHALL describe `spec_ready` as the entry phase
+- **AND** it SHALL enter the design review gate with
+  `specflow-run advance "<CHANGE_ID>" review_design`
+- **AND** it SHALL not document `openspec validate "<CHANGE_ID>" --type change --json`
 
 #### Scenario: Apply gates approval behind apply_ready
 

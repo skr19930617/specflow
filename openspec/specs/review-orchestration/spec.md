@@ -111,10 +111,10 @@ and SHALL fall back to built-in defaults when the keys are absent or invalid.
 Review runtimes SHALL render `current-phase.md` from the latest ledger snapshot
 and SHALL recommend the next slash command for the current review outcome.
 
-#### Scenario: Proposal review with no actionable findings recommends design
+#### Scenario: Proposal review with no actionable findings recommends specflow continuation
 
 - **WHEN** the proposal ledger has zero actionable findings
-- **THEN** `current-phase.md` SHALL recommend `/specflow.design`
+- **THEN** `current-phase.md` SHALL recommend `/specflow`
 
 #### Scenario: Proposal re-review with findings recommends proposal work
 

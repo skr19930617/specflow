@@ -1,6 +1,6 @@
 import { createMachine } from "xstate";
 
-export const workflowVersion = "3.0";
+export const workflowVersion = "4.0";
 
 const workflowMachineConfig = {
 	id: "specflow-workflow",
@@ -34,34 +34,34 @@ const workflowMachineConfig = {
 		},
 		proposal_review: {
 			on: {
-				proposal_review_approved: { target: "proposal_validate" },
+				proposal_review_approved: { target: "spec_draft" },
 				revise_proposal: { target: "proposal_clarify" },
 				reject: { target: "rejected" },
 			},
 		},
-		proposal_validate: {
+		spec_draft: {
 			on: {
 				revise_proposal: { target: "proposal_clarify" },
-				proposal_validated: { target: "proposal_ready" },
+				validate_spec: { target: "spec_validate" },
 				reject: { target: "rejected" },
 			},
 		},
-		proposal_ready: {
+		spec_validate: {
 			on: {
-				accept_proposal: { target: "design_draft" },
+				revise_spec: { target: "spec_draft" },
+				spec_validated: { target: "spec_ready" },
+				reject: { target: "rejected" },
+			},
+		},
+		spec_ready: {
+			on: {
+				accept_spec: { target: "design_draft" },
 				reject: { target: "rejected" },
 			},
 		},
 		design_draft: {
 			on: {
-				validate_design: { target: "design_validate" },
-				reject: { target: "rejected" },
-			},
-		},
-		design_validate: {
-			on: {
-				design_validated: { target: "design_review" },
-				revise_design: { target: "design_draft" },
+				review_design: { target: "design_review" },
 				reject: { target: "rejected" },
 			},
 		},
@@ -127,10 +127,11 @@ const workflowEventOrder = [
 	"review_proposal",
 	"proposal_review_approved",
 	"revise_proposal",
-	"proposal_validated",
-	"accept_proposal",
-	"validate_design",
-	"design_validated",
+	"validate_spec",
+	"revise_spec",
+	"spec_validated",
+	"accept_spec",
+	"review_design",
 	"revise_design",
 	"design_review_approved",
 	"accept_design",

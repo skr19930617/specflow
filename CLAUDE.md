@@ -13,10 +13,10 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 
 | コマンド                  | 役割                                                                     |
 | ------------------------- | ------------------------------------------------------------------------ |
-| `/specflow <issue-url>`   | issue → proposal → clarify → validate（OpenSpec CLI 連携）               |
+| `/specflow <issue-url>`   | issue → proposal → clarify → spec delta draft → validate（OpenSpec CLI 連携） |
 | `/specflow.spec`          | 既存コードベースを解析し、openspec/specs/ にベースライン spec を一括生成 |
 | `/specflow.explore`       | OpenSpec explore ベースの自由対話 → GitHub issue 起票                    |
-| `/specflow.design`        | design → tasks → Codex design review（OpenSpec CLI 連携）                |
+| `/specflow.design`        | design → tasks → Codex design review（spec_ready から開始）              |
 | `/specflow.review_design` | Codex design/tasks review を単独実行                                     |
 | `/specflow.fix_design`    | design/tasks のレビュー指摘を修正 → Codex re-review                      |
 | `/specflow.apply`         | implement → Codex impl review（OpenSpec CLI 連携）                       |
@@ -40,7 +40,7 @@ This project uses [specflow](https://github.com/skr19930617/specflow) for issue-
 specflow は OpenSpec CLI を内部で呼び出し、artifact の生成・管理を行う。各フェーズは個別にも実行可能:
 
 - `/specflow.explore` — 自由対話 → GitHub issue 起票
-- `/specflow.design` — OpenSpec artifacts 生成 (specs, design, tasks)
+- `/specflow.design` — OpenSpec artifacts 生成 (design, tasks)
 - `/specflow.apply` — OpenSpec apply 指示に従い実装
 
 ### Review Ledger

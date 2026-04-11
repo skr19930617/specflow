@@ -12,17 +12,17 @@ import {
 } from "../lib/workflow-machine.js";
 
 test("workflow machine exports the exact detailed state graph", () => {
-	assert.equal(workflowVersion, "3.0");
+	assert.equal(workflowVersion, "4.0");
 	assert.deepEqual(workflowStates, [
 		"start",
 		"proposal_draft",
 		"proposal_scope",
 		"proposal_clarify",
 		"proposal_review",
-		"proposal_validate",
-		"proposal_ready",
+		"spec_draft",
+		"spec_validate",
+		"spec_ready",
 		"design_draft",
-		"design_validate",
 		"design_review",
 		"design_ready",
 		"apply_draft",
@@ -42,10 +42,11 @@ test("workflow machine exports the exact detailed state graph", () => {
 		"review_proposal",
 		"proposal_review_approved",
 		"revise_proposal",
-		"proposal_validated",
-		"accept_proposal",
-		"validate_design",
-		"design_validated",
+		"validate_spec",
+		"revise_spec",
+		"spec_validated",
+		"accept_spec",
+		"review_design",
 		"revise_design",
 		"design_review_approved",
 		"accept_design",
@@ -81,7 +82,7 @@ test("workflow machine exports the exact detailed state graph", () => {
 		{
 			from: "proposal_review",
 			event: "proposal_review_approved",
-			to: "proposal_validate",
+			to: "spec_draft",
 		},
 		{
 			from: "proposal_review",
@@ -90,39 +91,39 @@ test("workflow machine exports the exact detailed state graph", () => {
 		},
 		{ from: "proposal_review", event: "reject", to: "rejected" },
 		{
-			from: "proposal_validate",
+			from: "spec_draft",
 			event: "revise_proposal",
 			to: "proposal_clarify",
 		},
 		{
-			from: "proposal_validate",
-			event: "proposal_validated",
-			to: "proposal_ready",
+			from: "spec_draft",
+			event: "validate_spec",
+			to: "spec_validate",
 		},
-		{ from: "proposal_validate", event: "reject", to: "rejected" },
+		{ from: "spec_draft", event: "reject", to: "rejected" },
 		{
-			from: "proposal_ready",
-			event: "accept_proposal",
+			from: "spec_validate",
+			event: "revise_spec",
+			to: "spec_draft",
+		},
+		{
+			from: "spec_validate",
+			event: "spec_validated",
+			to: "spec_ready",
+		},
+		{ from: "spec_validate", event: "reject", to: "rejected" },
+		{
+			from: "spec_ready",
+			event: "accept_spec",
 			to: "design_draft",
 		},
-		{ from: "proposal_ready", event: "reject", to: "rejected" },
+		{ from: "spec_ready", event: "reject", to: "rejected" },
 		{
 			from: "design_draft",
-			event: "validate_design",
-			to: "design_validate",
-		},
-		{ from: "design_draft", event: "reject", to: "rejected" },
-		{
-			from: "design_validate",
-			event: "design_validated",
+			event: "review_design",
 			to: "design_review",
 		},
-		{
-			from: "design_validate",
-			event: "revise_design",
-			to: "design_draft",
-		},
-		{ from: "design_validate", event: "reject", to: "rejected" },
+		{ from: "design_draft", event: "reject", to: "rejected" },
 		{
 			from: "design_review",
 			event: "revise_design",
@@ -166,10 +167,10 @@ test("workflow machine final states are terminal and reject coverage is explicit
 		"proposal_scope",
 		"proposal_clarify",
 		"proposal_review",
-		"proposal_validate",
-		"proposal_ready",
+		"spec_draft",
+		"spec_validate",
+		"spec_ready",
 		"design_draft",
-		"design_validate",
 		"design_review",
 		"design_ready",
 		"apply_draft",
@@ -189,7 +190,7 @@ test("workflow mermaid diagram is generated from the machine", () => {
 	assert.ok(diagram.startsWith("stateDiagram-v2\n  [*] --> start"));
 	assert.ok(
 		diagram.includes(
-			"proposal_review --> proposal_validate: proposal_review_approved",
+			"proposal_review --> spec_draft: proposal_review_approved",
 		),
 	);
 	assert.ok(diagram.includes("apply_ready --> approved: accept_apply"));

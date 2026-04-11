@@ -147,11 +147,11 @@ test("specflow-run supports the full happy path from start to approved", () => {
 			["check_scope", "proposal_scope"],
 			["continue_proposal", "proposal_clarify"],
 			["review_proposal", "proposal_review"],
-			["proposal_review_approved", "proposal_validate"],
-			["proposal_validated", "proposal_ready"],
-			["accept_proposal", "design_draft"],
-			["validate_design", "design_validate"],
-			["design_validated", "design_review"],
+			["proposal_review_approved", "spec_draft"],
+			["validate_spec", "spec_validate"],
+			["spec_validated", "spec_ready"],
+			["accept_spec", "design_draft"],
+			["review_design", "design_review"],
 			["design_review_approved", "design_ready"],
 			["accept_design", "apply_draft"],
 			["review_apply", "apply_review"],
@@ -207,21 +207,26 @@ test("specflow-run supports proposal, design, and apply loop transitions", () =>
 		);
 		advancePhase(repoPath, changeId, "review_proposal");
 		advancePhase(repoPath, changeId, "proposal_review_approved");
-		advancePhase(repoPath, changeId, "proposal_validated");
-		advancePhase(repoPath, changeId, "accept_proposal");
-		advancePhase(repoPath, changeId, "validate_design");
+		assert.equal(
+			advancePhase(repoPath, changeId, "revise_proposal").current_phase,
+			"proposal_clarify",
+		);
+		advancePhase(repoPath, changeId, "review_proposal");
+		advancePhase(repoPath, changeId, "proposal_review_approved");
+		advancePhase(repoPath, changeId, "validate_spec");
+		assert.equal(
+			advancePhase(repoPath, changeId, "revise_spec").current_phase,
+			"spec_draft",
+		);
+		advancePhase(repoPath, changeId, "validate_spec");
+		advancePhase(repoPath, changeId, "spec_validated");
+		advancePhase(repoPath, changeId, "accept_spec");
+		advancePhase(repoPath, changeId, "review_design");
 		assert.equal(
 			advancePhase(repoPath, changeId, "revise_design").current_phase,
 			"design_draft",
 		);
-		advancePhase(repoPath, changeId, "validate_design");
-		advancePhase(repoPath, changeId, "design_validated");
-		assert.equal(
-			advancePhase(repoPath, changeId, "revise_design").current_phase,
-			"design_draft",
-		);
-		advancePhase(repoPath, changeId, "validate_design");
-		advancePhase(repoPath, changeId, "design_validated");
+		advancePhase(repoPath, changeId, "review_design");
 		advancePhase(repoPath, changeId, "design_review_approved");
 		advancePhase(repoPath, changeId, "accept_design");
 		advancePhase(repoPath, changeId, "review_apply");
@@ -263,7 +268,7 @@ test("specflow-run rejects invalid transitions and reports allowed events for de
 		advancePhase(repoPath, changeId, "check_scope");
 		const invalid = runNodeCli(
 			"specflow-run",
-			["advance", changeId, "proposal_validated"],
+			["advance", changeId, "spec_validated"],
 			repoPath,
 		);
 		assert.notEqual(invalid.status, 0);

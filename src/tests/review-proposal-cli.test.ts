@@ -72,9 +72,7 @@ test("specflow-review-proposal supports initial review success", () => {
 		);
 		assert.ok(currentPhase.includes("- Phase: proposal-review"));
 		assert.ok(currentPhase.includes("- Actionable Findings: 0"));
-		assert.ok(
-			currentPhase.includes("- Next Recommended Action: /specflow.design"),
-		);
+		assert.ok(currentPhase.includes("- Next Recommended Action: /specflow"));
 	} finally {
 		removeTempDir(tempRoot);
 	}

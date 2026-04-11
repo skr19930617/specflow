@@ -224,7 +224,7 @@ export function renderCurrentPhase(
 		kind === "proposal"
 			? actionable > 0
 				? "/specflow"
-				: "/specflow.design"
+				: "/specflow"
 			: kind === "apply"
 				? actionable > 0
 					? "/specflow.fix_apply"
