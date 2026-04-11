@@ -1,0 +1,305 @@
+{
+  "feature_id": "define-reusable-agent-context-template-and-repo-setup-generator",
+  "phase": "proposal",
+  "current_round": 7,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R6-F01",
+      "severity": "high",
+      "category": "risk",
+      "file": "proposal.md",
+      "title": "Legacy CLAUDE.md migration can leave duplicate conflicting guidance",
+      "detail": "The missing-marker migration path preserves the entire existing CLAUDE.md as unmanaged content and prepends a new managed block. For repos that already contain older generated specflow guidance mixed with manual edits, this can leave stale generated instructions alongside the new managed section, producing duplicated or contradictory agent context. Define a safe migration rule before design starts: either detect and replace legacy generated sections, require explicit user confirmation/manual migration when duplicates would remain, or block auto-migration in that case.",
+      "origin_round": 6,
+      "latest_round": 7,
+      "status": "open",
+      "relation": "same",
+      "supersedes": "R4-F02",
+      "notes": ""
+    },
+    {
+      "id": "R6-F02",
+      "severity": "medium",
+      "category": "validation",
+      "file": "proposal.md",
+      "title": "Validation lifecycle for editable profile.json is incomplete",
+      "detail": "The proposal requires schema validation during setup, but .specflow/profile.json is also described as a committed, manually editable shared artifact and is read by other flows such as specflow-init --update and renderer execution. The proposal does not state whether every profile read must validate the schema, or what failure behavior applies for an invalid but version-matching profile outside setup. Add a single validation contract for all profile read/render entry points and define the error path so designs do not diverge.",
+      "origin_round": 6,
+      "latest_round": 7,
+      "status": "open",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F01",
+      "severity": "medium",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Deterministic diff rules are underspecified for nested and collection fields",
+      "detail": "The rerun flow promises deterministic field-level diff-and-resolve behavior, but the proposal does not define the comparison unit for `commands`, `directories`, or array fields such as `forbiddenEditZones`. It is unclear whether conflicts are resolved per child key, per whole object, or per normalized array entry/order. Specify diff granularity and normalization rules so the update UX and persisted output can be designed consistently.",
+      "origin_round": 5,
+      "latest_round": 7,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R7-F01",
+      "severity": "high",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Repository detection and recovery rules are not deterministic",
+      "detail": "The proposal gives examples of in-scope and out-of-scope repositories and lists toolchain detection hints, but it does not define precedence when same-ecosystem signals conflict (for example multiple lockfiles or multiple Python tool indicators), nor when a missing required field is recoverable by user input versus a hard out-of-scope abort. This leaves setup behavior ambiguous and likely to drift across implementations. Define exact detection precedence, conflict-as-error rules, and which failures can be resolved interactively.",
+      "origin_round": 7,
+      "latest_round": 7,
+      "status": "open",
+      "relation": "reframed",
+      "supersedes": "R5-F01",
+      "notes": ""
+    },
+    {
+      "id": "R4-F02",
+      "severity": "medium",
+      "category": "risk",
+      "file": "proposal.md",
+      "title": "Version-mismatch and migration behavior is not defined tightly enough",
+      "detail": "The proposal introduces `schemaVersion`, version checks, auto-rendering after `setup`, and auto-rendering during `specflow-init --update`, but only specifies a warning when profile and template expectations differ. It does not say whether rendering must stop, which command owns migration, what happens to an incompatible existing profile, or how failures are surfaced without corrupting `CLAUDE.md`. This lifecycle needs explicit rules to avoid divergent update behavior.",
+      "origin_round": 4,
+      "latest_round": 6,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F01",
+      "severity": "high",
+      "category": "consistency",
+      "file": "proposal.md",
+      "title": "Repository scope conflicts with the proposed schema",
+      "detail": "The proposal says polyglot repos are out of scope, but later explicitly allows a single-root repo with multiple languages such as TypeScript + Python. The schema cannot represent that case cleanly because it has only one `packageManager` and one shared `commands` object. Design cannot proceed safely until this boundary is made consistent. Either keep single-root multi-language repos out of scope, or expand the schema and setup rules to model multiple ecosystems/toolchains explicitly.",
+      "origin_round": 4,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F02",
+      "severity": "medium",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "Out-of-scope repository detection has no explicit setup behavior",
+      "detail": "The proposal declares monorepos, multi-workspace repos, and polyglot repos out of scope, but does not say how `setup` should behave when it encounters one of those cases or ambiguous root detection. Design needs an explicit boundary behavior such as hard fail, warning with manual override, or no profile write, otherwise analyzer behavior and user experience will drift.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F03",
+      "severity": "medium",
+      "category": "validation",
+      "file": "proposal.md",
+      "title": "CLAUDE.md preservation rules lack a deterministic managed/unmanaged boundary",
+      "detail": "Migration and rerendering depend on preserving `## MANUAL ADDITIONS` and unknown sections, but the proposal does not define how the renderer identifies managed sections, handles reordered or duplicated headings, or behaves when the existing file no longer matches the expected template structure. Without a stable boundary contract, design and validation will drift. Define explicit markers/anchors or another deterministic parse contract, plus fallback behavior for malformed or heavily customized files.",
+      "origin_round": 3,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "proposal.md",
+      "title": "Setup と profile 生成の受け入れ条件が設計可能な粒度まで定義されていない",
+      "detail": "`setup` が repository profile を解析・生成するとあるが、初回生成、再実行、既存 `.specflow/profile.json` 更新、検出失敗時、手動修正済み profile の扱いが未定義。schema validation は構造しか保証せず、内容の妥当性や fallback の挙動は決められない。主要シナリオごとに required/optional 項目、unknown の扱い、merge/overwrite ルール、成功条件を acceptance criteria として明記する必要がある。",
+      "origin_round": 1,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F01",
+      "severity": "high",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Manual-edit detection and rerun scenarios are not implementable as written",
+      "detail": "The proposal separates rerun behavior into 'manual editsなし' and 'manual editsあり' paths, but it also explicitly avoids storing `_source` metadata and does not define any other provenance mechanism. Comparing the existing profile with fresh analyzer output cannot reliably distinguish user edits from legitimate repository changes. This needs a concrete detection model (for example stored analyzer snapshot/provenance metadata) or the scenarios should be collapsed into one deterministic diff-and-resolve flow.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R2-F01",
+      "notes": ""
+    },
+    {
+      "id": "R3-F02",
+      "severity": "medium",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "Supported repository shapes are unclear",
+      "detail": "The schema and setup flow appear repo-global, but the proposal uses `languages` as multi-valued while `packageManager` is singular and command fields are singletons. That leaves monorepos, multi-workspace repos, and polyglot repos underspecified. The proposal should either declare an explicit initial boundary (for example single-root repos only) or extend the profile model to represent per-workspace/package-manager data.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F01",
+      "severity": "medium",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Renderer/update lifecycle is not clearly assigned",
+      "detail": "The proposal introduces a Claude adapter that renders from `profile.json`, but the setup scenarios only describe profile generation/update, while distribution is said to stay in the existing `specflow-init` flow. Specify which command regenerates `CLAUDE.md`, when rerendering happens after profile changes, and how stale templates/adapters are detected during migration to avoid split responsibilities in design.",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R1-F02",
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "high",
+      "category": "consistency",
+      "file": "proposal.md",
+      "title": "Surface 非依存という目標と `CLAUDE.md` 中心の成果物定義が噛み合っていない",
+      "detail": "提案は agent/surface 非依存の reusable context template を掲げる一方、変更対象は `CLAUDE.md` template とその参照構造に集中している。surface-neutral な中間表現を導入するのか、Claude 向け template を整理するだけなのかが不明で、core/adapter/local surface 境界を設計できない。今回の scope を `surface-neutral model + Claude renderer` か `Claude surface 限定` のどちらかで明示する必要がある。",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "risk",
+      "file": "proposal.md",
+      "title": "既存リポジトリへの移行方針と互換性前提が欠けている",
+      "detail": "既存の `CLAUDE.md` カスタマイズ、`specflow-init` 既存導入済み repo、将来の profile schema 変更に対する移行戦略が記載されていない。ここがないと設計で後方互換や versioning が後回しになり、導入時に spec drift が起きやすい。既存ファイルの扱い、generated file の version 管理、手動編集可否、再生成/アップグレード方針を追加すべき。",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "clarity",
+      "file": "proposal.md",
+      "title": "Context layering model の責務分離と優先順位が未定義",
+      "detail": "global invariants / project profile / phase contract / runtime task / evidence という層名は示されているが、各層に何を保持し、何を参照し、最終 context にどう合成するかが定義されていない。衝突時の優先順位や禁止事項もないため、template 設計・schema 設計・runtime composition が実装ごとに分岐する。各 layer の ownership、参照方法、override 規則を normative に追加すべき。",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 4,
+      "new": 0,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 2
+      }
+    },
+    {
+      "round": 3,
+      "total": 8,
+      "open": 4,
+      "new": 2,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 2
+      }
+    },
+    {
+      "round": 4,
+      "total": 10,
+      "open": 3,
+      "new": 2,
+      "resolved": 7,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "high": 1
+      }
+    },
+    {
+      "round": 5,
+      "total": 12,
+      "open": 4,
+      "new": 2,
+      "resolved": 8,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 3,
+        "high": 1
+      }
+    },
+    {
+      "round": 6,
+      "total": 14,
+      "open": 3,
+      "new": 1,
+      "resolved": 11,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "high": 1
+      }
+    },
+    {
+      "round": 7,
+      "total": 15,
+      "open": 3,
+      "new": 0,
+      "resolved": 12,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      }
+    }
+  ]
+}

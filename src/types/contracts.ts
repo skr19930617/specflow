@@ -176,7 +176,8 @@ export type SchemaId =
 	| "review-proposal-result"
 	| "run-state"
 	| "create-sub-issues-input"
-	| "create-sub-issues-result";
+	| "create-sub-issues-result"
+	| "profile";
 
 export type ReviewSeverity = "high" | "medium" | "low" | string;
 export type ReviewFindingStatus =

@@ -703,14 +703,13 @@ export const commandBodies: Record<string, CommandBody> = {
 	},
 	"specflow.setup": {
 		frontmatter: {
-			description:
-				"CLAUDE.md をインタラクティブに設定（Tech Stack, Commands, Code Style）",
+			description: "Repository profile を解析・生成し、CLAUDE.md を更新する",
 		},
 		sections: [
 			{
 				title: "Overview",
 				content:
-					"\nプロジェクトの CLAUDE.md をインタラクティブに設定する。\nユーザーに質問しながら Tech Stack、Commands、Code Style セクションを埋める。",
+					"\nリポジトリのエコシステムを検出し、構造化された project profile (`.specflow/profile.json`) を生成する。\n生成後、Claude adapter が profile から CLAUDE.md の managed セクションを自動レンダリングする。",
 			},
 			{
 				title: "Prerequisites",
@@ -718,34 +717,34 @@ export const commandBodies: Record<string, CommandBody> = {
 					'\n1. Run `ls CLAUDE.md` via Bash to confirm CLAUDE.md exists.\n   - If missing: "`CLAUDE.md` が見つかりません。先に `specflow-init` を実行してください。" → **STOP**.\n\n2. Read the current `CLAUDE.md` file to understand existing content.',
 			},
 			{
-				title: "Step 1: Analyze Project [1/4]",
+				title: "Step 1: Scope & Ecosystem Detection",
 				content:
-					"\nAutomatically detect what you can from the project:\n\n1. Check for common config files to infer the tech stack:\n   - `package.json` → Node.js / npm project (read to get dependencies, scripts)\n   - `tsconfig.json` → TypeScript\n   - `pyproject.toml` or `requirements.txt` → Python\n   - `Cargo.toml` → Rust\n   - `go.mod` → Go\n   - `Gemfile` → Ruby\n   - `*.csproj` or `*.sln` → C# / .NET\n   - `build.gradle` or `pom.xml` → Java / Kotlin\n\n2. Check for build/test/lint tooling:\n   - Read `package.json` scripts if present\n   - Check for `Makefile`, `justfile`, `taskfile.yml`\n   - Check for `.eslintrc*`, `prettier.config.*`, `biome.json`\n   - Check for CI config (`.github/workflows/`, `.gitlab-ci.yml`)\n\n3. Check for existing code style patterns:\n   - Linter configs\n   - `.editorconfig`\n   - Existing code conventions (sample a few source files)\n\nReport what you found:\n\n```\n[1/4] プロジェクト解析完了\n\n検出:\n  言語: TypeScript 5.x\n  フレームワーク: React 19, Next.js 15\n  ランタイム: Node.js 22\n  パッケージマネージャ: pnpm\n  テスト: vitest\n  リンター: ESLint, Prettier\n  ...\n```",
+					"\nリポジトリルートでエコシステム検出を実行する。\n\n**検出マトリクス（優先順）:**\n1. `package.json` → JavaScript/TypeScript（lockfile で toolchain 判定: npm/pnpm/yarn/bun）\n2. `Cargo.toml`（`[workspace]` なし）→ Rust / cargo\n3. `go.mod` → Go / go\n4. `pyproject.toml` → Python（uv.lock/poetry.lock で toolchain 判定: uv/poetry/pip）\n\n**Out-of-scope 判定:**\n- Primary indicator が2つ以上 → エラー終了\n- Workspace 定義あり（`pnpm-workspace.yaml`, `Cargo.toml [workspace]`, `lerna.json`）→ エラー終了\n- Primary indicator なし → エラー終了\n- 同一エコシステム内で toolchain 曖昧 → ユーザーに選択を求める\n\nOut-of-scope の場合:\n```\nこのリポジトリ構成は現在のバージョンではサポートされていません。\n単一言語・単一ルートのリポジトリで setup を実行してください。\n```\n→ **STOP**.\n\n検出結果を報告:\n```\n[1/5] エコシステム検出完了\n\n言語: typescript\nツールチェーン: npm\nビルド: npm run build\nテスト: npm test\nリント: npm run lint\nフォーマット: npm run format\nソース: src/\nテスト: tests/\n生成物: dist/\n```\n\nユーザーに確認: 「検出結果を確認してください。修正があれば教えてください。」",
 			},
 			{
-				title: "Step 2: Tech Stack の確認 [2/4]",
+				title: "Step 2: Profile Load / Migration / Diff-and-Resolve",
 				content:
-					"\n検出した内容をもとに、ユーザーに確認する:\n\n**質問:**\n「Tech Stack を以下で設定します。追加・修正があれば教えてください。」\n\n検出した tech stack を箇条書きで提示する。\n\nユーザーの回答を待つ。修正があれば反映する。",
+					"\n**初回生成（`.specflow/profile.json` なし）:**\nStep 1 の検出結果からプロファイルを組み立て、ユーザーに確認する。\n\n追加で以下を質問:\n- 「編集禁止ゾーン（生成ファイル等）はありますか？」→ `forbiddenEditZones`\n- 「contract-sensitive なモジュールはありますか？」→ `contractSensitiveModules`\n- 「コーディング規約はありますか？」→ `codingConventions`\n- 「変更後の検証期待事項はありますか？」→ `verificationExpectations`\n\nスキップ可能（null として記録）。\n\n**再実行（既存 profile あり）:**\n`loadProfileForSetup()` で読み込む:\n- 古い schemaVersion → 自動 migration → ユーザー確認\n- 現在の schemaVersion → field-level diff\n  - 変更なし → 「変更は検出されませんでした。」で終了\n  - 差分あり → 各差分をユーザーに提示し、accept/reject を選択\n\nRequired 項目（`languages`, `toolchain`）が検出できない場合は対話的に入力を求め、入力完了までブロックする。",
 			},
 			{
-				title: "Step 3: Commands の確認 [3/4]",
+				title: "Step 3: Schema Validation & Profile Write",
 				content:
-					"\n検出したビルド・テスト・リントコマンドをもとに確認:\n\n**質問:**\n「以下のコマンドを CLAUDE.md に設定します。追加・修正があれば教えてください。」\n\n```\nビルド:  npm run build\nテスト:  npm test\nリント:  npm run lint\nフォーマット: npm run format\n```\n\nユーザーの回答を待つ。\n\nさらに聞く:\n「他に Claude が知っておくべきコマンド（デプロイ、DB マイグレーション、コード生成など）はありますか？なければ Enter で進みます。」",
+					"\n確定したプロファイルを schema validation にかける。\n\nValidation 失敗時:\n- エラー詳細を表示\n- ユーザーに修正を促す\n- 再度 validation を実行\n\nValidation 成功時:\n- `.specflow/profile.json` に atomic write で書き出す\n- 書き出し完了を報告:\n```\n[3/5] Profile 生成完了: .specflow/profile.json\n```",
 			},
 			{
-				title: "Step 4: Code Style の確認 [4/4]",
+				title: "Step 4: Claude Adapter Render Planning",
 				content:
-					"\n検出したスタイル設定をもとに確認:\n\n**質問:**\n「コーディング規約について、以下を確認させてください:」\n\n1. 「命名規則に特別なルールはありますか？（例: コンポーネントは PascalCase、ユーティリティは camelCase）」\n2. 「インポート順序のルールはありますか？」\n3. 「コメント言語は日本語・英語どちらですか？」\n4. 「その他 Claude に守ってほしいコーディングルールがあれば教えてください。なければ Enter で進みます。」\n\n各質問をまとめて聞き、ユーザーの回答を待つ。",
+					"\nProfile から CLAUDE.md の managed セクションをレンダリングする。\n\nRenderer は `RenderResult` を返す:\n- `nextContent`: 提案される CLAUDE.md の内容\n- `warning`: 警告メッセージ（あれば）\n- `diffPreview`: 変更の diff プレビュー\n- `writeDisposition`: `safe-write` | `confirmation-required` | `abort`",
 			},
 			{
-				title: "Step 5: CLAUDE.md を更新",
+				title: "Step 5: CLAUDE.md Write Gate",
 				content:
-					"\nユーザーの回答をもとに CLAUDE.md を更新する。\n\n**更新ルール:**\n\n- `## specflow Integration` セクション（先頭〜`## Tech Stack` の直前）は **変更しない**\n- `## Tech Stack` セクションの HTML コメント (`<!-- ... -->`) を削除し、実際の内容で置き換える\n- `## Commands` セクションも同様に置き換える\n- `## Code Style` セクションも同様に置き換える\n- `## MANUAL ADDITIONS` セクションは **変更しない**（既存内容があればそのまま残す）\n- 既にユーザーが記入済みの内容がある場合、上書き前に確認する\n\n更新後、差分を表示してユーザーに確認:\n\n```\nCLAUDE.md を更新しました:\n\n  ## Tech Stack\n  - TypeScript 5.x\n  - React 19, Next.js 15\n  - Node.js 22 LTS\n  - pnpm\n\n  ## Commands\n  - ビルド: pnpm build\n  - テスト: pnpm test\n  - リント: pnpm lint\n\n  ## Code Style\n  - ESLint + Prettier で自動フォーマット\n  - コメントは日本語\n  ...\n```",
+					"\nRenderer の `writeDisposition` に基づいて分岐する:\n\n**`safe-write`（マーカーあり、通常更新）:**\n- diff を表示して自動書き込み\n- 完了報告\n\n**`confirmation-required`（legacy migration）:**\n- warning を表示\n- diff プレビューを表示\n- ユーザーに accept/reject を求める\n- accept → CLAUDE.md を書き込み\n- reject → ファイルを変更しない\n\n**`abort`（マーカー異常 or version mismatch）:**\n- エラーメッセージを表示\n- CLAUDE.md を変更しない\n\n最終報告:\n```\n[5/5] Setup 完了\n\n生成されたファイル:\n  .specflow/profile.json\n  CLAUDE.md (updated)\n```",
 			},
 			{
 				title: "Important Rules",
 				content:
-					"\n- CLAUDE.md の `## specflow Integration` セクションは絶対に変更しない。\n- `## MANUAL ADDITIONS` セクションの既存内容を消さない。\n- 検出結果を鵜呑みにせず、必ずユーザーに確認してから書き込む。\n- ユーザーが「わからない」「あとで」と言ったセクションはコメントのまま残す。\n- 既に記入済みの CLAUDE.md に対して実行された場合、既存内容を表示して上書きするか確認する。",
+					"\n- Schema validation は profile 書き出し前に必ず実行する。\n- 検出結果を鵜呑みにせず、必ずユーザーに確認してから書き込む。\n- 検出できない項目は silent guess せず、`null` として記録するかユーザーに入力を求める。\n- Required 項目（languages, toolchain）は検出失敗時にブロックし、ユーザー入力を必須とする。\n- Setup のみが古い profile の schema migration を実行する。他の reader は version mismatch で中断する。\n- CLAUDE.md の書き込みは renderer の `writeDisposition` に従う。`confirmation-required` 時はユーザー確認なしに書き込まない。\n- `## MANUAL ADDITIONS` や managed マーカー外のコンテンツは一切変更しない。",
 			},
 		],
 	},

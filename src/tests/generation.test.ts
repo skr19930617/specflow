@@ -1,6 +1,6 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import test from "node:test";
 import { contracts } from "../contracts/install.js";
 import {
 	mergeProjectGitignore,
@@ -107,6 +107,9 @@ test("prompt templates render contract-driven output schemas", () => {
 });
 
 test("build emits a dist package for installer assets", () => {
+	assert.ok(existsSync("dist/lib/agent-context-template.js"));
+	assert.ok(existsSync("dist/lib/profile-schema.js"));
+	assert.ok(existsSync("dist/lib/claude-renderer.js"));
 	assert.ok(existsSync("dist/package/global/claude-settings.json"));
 	assert.ok(existsSync("dist/package/global/workflow/state-machine.json"));
 	assert.ok(existsSync("dist/package/global/prompts/review_design_prompt.md"));
@@ -119,6 +122,14 @@ test("build emits a dist package for installer assets", () => {
 	assert.ok(existsSync("dist/package/template/_specflow/config.env"));
 	assert.ok(existsSync("dist/package/template/CLAUDE.md"));
 	assert.equal(existsSync("template"), false);
+});
+
+test("packaged CLAUDE.md template ships managed markers and an unmanaged notes section", () => {
+	const templateClaude = readFileSync("dist/package/template/CLAUDE.md", "utf8");
+
+	assert.ok(templateClaude.startsWith("<!-- specflow:managed:start -->"));
+	assert.ok(templateClaude.includes("<!-- specflow:managed:end -->"));
+	assert.ok(templateClaude.includes("## MANUAL ADDITIONS"));
 });
 
 test("repo .gitignore matches the shared specflow ignore layout", () => {

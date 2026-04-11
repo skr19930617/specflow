@@ -196,7 +196,7 @@ export const commandContracts: readonly CommandContract[] = [
 	),
 	command(
 		"specflow.setup",
-		"CLAUDE.md をインタラクティブに設定（Tech Stack, Commands, Code Style）",
+		"Repository profile を生成・更新し、CLAUDE.md の managed セクションを再レンダリング",
 		[],
 	),
 	command(
