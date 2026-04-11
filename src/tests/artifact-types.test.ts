@@ -11,7 +11,6 @@ import {
 	isRunArtifactType,
 	MissingRequiredArtifactError,
 	ReviewLedgerKind,
-	RunArtifactType,
 	refQualifier,
 	reviewLedgerKinds,
 	runArtifactTypes,

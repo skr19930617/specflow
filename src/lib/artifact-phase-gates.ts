@@ -11,9 +11,7 @@ import {
 	type ChangeArtifactRef,
 	ChangeArtifactType,
 	changeRef,
-	type ReviewLedgerKind,
 	type RunArtifactRef,
-	RunArtifactType,
 	runRef,
 } from "./artifact-types.js";
 
@@ -30,20 +28,6 @@ function req(
 	type: "proposal" | "design" | "tasks" | "current-phase" | "approval-summary",
 ): ArtifactRequirement {
 	return { domain: "change", type };
-}
-
-function reqLedger(
-	qualifier: "proposal" | "design" | "apply",
-): ArtifactRequirement {
-	return {
-		domain: "change",
-		type: ChangeArtifactType.ReviewLedger,
-		qualifier: qualifier as typeof ReviewLedgerKind.Proposal,
-	};
-}
-
-function reqRunState(): ArtifactRequirement {
-	return { domain: "run", type: RunArtifactType.RunState };
 }
 
 // Gate matrix derived from current implicit checks across bins.

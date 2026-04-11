@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -9,7 +9,6 @@ import {
 	changeRef,
 	ReviewLedgerKind,
 	runRef,
-	UnknownArtifactTypeError,
 } from "../lib/artifact-types.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";

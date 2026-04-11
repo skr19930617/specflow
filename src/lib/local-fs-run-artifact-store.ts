@@ -9,7 +9,6 @@ import {
 	isRunArtifactType,
 	type RunArtifactQuery,
 	type RunArtifactRef,
-	RunArtifactType,
 	runRef,
 	UnknownArtifactTypeError,
 } from "./artifact-types.js";

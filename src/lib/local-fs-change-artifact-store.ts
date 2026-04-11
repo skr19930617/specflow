@@ -11,7 +11,6 @@ import {
 	ChangeArtifactType,
 	changeRef,
 	isChangeArtifactType,
-	isReviewLedgerKind,
 	type ReviewLedgerKind,
 	UnknownArtifactTypeError,
 } from "./artifact-types.js";
