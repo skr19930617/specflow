@@ -1,0 +1,222 @@
+// Canonical artifact type registry and identity types.
+// See openspec/changes/decide-artifact-ownership-and-storage-abstraction/specs/artifact-ownership-model/spec.md
+
+// --- Storage Domains ---
+
+export const ChangeArtifactType = {
+	Proposal: "proposal",
+	Design: "design",
+	Tasks: "tasks",
+	SpecDelta: "spec-delta",
+	ReviewLedger: "review-ledger",
+	CurrentPhase: "current-phase",
+	ApprovalSummary: "approval-summary",
+} as const;
+
+export type ChangeArtifactType =
+	(typeof ChangeArtifactType)[keyof typeof ChangeArtifactType];
+
+export const changeArtifactTypes: readonly ChangeArtifactType[] =
+	Object.values(ChangeArtifactType);
+
+export const RunArtifactType = {
+	RunState: "run-state",
+} as const;
+
+export type RunArtifactType =
+	(typeof RunArtifactType)[keyof typeof RunArtifactType];
+
+export const runArtifactTypes: readonly RunArtifactType[] =
+	Object.values(RunArtifactType);
+
+export const ReviewLedgerKind = {
+	Proposal: "proposal",
+	Design: "design",
+	Apply: "apply",
+} as const;
+
+export type ReviewLedgerKind =
+	(typeof ReviewLedgerKind)[keyof typeof ReviewLedgerKind];
+
+export const reviewLedgerKinds: readonly ReviewLedgerKind[] =
+	Object.values(ReviewLedgerKind);
+
+// --- Singleton change artifact types (no qualifier) ---
+
+export type SingletonChangeArtifactType =
+	| typeof ChangeArtifactType.Proposal
+	| typeof ChangeArtifactType.Design
+	| typeof ChangeArtifactType.Tasks
+	| typeof ChangeArtifactType.CurrentPhase
+	| typeof ChangeArtifactType.ApprovalSummary;
+
+// --- Concrete Artifact References (identified artifacts) ---
+
+export type ChangeArtifactRef =
+	| {
+			readonly changeId: string;
+			readonly type: SingletonChangeArtifactType;
+	  }
+	| {
+			readonly changeId: string;
+			readonly type: typeof ChangeArtifactType.SpecDelta;
+			readonly qualifier: string;
+	  }
+	| {
+			readonly changeId: string;
+			readonly type: typeof ChangeArtifactType.ReviewLedger;
+			readonly qualifier: ReviewLedgerKind;
+	  };
+
+export interface RunArtifactRef {
+	readonly runId: string;
+	readonly type: typeof RunArtifactType.RunState;
+}
+
+// --- Query / Descriptor Types (for list operations, no concrete identity yet) ---
+
+export interface ChangeArtifactQuery {
+	readonly changeId: string;
+	readonly type: ChangeArtifactType;
+}
+
+export interface RunArtifactQuery {
+	readonly changeId?: string;
+}
+
+// --- Artifact Requirement (for static gate matrix, no runtime values) ---
+
+export type ArtifactRequirement =
+	| {
+			readonly domain: "change";
+			readonly type: SingletonChangeArtifactType;
+	  }
+	| {
+			readonly domain: "change";
+			readonly type: typeof ChangeArtifactType.SpecDelta;
+			readonly qualifierFrom: "specName";
+	  }
+	| {
+			readonly domain: "change";
+			readonly type: typeof ChangeArtifactType.ReviewLedger;
+			readonly qualifier: ReviewLedgerKind;
+	  }
+	| {
+			readonly domain: "run";
+			readonly type: typeof RunArtifactType.RunState;
+	  };
+
+// --- Type Guards ---
+
+export function isChangeArtifactType(
+	value: string,
+): value is ChangeArtifactType {
+	return changeArtifactTypes.includes(value as ChangeArtifactType);
+}
+
+export function isRunArtifactType(value: string): value is RunArtifactType {
+	return runArtifactTypes.includes(value as RunArtifactType);
+}
+
+export function isReviewLedgerKind(value: string): value is ReviewLedgerKind {
+	return reviewLedgerKinds.includes(value as ReviewLedgerKind);
+}
+
+// --- Ref Constructors ---
+
+export function changeRef(
+	changeId: string,
+	type: SingletonChangeArtifactType,
+): ChangeArtifactRef;
+export function changeRef(
+	changeId: string,
+	type: typeof ChangeArtifactType.SpecDelta,
+	qualifier: string,
+): ChangeArtifactRef;
+export function changeRef(
+	changeId: string,
+	type: typeof ChangeArtifactType.ReviewLedger,
+	qualifier: ReviewLedgerKind,
+): ChangeArtifactRef;
+export function changeRef(
+	changeId: string,
+	type: ChangeArtifactType,
+	qualifier?: string,
+): ChangeArtifactRef {
+	if (type === ChangeArtifactType.SpecDelta) {
+		return { changeId, type, qualifier: qualifier as string };
+	}
+	if (type === ChangeArtifactType.ReviewLedger) {
+		return { changeId, type, qualifier: qualifier as ReviewLedgerKind };
+	}
+	return { changeId, type: type as SingletonChangeArtifactType };
+}
+
+export function runRef(runId: string): RunArtifactRef {
+	return { runId, type: RunArtifactType.RunState };
+}
+
+// --- Ref Qualifier Accessor ---
+
+export function refQualifier(ref: ChangeArtifactRef): string | undefined {
+	if ("qualifier" in ref) {
+		return ref.qualifier;
+	}
+	return undefined;
+}
+
+// --- Typed Errors ---
+
+export class ArtifactNotFoundError extends Error {
+	readonly ref: ChangeArtifactRef | RunArtifactRef;
+	constructor(ref: ChangeArtifactRef | RunArtifactRef) {
+		const id =
+			"changeId" in ref
+				? `(${ref.changeId}, ${ref.type}${"qualifier" in ref ? `, ${ref.qualifier}` : ""})`
+				: `(${ref.runId}, ${ref.type})`;
+		super(`Artifact not found: ${id}`);
+		this.name = "ArtifactNotFoundError";
+		this.ref = ref;
+	}
+}
+
+export class UnknownArtifactTypeError extends Error {
+	readonly artifactType: string;
+	constructor(artifactType: string) {
+		super(`Unknown artifact type: ${artifactType}`);
+		this.name = "UnknownArtifactTypeError";
+		this.artifactType = artifactType;
+	}
+}
+
+export class ArtifactSchemaValidationError extends Error {
+	readonly ref: ChangeArtifactRef | RunArtifactRef;
+	readonly validationErrors: readonly string[];
+	constructor(
+		ref: ChangeArtifactRef | RunArtifactRef,
+		validationErrors: readonly string[],
+	) {
+		super(`Artifact schema validation failed: ${validationErrors.join(", ")}`);
+		this.name = "ArtifactSchemaValidationError";
+		this.ref = ref;
+		this.validationErrors = validationErrors;
+	}
+}
+
+export class MissingRequiredArtifactError extends Error {
+	readonly requirement: ArtifactRequirement;
+	readonly context: { changeId?: string; runId?: string };
+	constructor(
+		requirement: ArtifactRequirement,
+		context: { changeId?: string; runId?: string },
+	) {
+		const desc =
+			requirement.domain === "change"
+				? `(${context.changeId ?? "?"}, ${requirement.type}${"qualifier" in requirement ? `, ${requirement.qualifier}` : ""})`
+				: `(${context.runId ?? "?"}, ${requirement.type})`;
+		super(`Missing required artifact for phase transition: ${desc}`);
+		this.name = "MissingRequiredArtifactError";
+		this.requirement = requirement;
+		this.context = context;
+	}
+}
