@@ -1,10 +1,10 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import test from "node:test";
 import {
-	createSourceFile,
 	createFixtureRepo,
+	createSourceFile,
 	makeTempDir,
 	normalizeRunState,
 	readFixtureJson,
@@ -25,6 +25,8 @@ test("specflow-run matches archived start/propose fixtures", () => {
 		const startFixture = readFixtureJson("specflow-run/start.json");
 		const advanceFixture = readFixtureJson("specflow-run/advance.json");
 
+		const runId = `${changeId}-1`;
+
 		const nodeStart = runNodeCli(
 			"specflow-run",
 			["start", changeId, "--source-file", sourceFile],
@@ -35,7 +37,7 @@ test("specflow-run matches archived start/propose fixtures", () => {
 		assert.deepEqual(
 			normalizeRunState(
 				readFileSync(
-					join(repoPath, ".specflow/runs", changeId, "run.json"),
+					join(repoPath, ".specflow/runs", runId, "run.json"),
 					"utf8",
 				),
 			),
@@ -44,7 +46,7 @@ test("specflow-run matches archived start/propose fixtures", () => {
 
 		const nodeAdvance = runNodeCli(
 			"specflow-run",
-			["advance", changeId, "propose"],
+			["advance", runId, "propose"],
 			repoPath,
 		);
 
@@ -53,7 +55,7 @@ test("specflow-run matches archived start/propose fixtures", () => {
 		assert.deepEqual(
 			normalizeRunState(
 				readFileSync(
-					join(repoPath, ".specflow/runs", changeId, "run.json"),
+					join(repoPath, ".specflow/runs", runId, "run.json"),
 					"utf8",
 				),
 			),

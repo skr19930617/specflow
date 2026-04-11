@@ -1,9 +1,9 @@
 {
-	"run_id": "test-change",
+	"run_id": "test-change-1",
 	"change_name": "test-change",
 	"current_phase": "proposal_draft",
 	"status": "active",
-	"allowed_events": ["check_scope", "reject"],
+	"allowed_events": ["check_scope", "reject", "suspend"],
 	"source": {
 		"kind": "url",
 		"provider": "github",
@@ -24,5 +24,6 @@
 			"to": "proposal_draft",
 			"event": "propose"
 		}
-	]
+	],
+	"previous_run_id": null
 }

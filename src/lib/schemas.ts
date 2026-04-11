@@ -24,6 +24,7 @@ import type {
 	RunAgents,
 	RunHistoryEntry,
 	RunState,
+	RunStatus,
 	SchemaId,
 	SourceMetadata,
 } from "../types/contracts.js";
@@ -822,6 +823,24 @@ function runStateValidator(
 	) {
 		push(errors, `${path}.run_kind`, "must be change or synthetic.");
 	}
+	if (record.previous_run_id !== undefined && record.previous_run_id !== null) {
+		stringValidator(record.previous_run_id, `${path}.previous_run_id`, errors);
+	}
+	if (
+		record.status !== undefined &&
+		record.status !== "active" &&
+		record.status !== "suspended" &&
+		record.status !== "terminal"
+	) {
+		push(errors, `${path}.status`, "must be active, suspended, or terminal.");
+	}
+	if (record.run_kind === "change" && record.change_name === null) {
+		push(
+			errors,
+			`${path}.change_name`,
+			"must be a non-null string when run_kind is change.",
+		);
+	}
 }
 
 function createSubIssueInputItemValidator(
@@ -1063,5 +1082,6 @@ export type {
 	RunAgents,
 	RunHistoryEntry,
 	RunState,
+	RunStatus,
 	SourceMetadata,
 };

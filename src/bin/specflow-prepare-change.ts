@@ -8,12 +8,12 @@ import {
 	resolveCommand,
 	tryExec,
 } from "../lib/process.js";
-import { parseSchemaJson } from "../lib/schemas.js";
 import {
 	deriveChangeId,
 	readProposalSourceFile,
 	renderSeededProposal,
 } from "../lib/proposal-source.js";
+import { parseSchemaJson } from "../lib/schemas.js";
 import type { ProposalSource, RunState } from "../types/contracts.js";
 
 const HELP_TEXT = `Usage: specflow-prepare-change [CHANGE_ID] --source-file <path> [--agent-main <name>] [--agent-review <name>]
@@ -166,6 +166,38 @@ function ensureProposalDraft(
 	);
 }
 
+function findExistingNonTerminalRun(
+	root: string,
+	changeId: string,
+): RunState | null {
+	const runsPath = resolve(root, ".specflow/runs");
+	try {
+		const { readdirSync } = require("node:fs") as typeof import("node:fs");
+		const entries = readdirSync(runsPath);
+		const prefix = `${changeId}-`;
+		const matchingDirs = entries
+			.filter((entry: string) => entry.startsWith(prefix))
+			.sort();
+		for (let idx = matchingDirs.length - 1; idx >= 0; idx--) {
+			const dirName = matchingDirs[idx]!;
+			const result = specflowRun(["status", dirName], root);
+			if (result.status === 0) {
+				const state = parseSchemaJson<RunState>(
+					"run-state",
+					result.stdout,
+					`specflow-run status ${dirName}`,
+				);
+				if (state.status !== "terminal") {
+					return state;
+				}
+			}
+		}
+	} catch {
+		// runs dir doesn't exist yet — that's fine
+	}
+	return null;
+}
+
 function ensureRunStarted(
 	root: string,
 	changeId: string,
@@ -173,13 +205,10 @@ function ensureRunStarted(
 	agentMain: string | null,
 	agentReview: string | null,
 ): RunState {
-	const existing = specflowRun(["status", changeId], root);
-	if (existing.status === 0) {
-		return parseSchemaJson<RunState>(
-			"run-state",
-			existing.stdout,
-			`specflow-run status ${changeId}`,
-		);
+	// Check for existing non-terminal run for this change
+	const existing = findExistingNonTerminalRun(root, changeId);
+	if (existing) {
+		return existing;
 	}
 	const args = ["start", changeId, "--source-file", sourceFile];
 	if (agentMain) {
@@ -203,24 +232,25 @@ function ensureRunStarted(
 
 function ensureProposalPhase(
 	root: string,
-	changeId: string,
+	_changeId: string,
 	state: RunState,
 ): RunState {
 	if (state.current_phase !== "start") {
 		return state;
 	}
-	const advance = specflowRun(["advance", changeId, "propose"], root);
+	const runId = state.run_id;
+	const advance = specflowRun(["advance", runId, "propose"], root);
 	if (advance.status !== 0) {
 		fail(
 			advance.stderr ||
 				advance.stdout ||
-				`specflow-run advance ${changeId} propose failed`,
+				`specflow-run advance ${runId} propose failed`,
 		);
 	}
 	return parseSchemaJson<RunState>(
 		"run-state",
 		advance.stdout,
-		`specflow-run advance ${changeId} propose`,
+		`specflow-run advance ${runId} propose`,
 	);
 }
 

@@ -1,9 +1,19 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { execFileSync } from "node:child_process";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
-import type { RunKind, RunState } from "../types/contracts.js";
 import { readSourceMetadataFile } from "../lib/proposal-source.js";
+import {
+	findLatestRun,
+	findRunsForChange,
+	generateRunId,
+	readRunStateWithFallback,
+} from "../lib/run-identity.js";
+import {
+	deriveAllowedEvents,
+	isTerminalPhase,
+} from "../lib/workflow-machine.js";
+import type { RunKind, RunState, RunStatus } from "../types/contracts.js";
 
 type JsonObject = Record<string, unknown>;
 
@@ -158,7 +168,8 @@ function atomicWrite(path: string, content: string): void {
 }
 
 function readRunState(path: string): RunState {
-	return JSON.parse(readFileSync(path, "utf8")) as RunState;
+	const dirName = basename(dirname(path));
+	return readRunStateWithFallback(path, dirName);
 }
 
 function validateRunSchema(runState: RunState): void {
@@ -185,11 +196,12 @@ function cmdStart(
 	root: string,
 	workflow: WorkflowDefinition,
 ): void {
-	let runId = "";
+	let positionalArg = "";
 	let sourceFile = "";
 	let agentMain = "claude";
 	let agentReview = "codex";
 	let runKind: RunKind = "change";
+	let retryFlag = false;
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -218,41 +230,130 @@ function cmdStart(
 			runKind = value;
 			continue;
 		}
+		if (arg === "--retry") {
+			retryFlag = true;
+			continue;
+		}
 		if (arg.startsWith("-")) {
 			fail(`Error: unknown option '${arg}'`);
 		}
-		if (runId) {
+		if (positionalArg) {
 			fail(`Error: unexpected argument '${arg}'`);
 		}
-		runId = arg;
+		positionalArg = arg;
 	}
 
-	if (!runId) {
+	if (!positionalArg) {
 		fail(
-			"Usage: specflow-run start <run_id> [--source-file <path>] [--agent-main <name>] [--agent-review <name>] [--run-kind <change|synthetic>]",
+			"Usage: specflow-run start <change_id|run_id> [--source-file <path>] [--agent-main <name>] [--agent-review <name>] [--run-kind <change|synthetic>] [--retry]",
 		);
 	}
 
-	if (runKind === "change") {
-		validateChangeRunId(root, runId);
-	} else {
-		validateRunId(runId);
-	}
-	const path = runFile(root, runId);
-	try {
-		readFileSync(path, "utf8");
-		fail(`Error: run '${runId}' already exists at ${path}`);
-	} catch {
-		// New run.
+	if (runKind === "synthetic") {
+		// Synthetic run: accept run_id verbatim, bypass change directory lookup
+		if (retryFlag) {
+			fail("Error: --retry is not supported for synthetic runs");
+		}
+		const syntheticRunId = positionalArg;
+		validateRunId(syntheticRunId);
+		const path = runFile(root, syntheticRunId);
+		try {
+			readFileSync(path, "utf8");
+			fail(`Error: run '${syntheticRunId}' already exists at ${path}`);
+		} catch {
+			// New run — expected.
+		}
+
+		const state: RunState = {
+			run_id: syntheticRunId,
+			change_name: null,
+			current_phase: "start",
+			status: "active" as RunStatus,
+			allowed_events: deriveAllowedEvents("active", "start"),
+			source: sourceFile ? readSourceMetadataFile(sourceFile) : null,
+			project_id: detectProjectId(),
+			repo_name: detectProjectId(),
+			repo_path: gitOrFail(
+				["rev-parse", "--show-toplevel"],
+				"Error: could not detect repository root",
+			),
+			branch_name: gitOrFail(
+				["rev-parse", "--abbrev-ref", "HEAD"],
+				"Error: could not detect current branch",
+			),
+			worktree_path: gitOrFail(
+				["rev-parse", "--show-toplevel"],
+				"Error: could not detect worktree path",
+			),
+			agents: { main: agentMain, review: agentReview },
+			last_summary_path: null,
+			created_at: nowIso(),
+			updated_at: nowIso(),
+			history: [],
+			run_kind: "synthetic" as const,
+			previous_run_id: null,
+		};
+
+		atomicWrite(path, `${JSON.stringify(state, null, 2)}\n`);
+		printSchemaJson("run-state", state);
+		return;
 	}
 
+	// Change run: positionalArg is change_id
+	const changeId = positionalArg;
+	validateChangeRunId(root, changeId);
+
+	const runsPath = runsDir(root);
+	const existingRuns = findRunsForChange(runsPath, changeId);
+
+	// Check concurrency invariant: one non-terminal run per change
+	const nonTerminalRun = existingRuns.find((run) => run.status !== "terminal");
+	if (nonTerminalRun) {
+		if (nonTerminalRun.status === "suspended") {
+			fail(
+				`Error: Suspended run exists (${nonTerminalRun.run_id}) — resume or reject it first`,
+			);
+		}
+		fail(`Error: Active run already exists (${nonTerminalRun.run_id})`);
+	}
+
+	// If prior terminal runs exist, require --retry
+	if (existingRuns.length > 0 && !retryFlag) {
+		fail(
+			"Error: prior runs exist for this change. Use --retry to create a new run",
+		);
+	}
+
+	let previousRunId: string | null = null;
+	let source = sourceFile ? readSourceMetadataFile(sourceFile) : null;
+	let agents = { main: agentMain, review: agentReview };
+
+	if (retryFlag) {
+		if (existingRuns.length === 0) {
+			fail("Error: --retry requires at least one prior run");
+		}
+		const latestRun = existingRuns[existingRuns.length - 1]!;
+		if (latestRun.current_phase === "rejected") {
+			fail("Error: Rejected changes cannot be retried — create a new change");
+		}
+		previousRunId = latestRun.run_id;
+		// Copy fields from prior run
+		if (!source && latestRun.source) {
+			source = latestRun.source;
+		}
+		agents = { ...latestRun.agents };
+	}
+
+	const newRunId = generateRunId(runsPath, changeId);
+	const path = runFile(root, newRunId);
+
 	const state: RunState = {
-		run_id: runId,
-		change_name: runKind === "synthetic" ? null : runId,
+		run_id: newRunId,
+		change_name: changeId,
 		current_phase: "start",
-		status: "active",
-		allowed_events: allowedEventsFor(workflow, "start"),
-		source: sourceFile ? readSourceMetadataFile(sourceFile) : null,
+		status: "active" as RunStatus,
+		allowed_events: deriveAllowedEvents("active", "start"),
+		source,
 		project_id: detectProjectId(),
 		repo_name: detectProjectId(),
 		repo_path: gitOrFail(
@@ -267,12 +368,12 @@ function cmdStart(
 			["rev-parse", "--show-toplevel"],
 			"Error: could not detect worktree path",
 		),
-		agents: { main: agentMain, review: agentReview },
+		agents,
 		last_summary_path: null,
 		created_at: nowIso(),
 		updated_at: nowIso(),
 		history: [],
-		...(runKind === "synthetic" ? { run_kind: "synthetic" as const } : {}),
+		previous_run_id: previousRunId,
 	};
 
 	atomicWrite(path, `${JSON.stringify(state, null, 2)}\n`);
@@ -294,28 +395,112 @@ function cmdAdvance(
 	const runState = readRunState(path);
 	validateRunSchema(runState);
 
+	// Reject phase events when suspended
+	if (runState.status === "suspended") {
+		fail(`Error: Run is suspended — resume first. Only 'resume' is allowed.`);
+	}
+
 	const transition = workflow.transitions.find(
 		(candidate) =>
 			candidate.from === runState.current_phase && candidate.event === event,
 	);
 	if (!transition) {
-		const allowed = allowedEventsFor(workflow, runState.current_phase);
+		const allowed = deriveAllowedEvents(
+			runState.status as RunStatus,
+			runState.current_phase,
+		);
 		fail(
 			`Error: invalid transition. Event '${event}' is not allowed in state '${runState.current_phase}'. Allowed events: ${allowed.join(", ")}`,
 		);
 	}
 
+	const newStatus: RunStatus = isTerminalPhase(transition.to)
+		? "terminal"
+		: (runState.status as RunStatus);
+
 	const updated: RunState = {
 		...runState,
 		current_phase: transition.to,
+		status: newStatus,
 		updated_at: nowIso(),
-		allowed_events: allowedEventsFor(workflow, transition.to),
+		allowed_events: deriveAllowedEvents(newStatus, transition.to),
 		history: [
 			...runState.history,
 			{
 				from: runState.current_phase,
 				to: transition.to,
 				event,
+				timestamp: nowIso(),
+			},
+		],
+	};
+
+	atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
+	printSchemaJson("run-state", updated);
+}
+
+function cmdSuspend(args: string[], root: string): void {
+	const runId = args[0];
+	if (!runId) {
+		fail("Usage: specflow-run suspend <run_id>");
+	}
+
+	const path = ensureRunExists(root, runId);
+	const runState = readRunState(path);
+	validateRunSchema(runState);
+
+	if (runState.status === "terminal") {
+		fail("Error: Cannot suspend a terminal run");
+	}
+	if (runState.status === "suspended") {
+		fail("Error: Run is already suspended");
+	}
+
+	const updated: RunState = {
+		...runState,
+		status: "suspended" as RunStatus,
+		updated_at: nowIso(),
+		allowed_events: deriveAllowedEvents("suspended", runState.current_phase),
+		history: [
+			...runState.history,
+			{
+				from: runState.current_phase,
+				to: runState.current_phase,
+				event: "suspend",
+				timestamp: nowIso(),
+			},
+		],
+	};
+
+	atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
+	printSchemaJson("run-state", updated);
+}
+
+function cmdResume(args: string[], root: string): void {
+	const runId = args[0];
+	if (!runId) {
+		fail("Usage: specflow-run resume <run_id>");
+	}
+
+	const path = ensureRunExists(root, runId);
+	const runState = readRunState(path);
+	validateRunSchema(runState);
+
+	if (runState.status !== "suspended") {
+		fail("Error: Run is not suspended");
+	}
+
+	const updated: RunState = {
+		...runState,
+		status: "active" as RunStatus,
+		updated_at: nowIso(),
+		allowed_events: deriveAllowedEvents("active", runState.current_phase),
+		history: [
+			...runState.history,
+			{
+				from: runState.current_phase,
+				to: runState.current_phase,
+				event: "resume",
 				timestamp: nowIso(),
 			},
 		],
@@ -384,6 +569,12 @@ function main(): void {
 		case "advance":
 			cmdAdvance(args, root, workflow);
 			return;
+		case "suspend":
+			cmdSuspend(args, root);
+			return;
+		case "resume":
+			cmdResume(args, root);
+			return;
 		case "status":
 			cmdStatus(args, root);
 			return;
@@ -395,12 +586,12 @@ function main(): void {
 			return;
 		case undefined:
 			fail(
-				"Usage: specflow-run <start|advance|status|update-field|get-field> [args...]",
+				"Usage: specflow-run <start|advance|suspend|resume|status|update-field|get-field> [args...]",
 			);
 			return;
 		default:
 			fail(
-				`Error: unknown subcommand '${subcommand}'. Use: start, advance, status, update-field, get-field`,
+				`Error: unknown subcommand '${subcommand}'. Use: start, advance, suspend, resume, status, update-field, get-field`,
 			);
 	}
 }
