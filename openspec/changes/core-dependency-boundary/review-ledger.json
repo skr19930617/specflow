@@ -1,72 +1,72 @@
 {
-  "feature_id": "core-dependency-boundary",
-  "phase": "impl",
-  "current_round": 3,
-  "status": "all_resolved",
-  "max_finding_id": 1,
-  "findings": [
-    {
-      "id": "R1-F01",
-      "severity": "medium",
-      "category": "correctness",
-      "file": "docs/architecture.md",
-      "title": "Persistence contract row still points at the local runtime instead of the documented source of truth",
-      "detail": "The proposal explicitly says the amended \"Workflow Core Contract Surface\" section should clarify that the run-state contract’s normative source is `RunState` in `src/types/contracts.ts`, with external-runtime support deferred because that type still mixes core and local-adapter fields. The updated table still lists `specflow-run` as the source location, which keeps the persistence contract anchored to the bundled local implementation rather than the documented contract surface. Update that row to reference `src/types/contracts.ts` and treat `specflow-run` as the current local implementation, not the contract source.",
-      "origin_round": 1,
-      "latest_round": 2,
-      "status": "resolved",
-      "relation": "same",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 3
-    },
-    {
-      "id": "R2-F01",
-      "severity": "medium",
-      "category": "correctness",
-      "file": "docs/architecture.md",
-      "title": "Persistence section uses a non-existent `RunState` field name",
-      "detail": "The persistence bullet says `RunState` contains core-contract fields `phase`, `history`, `agents`, and `status`, but the actual interface in `src/types/contracts.ts` uses `current_phase`, not `phase`. Because this section explicitly cites `RunState` as the current source of truth, the field list should be corrected (or made clearly illustrative) to avoid documenting a contract field that does not exist.",
-      "origin_round": 2,
-      "latest_round": 2,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 3
-    }
-  ],
-  "round_summaries": [
-    {
-      "round": 1,
-      "total": 1,
-      "open": 1,
-      "new": 1,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 1
-      }
-    },
-    {
-      "round": 2,
-      "total": 2,
-      "open": 2,
-      "new": 1,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 2
-      }
-    },
-    {
-      "round": 3,
-      "total": 2,
-      "open": 0,
-      "new": 0,
-      "resolved": 2,
-      "overridden": 0,
-      "by_severity": {}
-    }
-  ]
+	"feature_id": "core-dependency-boundary",
+	"phase": "impl",
+	"current_round": 3,
+	"status": "all_resolved",
+	"max_finding_id": 1,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "medium",
+			"category": "correctness",
+			"file": "docs/architecture.md",
+			"title": "Persistence contract row still points at the local runtime instead of the documented source of truth",
+			"detail": "The proposal explicitly says the amended \"Workflow Core Contract Surface\" section should clarify that the run-state contract’s normative source is `RunState` in `src/types/contracts.ts`, with external-runtime support deferred because that type still mixes core and local-adapter fields. The updated table still lists `specflow-run` as the source location, which keeps the persistence contract anchored to the bundled local implementation rather than the documented contract surface. Update that row to reference `src/types/contracts.ts` and treat `specflow-run` as the current local implementation, not the contract source.",
+			"origin_round": 1,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "same",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 3
+		},
+		{
+			"id": "R2-F01",
+			"severity": "medium",
+			"category": "correctness",
+			"file": "docs/architecture.md",
+			"title": "Persistence section uses a non-existent `RunState` field name",
+			"detail": "The persistence bullet says `RunState` contains core-contract fields `phase`, `history`, `agents`, and `status`, but the actual interface in `src/types/contracts.ts` uses `current_phase`, not `phase`. Because this section explicitly cites `RunState` as the current source of truth, the field list should be corrected (or made clearly illustrative) to avoid documenting a contract field that does not exist.",
+			"origin_round": 2,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 3
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 1,
+			"open": 1,
+			"new": 1,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 1
+			}
+		},
+		{
+			"round": 2,
+			"total": 2,
+			"open": 2,
+			"new": 1,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 2
+			}
+		},
+		{
+			"round": 3,
+			"total": 2,
+			"open": 0,
+			"new": 0,
+			"resolved": 2,
+			"overridden": 0,
+			"by_severity": {}
+		}
+	]
 }
