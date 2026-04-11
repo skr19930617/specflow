@@ -1,0 +1,69 @@
+{
+	"feature_id": "core-dependency-boundary",
+	"phase": "design",
+	"current_round": 3,
+	"status": "all_resolved",
+	"max_finding_id": 1,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "completeness",
+			"title": "Several normative boundary rules are missing from the design and task plan",
+			"detail": "The design/tasks capture the major section and table edits, but they do not explicitly cover multiple rules that the proposal/spec makes normative: a boundary status model subsection explaining target-state vs. known violations and that new violations must not be introduced, the required `<repo>#<issue>` or `TBD` tracking-reference format for the Known Boundary Violations table, and the remaining boundary guidance around type-only imports following the same rules as value imports, `src/contracts/*` remaining outside the core-adjacent allowlist, and the dependency decision heuristic/linkage back to Repository Scope. Add explicit design coverage and tasks for these items so implementation cannot miss required documentation details.",
+			"origin_round": 1,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "reframed",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R2-F01",
+			"severity": "medium",
+			"category": "completeness",
+			"title": "Deferred adapter seams are underspecified in the task plan",
+			"detail": "The proposal makes the persistence and review-transport caveats part of the normative documentation: `src/types/contracts.ts` is core-adjacent but transitional because `RunState` still mixes local-adapter fields, review transport has no stable canonical contract yet, and formal adapter interfaces/enforcement are deferred to follow-up work. The design notes these limits in context/non-goals, but the tasks only say to add category labels and generic responsibility descriptions (`2.1`, `2.2`, `3.1`). That leaves room to implement the section without the specific caveats and exact local/external responsibility breakdown the proposal requires. Add explicit tasks for those deferred-contract statements and for enumerating the concrete local/external responsibilities so the doc cannot satisfy the checklist with only high-level labels.",
+			"origin_round": 2,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "reframed",
+			"supersedes": "R1-F01",
+			"notes": "",
+			"resolved_round": 3
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 1,
+			"open": 1,
+			"new": 1,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1
+			}
+		},
+		{
+			"round": 2,
+			"total": 2,
+			"open": 1,
+			"new": 0,
+			"resolved": 1,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 1
+			}
+		},
+		{
+			"round": 3,
+			"total": 2,
+			"open": 0,
+			"new": 0,
+			"resolved": 2,
+			"overridden": 0,
+			"by_severity": {}
+		}
+	]
+}
