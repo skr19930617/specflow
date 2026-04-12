@@ -1,200 +1,200 @@
 {
-  "feature_id": "define-actor-and-surface-abstraction-model",
-  "phase": "design",
-  "current_round": 5,
-  "status": "in_progress",
-  "max_finding_id": 9,
-  "findings": [
-    {
-      "id": "R1-F01",
-      "severity": "high",
-      "category": "consistency",
-      "title": "Provenance is both deferred and explicitly specified",
-      "detail": "Design decision D3 says this change defines provenance only as principles and defers exact field names/schema, but task 2.1 and the target workflow-run-state spec require concrete `actor` and optional `surface` fields plus legacy `unknown` handling. This leaves implementers with conflicting guidance. Update the design to explicitly adopt those fields at the spec level, or relax the task/spec language so it stays principle-only.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 2
-    },
-    {
-      "id": "R1-F02",
-      "severity": "medium",
-      "category": "completeness",
-      "title": "Agent-context-template alignment is not tied to a concrete deliverable",
-      "detail": "The proposal requires an explicit compatibility statement that `agent-context-template`'s existing surface separation is encompassed by the new model and that no spec change is needed there. The design mentions this only as context/non-goal, and the tasks only require architecture alignment with the core/adapter boundary. Add an explicit spec or documentation task to record that relationship by reference so this acceptance criterion is not missed.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 2
-    },
-    {
-      "id": "R2-F03",
-      "severity": "high",
-      "category": "consistency",
-      "file": "openspec/specs/review-orchestration/spec.md",
-      "title": "Review-orchestration semantics still leave critical reviewer-role invariants unspecified",
-      "detail": "The proposal requires review orchestration to preserve two hard invariants: an undelegated AI `review_approved` must remain advisory rather than acting as a gated approval, and a human reviewer’s `block` must not be overrideable. D4 only says review outcomes and workflow approvals are separate vocabularies, and task 3.1 narrows the work to actor-aware handoff plus `reviewer_actor`/`overridden_by` fields. That is not specific enough to force these constraints into `review-orchestration/spec.md`, so the review mapping can still contradict the actor permission model. Add explicit review-orchestration requirements and task language for both rules.",
-      "origin_round": 2,
-      "latest_round": 2,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 3
-    },
-    {
-      "id": "R2-F04",
-      "severity": "medium",
-      "category": "completeness",
-      "file": "openspec/specs/actor-surface-model/spec.md",
-      "title": "Delegation grant timing and source are still underspecified",
-      "detail": "The proposal constrains delegation to run-start configuration or an explicit declaration in the proposal, with only the concrete format deferred. D5 defers the mechanism entirely, and task 1.1 just says to add 'delegation rules', which leaves room for ad hoc or mid-run delegation semantics. That changes who can issue a gated approve and weakens the promised auditability/safe-default behavior. Specify the allowed grant sources/timing now in the actor-surface-model design/spec, while still deferring the exact field shape.",
-      "origin_round": 2,
-      "latest_round": 2,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 3
-    },
-    {
-      "id": "R3-F05",
-      "severity": "high",
-      "category": "consistency",
-      "file": "openspec/specs/workflow-run-state/spec.md",
-      "title": "Run-state provenance is still specified through a CLI command instead of a surface-neutral transition contract",
-      "detail": "The workflow-run-state delta says history entries appended by specflow-run advance must record actor provenance. That leaks the local CLI surface into a core spec that the proposal explicitly makes surface-neutral, and it leaves transitions recorded via remote-api, agent-native, batch, or other adapters outside the normative requirement. Rewrite the requirement so provenance applies whenever any run-state transition/history entry is recorded, regardless of which surface or adapter initiated it; CLI commands should be examples, not the trigger condition.",
-      "origin_round": 3,
-      "latest_round": 3,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 4
-    },
-    {
-      "id": "R3-F06",
-      "severity": "low",
-      "category": "completeness",
-      "file": "openspec/specs/actor-surface-model/spec.md",
-      "title": "Delegation and override auditability still stop at actor kind, not the specific actor identity",
-      "detail": "The proposal requires tracing who delegated approve, who exercised it, and whose consent would be required to override a human review block. The current deltas standardize actor-kind fields such as actor, reviewer_actor, and overridden_by, but they never require or reference a stable actor identity/link for the delegating human, executing ai-agent, blocking reviewer, or overriding human. That allows an implementation to satisfy the spec with only values like human or ai-agent, which is not sufficient for the proposal's auditability and consent invariants. Add a normative requirement or explicit cross-reference to the identifier fields that must accompany these actor-kind fields.",
-      "origin_round": 3,
-      "latest_round": 3,
-      "status": "open",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R4-F07",
-      "severity": "medium",
-      "category": "consistency",
-      "file": "openspec/specs/actor-surface-model/spec.md",
-      "title": "Legacy `unknown` provenance value conflicts with the closed actor taxonomy",
-      "detail": "D1 and the actor-surface-model delta define actor kind as a closed set of `human`, `ai-agent`, and `automation`, but the workflow-run-state delta requires legacy history entries to be treated as `actor: \"unknown\"`. Without an explicit rule that `unknown` is a backward-compatibility sentinel outside the actor taxonomy, or a consistent widening of the taxonomy with no-permissions semantics, the specs and future type definitions are internally contradictory. Clarify this in the canonical actor model and reflect the same clarification in the run-state task text so legacy entries do not conflict with the closed actor enum.",
-      "origin_round": 4,
-      "latest_round": 4,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 5
-    },
-    {
-      "id": "R5-F08",
-      "severity": "medium",
-      "category": "completeness",
-      "file": "openspec/specs/review-orchestration/spec.md",
-      "title": "Review-orchestration still leaves automation reviewer handling implicit",
-      "detail": "The proposal says the review-orchestration delta must distinguish human, ai-agent, and automation reviewers, but the current design and task 3.1 only model human vs ai-agent outcomes. Relying on the actor-surface-model spec to forbid automation reviews leaves this modified capability without an explicit rule for rejecting or ignoring automation-issued review outcomes. Add a normative automation scenario in `review-orchestration` and call it out in task 3.1.",
-      "origin_round": 5,
-      "latest_round": 5,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R5-F09",
-      "severity": "medium",
-      "category": "consistency",
-      "file": "openspec/specs/review-orchestration/spec.md",
-      "title": "Human block semantics are split between absolute non-override and consent-based override",
-      "detail": "The proposal and task 3.1 describe human blocks as non-overridable, but D4 and the `review-orchestration` delta say a human block cannot be overridden \"without the blocking reviewer's consent\" while also saying any override attempt is rejected. That leaves two incompatible models: absolute prohibition, or a consent-based exception with no operation or provenance contract. Pick one semantics and express it consistently across the design and tasks.",
-      "origin_round": 5,
-      "latest_round": 5,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    }
-  ],
-  "round_summaries": [
-    {
-      "round": 1,
-      "total": 2,
-      "open": 2,
-      "new": 2,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "high": 1,
-        "medium": 1
-      }
-    },
-    {
-      "round": 2,
-      "total": 4,
-      "open": 2,
-      "new": 2,
-      "resolved": 2,
-      "overridden": 0,
-      "by_severity": {
-        "high": 1,
-        "medium": 1
-      }
-    },
-    {
-      "round": 3,
-      "total": 6,
-      "open": 2,
-      "new": 2,
-      "resolved": 4,
-      "overridden": 0,
-      "by_severity": {
-        "high": 1,
-        "medium": 1
-      }
-    },
-    {
-      "round": 4,
-      "total": 7,
-      "open": 2,
-      "new": 1,
-      "resolved": 5,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 2
-      }
-    },
-    {
-      "round": 5,
-      "total": 9,
-      "open": 3,
-      "new": 2,
-      "resolved": 6,
-      "overridden": 0,
-      "by_severity": {
-        "low": 1,
-        "medium": 2
-      }
-    }
-  ]
+	"feature_id": "define-actor-and-surface-abstraction-model",
+	"phase": "design",
+	"current_round": 5,
+	"status": "in_progress",
+	"max_finding_id": 9,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "consistency",
+			"title": "Provenance is both deferred and explicitly specified",
+			"detail": "Design decision D3 says this change defines provenance only as principles and defers exact field names/schema, but task 2.1 and the target workflow-run-state spec require concrete `actor` and optional `surface` fields plus legacy `unknown` handling. This leaves implementers with conflicting guidance. Update the design to explicitly adopt those fields at the spec level, or relax the task/spec language so it stays principle-only.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 2
+		},
+		{
+			"id": "R1-F02",
+			"severity": "medium",
+			"category": "completeness",
+			"title": "Agent-context-template alignment is not tied to a concrete deliverable",
+			"detail": "The proposal requires an explicit compatibility statement that `agent-context-template`'s existing surface separation is encompassed by the new model and that no spec change is needed there. The design mentions this only as context/non-goal, and the tasks only require architecture alignment with the core/adapter boundary. Add an explicit spec or documentation task to record that relationship by reference so this acceptance criterion is not missed.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 2
+		},
+		{
+			"id": "R2-F03",
+			"severity": "high",
+			"category": "consistency",
+			"file": "openspec/specs/review-orchestration/spec.md",
+			"title": "Review-orchestration semantics still leave critical reviewer-role invariants unspecified",
+			"detail": "The proposal requires review orchestration to preserve two hard invariants: an undelegated AI `review_approved` must remain advisory rather than acting as a gated approval, and a human reviewer’s `block` must not be overrideable. D4 only says review outcomes and workflow approvals are separate vocabularies, and task 3.1 narrows the work to actor-aware handoff plus `reviewer_actor`/`overridden_by` fields. That is not specific enough to force these constraints into `review-orchestration/spec.md`, so the review mapping can still contradict the actor permission model. Add explicit review-orchestration requirements and task language for both rules.",
+			"origin_round": 2,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 3
+		},
+		{
+			"id": "R2-F04",
+			"severity": "medium",
+			"category": "completeness",
+			"file": "openspec/specs/actor-surface-model/spec.md",
+			"title": "Delegation grant timing and source are still underspecified",
+			"detail": "The proposal constrains delegation to run-start configuration or an explicit declaration in the proposal, with only the concrete format deferred. D5 defers the mechanism entirely, and task 1.1 just says to add 'delegation rules', which leaves room for ad hoc or mid-run delegation semantics. That changes who can issue a gated approve and weakens the promised auditability/safe-default behavior. Specify the allowed grant sources/timing now in the actor-surface-model design/spec, while still deferring the exact field shape.",
+			"origin_round": 2,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 3
+		},
+		{
+			"id": "R3-F05",
+			"severity": "high",
+			"category": "consistency",
+			"file": "openspec/specs/workflow-run-state/spec.md",
+			"title": "Run-state provenance is still specified through a CLI command instead of a surface-neutral transition contract",
+			"detail": "The workflow-run-state delta says history entries appended by specflow-run advance must record actor provenance. That leaks the local CLI surface into a core spec that the proposal explicitly makes surface-neutral, and it leaves transitions recorded via remote-api, agent-native, batch, or other adapters outside the normative requirement. Rewrite the requirement so provenance applies whenever any run-state transition/history entry is recorded, regardless of which surface or adapter initiated it; CLI commands should be examples, not the trigger condition.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 4
+		},
+		{
+			"id": "R3-F06",
+			"severity": "low",
+			"category": "completeness",
+			"file": "openspec/specs/actor-surface-model/spec.md",
+			"title": "Delegation and override auditability still stop at actor kind, not the specific actor identity",
+			"detail": "The proposal requires tracing who delegated approve, who exercised it, and whose consent would be required to override a human review block. The current deltas standardize actor-kind fields such as actor, reviewer_actor, and overridden_by, but they never require or reference a stable actor identity/link for the delegating human, executing ai-agent, blocking reviewer, or overriding human. That allows an implementation to satisfy the spec with only values like human or ai-agent, which is not sufficient for the proposal's auditability and consent invariants. Add a normative requirement or explicit cross-reference to the identifier fields that must accompany these actor-kind fields.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "open",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R4-F07",
+			"severity": "medium",
+			"category": "consistency",
+			"file": "openspec/specs/actor-surface-model/spec.md",
+			"title": "Legacy `unknown` provenance value conflicts with the closed actor taxonomy",
+			"detail": "D1 and the actor-surface-model delta define actor kind as a closed set of `human`, `ai-agent`, and `automation`, but the workflow-run-state delta requires legacy history entries to be treated as `actor: \"unknown\"`. Without an explicit rule that `unknown` is a backward-compatibility sentinel outside the actor taxonomy, or a consistent widening of the taxonomy with no-permissions semantics, the specs and future type definitions are internally contradictory. Clarify this in the canonical actor model and reflect the same clarification in the run-state task text so legacy entries do not conflict with the closed actor enum.",
+			"origin_round": 4,
+			"latest_round": 4,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 5
+		},
+		{
+			"id": "R5-F08",
+			"severity": "medium",
+			"category": "completeness",
+			"file": "openspec/specs/review-orchestration/spec.md",
+			"title": "Review-orchestration still leaves automation reviewer handling implicit",
+			"detail": "The proposal says the review-orchestration delta must distinguish human, ai-agent, and automation reviewers, but the current design and task 3.1 only model human vs ai-agent outcomes. Relying on the actor-surface-model spec to forbid automation reviews leaves this modified capability without an explicit rule for rejecting or ignoring automation-issued review outcomes. Add a normative automation scenario in `review-orchestration` and call it out in task 3.1.",
+			"origin_round": 5,
+			"latest_round": 5,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R5-F09",
+			"severity": "medium",
+			"category": "consistency",
+			"file": "openspec/specs/review-orchestration/spec.md",
+			"title": "Human block semantics are split between absolute non-override and consent-based override",
+			"detail": "The proposal and task 3.1 describe human blocks as non-overridable, but D4 and the `review-orchestration` delta say a human block cannot be overridden \"without the blocking reviewer's consent\" while also saying any override attempt is rejected. That leaves two incompatible models: absolute prohibition, or a consent-based exception with no operation or provenance contract. Pick one semantics and express it consistently across the design and tasks.",
+			"origin_round": 5,
+			"latest_round": 5,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 2,
+			"open": 2,
+			"new": 2,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		},
+		{
+			"round": 2,
+			"total": 4,
+			"open": 2,
+			"new": 2,
+			"resolved": 2,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		},
+		{
+			"round": 3,
+			"total": 6,
+			"open": 2,
+			"new": 2,
+			"resolved": 4,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		},
+		{
+			"round": 4,
+			"total": 7,
+			"open": 2,
+			"new": 1,
+			"resolved": 5,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 2
+			}
+		},
+		{
+			"round": 5,
+			"total": 9,
+			"open": 3,
+			"new": 2,
+			"resolved": 6,
+			"overridden": 0,
+			"by_severity": {
+				"low": 1,
+				"medium": 2
+			}
+		}
+	]
 }
