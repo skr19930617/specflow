@@ -233,3 +233,57 @@ test("RunArtifactStore: list returns empty for non-existent runsDir", () => {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
+
+test("RunArtifactStore: list({ changeId }) filters only valid <changeId>-<N> run IDs", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsRunArtifactStore(root);
+		store.write(runRef("my-change-1"), '{"run_id":"my-change-1"}');
+		store.write(runRef("my-change-2"), '{"run_id":"my-change-2"}');
+		store.write(runRef("my-change-extra-1"), '{"run_id":"my-change-extra-1"}');
+		store.write(runRef("other-1"), '{"run_id":"other-1"}');
+
+		const results = store.list({ changeId: "my-change" });
+		const runIds = results.map((r) => r.runId).sort();
+		assert.deepEqual(runIds, ["my-change-1", "my-change-2"]);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("RunArtifactStore: list returns deterministic lexicographic order including double-digit IDs", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsRunArtifactStore(root);
+		// Write in non-sorted order
+		store.write(runRef("change-10"), '{"run_id":"change-10"}');
+		store.write(runRef("change-2"), '{"run_id":"change-2"}');
+		store.write(runRef("change-1"), '{"run_id":"change-1"}');
+
+		const results = store.list({ changeId: "change" });
+		const runIds = results.map((r) => r.runId);
+		// Lexicographic order: change-1, change-10, change-2
+		assert.deepEqual(runIds, ["change-1", "change-10", "change-2"]);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("RunArtifactStore: read-after-write consistency", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsRunArtifactStore(root);
+		const ref = runRef("rw-test-1");
+		const content = '{"run_id":"rw-test-1","version":1}\n';
+
+		store.write(ref, content);
+		assert.equal(store.read(ref), content);
+
+		// Overwrite and verify
+		const updated = '{"run_id":"rw-test-1","version":2}\n';
+		store.write(ref, updated);
+		assert.equal(store.read(ref), updated);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});

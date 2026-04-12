@@ -1,9 +1,11 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { RunArtifactStore } from "../lib/artifact-store.js";
 import { atomicWriteText } from "../lib/fs.js";
 import { matchIssueUrl } from "../lib/issue-url.js";
 import { parseJson } from "../lib/json.js";
+import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import {
 	moduleRepoRoot,
 	printSchemaJson,
@@ -15,6 +17,7 @@ import {
 	readProposalSourceFile,
 	renderSeededProposal,
 } from "../lib/proposal-source.js";
+import { findRunsForChange } from "../lib/run-store-ops.js";
 import { parseSchemaJson } from "../lib/schemas.js";
 import type { ProposalSource, RunState } from "../types/contracts.js";
 
@@ -179,33 +182,15 @@ function ensureProposalDraft(
 }
 
 function findExistingNonTerminalRun(
-	root: string,
+	runStore: RunArtifactStore,
 	changeId: string,
 ): RunState | null {
-	const runsPath = resolve(root, ".specflow/runs");
-	try {
-		const { readdirSync } = require("node:fs") as typeof import("node:fs");
-		const entries = readdirSync(runsPath);
-		const prefix = `${changeId}-`;
-		const matchingDirs = entries
-			.filter((entry: string) => entry.startsWith(prefix))
-			.sort();
-		for (let idx = matchingDirs.length - 1; idx >= 0; idx--) {
-			const dirName = matchingDirs[idx]!;
-			const result = specflowRun(["status", dirName], root);
-			if (result.status === 0) {
-				const state = parseSchemaJson<RunState>(
-					"run-state",
-					result.stdout,
-					`specflow-run status ${dirName}`,
-				);
-				if (state.status !== "terminal") {
-					return state;
-				}
-			}
+	const runs = findRunsForChange(runStore, changeId);
+	for (let idx = runs.length - 1; idx >= 0; idx--) {
+		const state = runs[idx]!;
+		if (state.status !== "terminal") {
+			return state;
 		}
-	} catch {
-		// runs dir doesn't exist yet — that's fine
 	}
 	return null;
 }
@@ -223,7 +208,8 @@ function ensureRunStarted(
 	agentMain: string | null,
 	agentReview: string | null,
 ): RunState {
-	const existing = findExistingNonTerminalRun(root, changeId);
+	const runStore = createLocalFsRunArtifactStore(root);
+	const existing = findExistingNonTerminalRun(runStore, changeId);
 	if (existing) {
 		return existing;
 	}

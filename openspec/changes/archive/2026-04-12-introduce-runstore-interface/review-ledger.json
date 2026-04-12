@@ -1,0 +1,62 @@
+{
+  "feature_id": "introduce-runstore-interface",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/run-store-ops.ts",
+      "title": "Required run-store files are still untracked and not in the reviewed diff",
+      "detail": "The patch now imports `../lib/run-store-ops.js` from the CLI, but `git status` still shows `src/lib/run-store-ops.ts` and `src/tests/run-store-ops.test.ts` as untracked (`??`). That means the reviewed `git diff` does not actually include the new helper or its unit tests, so a clean checkout of this diff will not satisfy acceptance criteria 5 and 8 and can fail to build. Add those files to the patch before landing.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/local-fs-run-artifact-store.ts",
+      "title": "RunArtifactStore.list() does not implement the lexicographic ordering guarantee",
+      "detail": "In `list()`, the LocalFs store returns raw `readdirSync(runsDir)` order and never sorts the entries before returning refs. The spec makes lexicographic `runId` ordering an explicit store guarantee, and the new `artifact-store.test.ts` assertions rely on that contract. This only passes locally because the filesystem happens to return a favorable order; sort `entries` or the final refs by `runId` before returning to make the behavior deterministic.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 0,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}

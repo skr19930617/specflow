@@ -1,0 +1,98 @@
+{
+  "feature_id": "introduce-runstore-interface",
+  "phase": "proposal",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "risk",
+      "file": "proposal.md",
+      "title": "Store resolution and required guarantees are unspecified",
+      "detail": "The proposal says the CLI and new helper module will use `RunArtifactStore`, but it does not define how the CLI obtains a store implementation or what guarantees a non-filesystem store must provide for behaviors that currently rely on filesystem assumptions. In particular, `findLatestRun`, `generateRunId`, change-based lookup, listing behavior, and atomic state updates need explicit requirements so design can determine whether the current interface is sufficient or must be extended. Add the intended store wiring/injection path, default LocalFs behavior, and the required semantics that every `RunArtifactStore` implementation must satisfy.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "validation",
+      "file": "proposal.md",
+      "title": "Behavior-preservation criteria are too vague to validate",
+      "detail": "The proposal only says that existing behavior and test results will be maintained, which is not concrete enough to design or validate against. The affected commands and lookup flows need explicit invariants such as unchanged CLI-visible behavior, preserved run ID format and latest-run selection rules, elimination of direct `.specflow/runs/` access in the targeted paths, and equivalent passing integration scenarios for both LocalFs and a non-filesystem store. Add concrete acceptance criteria tied to those outcomes.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "scope",
+      "file": "proposal.md",
+      "title": "Migration scope is not bounded for deprecated helpers and phase-gate usage",
+      "detail": "The proposal includes deprecating `run-identity.ts`, introducing `run-store-ops.ts`, migrating callers, and starting to use `artifact-phase-gates.ts` `_runStore`, but it does not state which callers must move in this change, whether deprecated helpers remain temporarily supported, or whether phase-gate behavior changes are in scope. That leaves room for partial migration and scope creep. Define the exact in-scope call sites, the compatibility window for deprecated helpers, and whether `artifact-phase-gates` is a plumbing-only change or a behavioral change.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "decision": "REQUEST_CHANGES",
+      "proposal_hash": "9309f57182cb6cf934dae146f9cbb55fc22033a46586e62c6efb4e4b3d2ec71b",
+      "blocking_count": 3,
+      "blocking_signature": "REQUEST_CHANGES||R1-F01|proposal.md|risk|high|Store resolution and required guarantees are unspecified||R1-F02|proposal.md|validation|medium|Behavior-preservation criteria are too vague to validate||R1-F03|proposal.md|scope|medium|Migration scope is not bounded for deprecated helpers and phase-gate usage",
+      "stagnant_rounds": 0,
+      "max_rounds": 4,
+      "stop_reason": null
+    },
+    {
+      "round": 2,
+      "total": 3,
+      "open": 0,
+      "new": 0,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {},
+      "decision": "APPROVE",
+      "proposal_hash": "9cb618c79144bc39e75a8ad9aba60f698deb4251ee0eb852a9d0f50fad7a435f",
+      "blocking_count": 0,
+      "blocking_signature": "APPROVE",
+      "stagnant_rounds": 0,
+      "max_rounds": 4,
+      "stop_reason": null
+    }
+  ],
+  "latest_decision": "APPROVE",
+  "proposal_hash": "9cb618c79144bc39e75a8ad9aba60f698deb4251ee0eb852a9d0f50fad7a435f",
+  "blocking_count": 0,
+  "blocking_signature": "APPROVE",
+  "stagnant_rounds": 0,
+  "max_rounds": 4,
+  "stop_reason": null
+}
