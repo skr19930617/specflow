@@ -80,6 +80,7 @@ export function createLocalFsRunArtifactStore(
 				}
 				refs.push(runRef(entry));
 			}
+			refs.sort((a, b) => a.runId.localeCompare(b.runId));
 			return refs;
 		},
 	};

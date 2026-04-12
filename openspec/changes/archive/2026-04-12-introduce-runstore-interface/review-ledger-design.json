@@ -1,0 +1,49 @@
+{
+	"feature_id": "introduce-runstore-interface",
+	"phase": "design",
+	"current_round": 1,
+	"status": "has_open_high",
+	"max_finding_id": 2,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "consistency",
+			"title": "Sequence-based ordering is underspecified and currently conflicts with the store contract",
+			"detail": "The proposal explicitly says `RunArtifactStore.list()` returns run IDs in lexicographic order, but the design/tasks only say `findRunsForChange` uses `store.list({ changeId })` plus reads, and `findLatestRun` builds on that. Without an explicit numeric sort/max based on `extractSequence`, runs like `change-10` will sort before `change-2`, which can break `findRunsForChange`, `findLatestRun`, and next-ID generation. Update the design and tasks to require numeric sequence sorting in `findRunsForChange`, max-sequence selection in `findLatestRun` and `generateRunId`, and add tests that cover double-digit run IDs.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "medium",
+			"category": "risk",
+			"title": "The plan assumes required `RunArtifactStore` semantics without explicitly validating the LocalFs implementation",
+			"detail": "This change makes `list({ changeId })` filtering, deterministic ordering, atomic writes, and read-after-write behavior part of the required contract, but the design/tasks do not include explicit work to verify or adjust `LocalFsRunArtifactStore` against those guarantees. Because the CLI refactor now depends on that contract, add a concrete task to confirm or update `LocalFsRunArtifactStore` and its tests (especially `list({ changeId })` prefix filtering and ordering) so the new CLI wiring is not built on unverified assumptions.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 2,
+			"open": 2,
+			"new": 2,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		}
+	]
+}

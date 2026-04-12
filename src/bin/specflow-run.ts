@@ -1,14 +1,25 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type {
+	ChangeArtifactStore,
+	RunArtifactStore,
+} from "../lib/artifact-store.js";
+import {
+	ArtifactNotFoundError,
+	ChangeArtifactType,
+	changeRef,
+	runRef,
+} from "../lib/artifact-types.js";
+import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
+import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import { readSourceMetadataFile } from "../lib/proposal-source.js";
 import {
-	findLatestRun,
 	findRunsForChange,
 	generateRunId,
-	readRunStateWithFallback,
-} from "../lib/run-identity.js";
+	readRunState,
+} from "../lib/run-store-ops.js";
 import {
 	deriveAllowedEvents,
 	isTerminalPhase,
@@ -101,52 +112,28 @@ function validateRunId(runId: string): void {
 	}
 }
 
-function validateChangeRunId(root: string, runId: string): void {
-	validateRunId(runId);
-	const changeDir = resolve(root, "openspec/changes", runId);
-	try {
-		const stat = readFileSync(resolve(changeDir, "proposal.md"), "utf8");
-		void stat;
-	} catch {
+function validateChangeRunId(
+	changeId: string,
+	changeStore: ChangeArtifactStore,
+): void {
+	validateRunId(changeId);
+	const ref = changeRef(changeId, ChangeArtifactType.Proposal);
+	if (!changeStore.exists(ref)) {
 		fail(
-			`Error: no OpenSpec proposal found for '${runId}'. Expected file: openspec/changes/${runId}/proposal.md`,
+			`Error: no OpenSpec proposal found for '${changeId}'. Expected file: openspec/changes/${changeId}/proposal.md`,
 		);
 	}
 }
 
-function runsDir(root: string): string {
-	return resolve(root, ".specflow/runs");
-}
-
-function runDir(root: string, runId: string): string {
-	return resolve(runsDir(root), runId);
-}
-
-function runFile(root: string, runId: string): string {
-	return resolve(runDir(root, runId), "run.json");
-}
-
-function ensureRunExists(root: string, runId: string): string {
-	const path = runFile(root, runId);
-	try {
-		readFileSync(path, "utf8");
-		return path;
-	} catch {
-		fail(`Error: run '${runId}' not found. No state file at ${path}`);
+function ensureRunExists(store: RunArtifactStore, runId: string): void {
+	const ref = runRef(runId);
+	if (!store.exists(ref)) {
+		fail(`Error: run '${runId}' not found. No state file at ${runId}/run.json`);
 	}
 }
 
 function nowIso(): string {
 	return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-}
-
-function allowedEventsFor(
-	workflow: WorkflowDefinition,
-	state: string,
-): string[] {
-	return workflow.transitions
-		.filter((transition) => transition.from === state)
-		.map((transition) => transition.event);
 }
 
 function detectProjectId(): string {
@@ -157,19 +144,12 @@ function detectProjectId(): string {
 	return remote.replace(/\.git$/, "").replace(/^.*[:/]([^/]+\/[^/]+)$/, "$1");
 }
 
-function atomicWrite(path: string, content: string): void {
-	mkdirSync(dirname(path), { recursive: true });
-	const tempPath = join(
-		dirname(path),
-		`.${basename(path)}.${process.pid}.${Date.now()}.tmp`,
-	);
-	writeFileSync(tempPath, content, "utf8");
-	renameSync(tempPath, path);
-}
-
-function readRunState(path: string): RunState {
-	const dirName = basename(dirname(path));
-	return readRunStateWithFallback(path, dirName);
+function writeRunState(
+	store: RunArtifactStore,
+	runId: string,
+	state: RunState,
+): void {
+	store.write(runRef(runId), `${JSON.stringify(state, null, 2)}\n`);
 }
 
 function validateRunSchema(runState: RunState): void {
@@ -193,8 +173,10 @@ function validateRunSchema(runState: RunState): void {
 
 function cmdStart(
 	args: string[],
-	root: string,
+	_root: string,
 	workflow: WorkflowDefinition,
+	runStore: RunArtifactStore,
+	changeStore: ChangeArtifactStore,
 ): void {
 	let positionalArg = "";
 	let sourceFile = "";
@@ -256,12 +238,8 @@ function cmdStart(
 		}
 		const syntheticRunId = positionalArg;
 		validateRunId(syntheticRunId);
-		const path = runFile(root, syntheticRunId);
-		try {
-			readFileSync(path, "utf8");
-			fail(`Error: run '${syntheticRunId}' already exists at ${path}`);
-		} catch {
-			// New run — expected.
+		if (runStore.exists(runRef(syntheticRunId))) {
+			fail(`Error: run '${syntheticRunId}' already exists`);
 		}
 
 		const state: RunState = {
@@ -294,17 +272,16 @@ function cmdStart(
 			previous_run_id: null,
 		};
 
-		atomicWrite(path, `${JSON.stringify(state, null, 2)}\n`);
+		writeRunState(runStore, syntheticRunId, state);
 		printSchemaJson("run-state", state);
 		return;
 	}
 
 	// Change run: positionalArg is change_id
 	const changeId = positionalArg;
-	validateChangeRunId(root, changeId);
+	validateChangeRunId(changeId, changeStore);
 
-	const runsPath = runsDir(root);
-	const existingRuns = findRunsForChange(runsPath, changeId);
+	const existingRuns = findRunsForChange(runStore, changeId);
 
 	// Check concurrency invariant: one non-terminal run per change
 	const nonTerminalRun = existingRuns.find((run) => run.status !== "terminal");
@@ -344,8 +321,7 @@ function cmdStart(
 		agents = { ...latestRun.agents };
 	}
 
-	const newRunId = generateRunId(runsPath, changeId);
-	const path = runFile(root, newRunId);
+	const newRunId = generateRunId(runStore, changeId);
 
 	const state: RunState = {
 		run_id: newRunId,
@@ -376,14 +352,15 @@ function cmdStart(
 		previous_run_id: previousRunId,
 	};
 
-	atomicWrite(path, `${JSON.stringify(state, null, 2)}\n`);
+	writeRunState(runStore, newRunId, state);
 	printSchemaJson("run-state", state);
 }
 
 function cmdAdvance(
 	args: string[],
-	root: string,
+	_root: string,
 	workflow: WorkflowDefinition,
+	store: RunArtifactStore,
 ): void {
 	const runId = args[0];
 	const event = args[1];
@@ -391,8 +368,8 @@ function cmdAdvance(
 		fail("Usage: specflow-run advance <run_id> <event>");
 	}
 
-	const path = ensureRunExists(root, runId);
-	const runState = readRunState(path);
+	ensureRunExists(store, runId);
+	const runState = readRunState(store, runId);
 	validateRunSchema(runState);
 
 	// Reject phase events when suspended
@@ -435,18 +412,18 @@ function cmdAdvance(
 		],
 	};
 
-	atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
+	writeRunState(store, runId, updated);
 	printSchemaJson("run-state", updated);
 }
 
-function cmdSuspend(args: string[], root: string): void {
+function cmdSuspend(args: string[], store: RunArtifactStore): void {
 	const runId = args[0];
 	if (!runId) {
 		fail("Usage: specflow-run suspend <run_id>");
 	}
 
-	const path = ensureRunExists(root, runId);
-	const runState = readRunState(path);
+	ensureRunExists(store, runId);
+	const runState = readRunState(store, runId);
 	validateRunSchema(runState);
 
 	if (runState.status === "terminal") {
@@ -472,18 +449,18 @@ function cmdSuspend(args: string[], root: string): void {
 		],
 	};
 
-	atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
+	writeRunState(store, runId, updated);
 	printSchemaJson("run-state", updated);
 }
 
-function cmdResume(args: string[], root: string): void {
+function cmdResume(args: string[], store: RunArtifactStore): void {
 	const runId = args[0];
 	if (!runId) {
 		fail("Usage: specflow-run resume <run_id>");
 	}
 
-	const path = ensureRunExists(root, runId);
-	const runState = readRunState(path);
+	ensureRunExists(store, runId);
+	const runState = readRunState(store, runId);
 	validateRunSchema(runState);
 
 	if (runState.status !== "suspended") {
@@ -506,22 +483,22 @@ function cmdResume(args: string[], root: string): void {
 		],
 	};
 
-	atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
+	writeRunState(store, runId, updated);
 	printSchemaJson("run-state", updated);
 }
 
-function cmdStatus(args: string[], root: string): void {
+function cmdStatus(args: string[], store: RunArtifactStore): void {
 	const runId = args[0];
 	if (!runId) {
 		fail("Usage: specflow-run status <run_id>");
 	}
-	const path = ensureRunExists(root, runId);
-	const runState = readRunState(path);
+	ensureRunExists(store, runId);
+	const runState = readRunState(store, runId);
 	validateRunSchema(runState);
 	printSchemaJson("run-state", runState);
 }
 
-function cmdUpdateField(args: string[], root: string): void {
+function cmdUpdateField(args: string[], store: RunArtifactStore): void {
 	const [runId, field, value] = args;
 	if (!runId || !field || value === undefined) {
 		fail("Usage: specflow-run update-field <run_id> <field> <value>");
@@ -531,25 +508,25 @@ function cmdUpdateField(args: string[], root: string): void {
 			`Error: field '${field}' is not updatable. Allowed fields: last_summary_path`,
 		);
 	}
-	const path = ensureRunExists(root, runId);
-	const runState = readRunState(path);
+	ensureRunExists(store, runId);
+	const runState = readRunState(store, runId);
 	validateRunSchema(runState);
 	const updated: RunState = {
 		...runState,
 		[field]: value,
 		updated_at: nowIso(),
 	};
-	atomicWrite(path, `${JSON.stringify(updated, null, 2)}\n`);
+	writeRunState(store, runId, updated);
 	printSchemaJson("run-state", updated);
 }
 
-function cmdGetField(args: string[], root: string): void {
+function cmdGetField(args: string[], store: RunArtifactStore): void {
 	const [runId, field] = args;
 	if (!runId || !field) {
 		fail("Usage: specflow-run get-field <run_id> <field>");
 	}
-	const path = ensureRunExists(root, runId);
-	const runState = readRunState(path);
+	ensureRunExists(store, runId);
+	const runState = readRunState(store, runId);
 	const value = (runState as JsonObject)[field];
 	if (value === undefined) {
 		fail(`Error: field '${field}' not found in run state`);
@@ -560,29 +537,31 @@ function cmdGetField(args: string[], root: string): void {
 function main(): void {
 	const root = projectRoot();
 	const workflow = loadWorkflow(stateMachinePath(root));
+	const runStore = createLocalFsRunArtifactStore(root);
+	const changeStore = createLocalFsChangeArtifactStore(root);
 	const [subcommand, ...args] = process.argv.slice(2);
 
 	switch (subcommand) {
 		case "start":
-			cmdStart(args, root, workflow);
+			cmdStart(args, root, workflow, runStore, changeStore);
 			return;
 		case "advance":
-			cmdAdvance(args, root, workflow);
+			cmdAdvance(args, root, workflow, runStore);
 			return;
 		case "suspend":
-			cmdSuspend(args, root);
+			cmdSuspend(args, runStore);
 			return;
 		case "resume":
-			cmdResume(args, root);
+			cmdResume(args, runStore);
 			return;
 		case "status":
-			cmdStatus(args, root);
+			cmdStatus(args, runStore);
 			return;
 		case "update-field":
-			cmdUpdateField(args, root);
+			cmdUpdateField(args, runStore);
 			return;
 		case "get-field":
-			cmdGetField(args, root);
+			cmdGetField(args, runStore);
 			return;
 		case undefined:
 			fail(

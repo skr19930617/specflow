@@ -112,7 +112,7 @@ export function checkGateRequirements(
 	event: string,
 	context: GateContext,
 	changeStore: ChangeArtifactStore | null,
-	_runStore: RunArtifactStore | null,
+	runStore: RunArtifactStore | null,
 ): ArtifactRequirement | null {
 	const gate = getGateEntry(fromPhase, event);
 	if (!gate) {
@@ -125,6 +125,11 @@ export function checkGateRequirements(
 		}
 		if ("changeId" in ref) {
 			if (changeStore && !changeStore.exists(ref)) {
+				return requirement;
+			}
+		}
+		if ("runId" in ref) {
+			if (runStore && !runStore.exists(ref)) {
 				return requirement;
 			}
 		}
