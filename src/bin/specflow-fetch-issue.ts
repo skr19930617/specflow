@@ -1,8 +1,6 @@
+import { matchIssueUrlLenient } from "../lib/issue-url.js";
 import { resolveCommand, tryExec } from "../lib/process.js";
 import { parseSchemaJson } from "../lib/schemas.js";
-
-const ISSUE_PATTERN =
-	/^https:\/\/([^/]+)\/([^/]+)\/([^/]+)\/issues\/([0-9]+)(?:\/.*)?$/;
 
 function main(): void {
 	const issueUrl = process.argv[2];
@@ -11,13 +9,13 @@ function main(): void {
 		process.exit(1);
 	}
 
-	const match = issueUrl.trim().match(ISSUE_PATTERN);
-	if (!match) {
+	const parsed = matchIssueUrlLenient(issueUrl);
+	if (!parsed) {
 		process.stdout.write(`Invalid GitHub issue URL: ${issueUrl}\n`);
 		process.exit(1);
 	}
 
-	const [, host, owner, repo, number] = match;
+	const { host, owner, repo, number } = parsed;
 	const gh = resolveCommand("SPECFLOW_GH", "gh");
 	const env = { ...process.env };
 	if (host !== "github.com") {

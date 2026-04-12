@@ -1,6 +1,6 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import test from "node:test";
 
 function assertOrderedFragments(content: string, fragments: readonly string[]) {
 	let cursor = -1;
@@ -20,10 +20,9 @@ test("generated /specflow command preserves detailed proposal step order", () =>
 		"## Step 1: Setup",
 		"## Step 2: Fetch Issue",
 		"## Step 3: Proposal Creation",
-		"/tmp/specflow-proposal-source.json",
-		"specflow-prepare-change [<CHANGE_ID>] --source-file /tmp/specflow-proposal-source.json",
+		"specflow-prepare-change [<CHANGE_ID>] <RAW_INPUT>",
 		"writes `openspec/changes/<CHANGE_ID>/proposal.md`",
-		'specflow-run start "<CHANGE_ID>" --source-file /tmp/specflow-proposal-source.json',
+		'specflow-run start "<CHANGE_ID>"',
 		'specflow-run advance "<CHANGE_ID>" propose',
 		"## Step 4: Scope Check",
 		'specflow-run advance "<CHANGE_ID>" check_scope',

@@ -1,0 +1,356 @@
+{
+  "feature_id": "move-proposal-source-normalization-to-runtime",
+  "phase": "impl",
+  "current_round": 9,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R8-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/lib/issue-url.ts",
+      "title": "Shared URL matcher breaks the standalone fetch CLI contract",
+      "detail": "The new `ISSUE_URL_PATTERN` only accepts `/issues/<number>` with an optional trailing slash. Because `src/bin/specflow-fetch-issue.ts` now uses that shared matcher, `specflow-fetch-issue` no longer accepts issue URLs with trailing path segments such as `/issues/99/comments`, which the previous implementation handled. The proposal explicitly says the `specflow-fetch-issue` CLI contract remains unchanged; only `specflow-prepare-change` should apply the new raw-input classification rule. Keep a strict matcher for `specflow-prepare-change`, but preserve the existing `specflow-fetch-issue` parsing behavior unless you want to make and document a breaking change.",
+      "origin_round": 8,
+      "latest_round": 9,
+      "status": "open",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R8-F02",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/bin/specflow-prepare-change.ts",
+      "title": "Repository lookup happens before documented argument validation",
+      "detail": "`main()` calls `projectRoot()` before enforcing the rejected invocation shapes from the proposal. Outside a git repo, cases like `specflow-prepare-change` with no args or too many positional args will fail on `git rev-parse --show-toplevel` instead of returning the specified CLI errors such as `Missing required input...` or `Too many arguments...`. Move repo discovery until after positional/`--source-file` validation so the documented error contract is always honored.",
+      "origin_round": 8,
+      "latest_round": 9,
+      "status": "open",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R9-F01",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/prepare-change-raw-input.test.ts",
+      "title": "The explicit empty-input error path is still untested",
+      "detail": "The proposal defines `<raw-input>` being empty or whitespace-only as a rejected shape with the exact message `Empty input: provide a non-empty raw input`, but the new suite does not cover that case. Add regression tests for both the one-argument and two-argument forms (for example `\"\"` and whitespace-only input) so the new parser contract is locked in.",
+      "origin_round": 9,
+      "latest_round": 9,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F03",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/prepare-change-raw-input.test.ts",
+      "title": "Two proposal-defined error paths are still untested",
+      "detail": "The new suite covers most invocation shapes, but it does not exercise whitespace-only raw input or a failing `specflow-fetch-issue` call, even though both have explicit acceptance-criteria error messages in the proposal. Add cases for `Empty input: provide a non-empty raw input` and `Issue fetch failed: <...>. Verify the URL and try again.` to lock in the new error handling.",
+      "origin_round": 5,
+      "latest_round": 7,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R7-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/changes/move-proposal-source-normalization-to-runtime/specs/slash-command-guides/spec.md",
+      "title": "Required spec delta updates are not part of the diff",
+      "detail": "The proposal explicitly calls for the `slash-command-guides` and `utility-cli-suite` spec scenarios to be updated with the new `specflow-prepare-change [<CHANGE_ID>] <raw-input>` contract, but the current git diff only contains `src/` changes. Add and stage the corresponding files under `openspec/changes/move-proposal-source-normalization-to-runtime/specs/` so the implementation and accepted spec stay in sync.",
+      "origin_round": 7,
+      "latest_round": 7,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/lib/issue-url.ts",
+      "title": "Issue comment URLs are still classified as supported issue URLs",
+      "detail": "The shared matcher still uses `(?:/.*)?$`, so inputs like `https://github.com/owner/repo/issues/99/comments` are treated as issue URLs. The proposal narrows auto-detection to `https://<host>/<owner>/<repo>/issues/<number>` and explicitly says issue comment URLs are unsupported and should fall back to inline text. Tighten the matcher (or use a stricter matcher in `specflow-prepare-change`) and update the test that currently asserts trailing-path URLs should match.",
+      "origin_round": 5,
+      "latest_round": 6,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/changes/move-proposal-source-normalization-to-runtime/specs/utility-cli-suite/spec.md",
+      "title": "Required OpenSpec spec-delta updates are not included in the diff",
+      "detail": "The proposal requires change-scoped spec updates for both `utility-cli-suite` and `slash-command-guides`, but the reviewed diff only changes implementation and generated-contract sources. Without the corresponding files under `openspec/changes/move-proposal-source-normalization-to-runtime/specs/...`, the submitted change does not capture the new invocation contract in the spec package.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/contracts/command-bodies.ts",
+      "title": "Step 3 guide dropped required explicit run commands",
+      "detail": "The modified Step 3 text at `src/contracts/command-bodies.ts:494` now paraphrases the handoff as \"starts the run and advances to `proposal_draft`\" instead of documenting the explicit commands the changed slash-command-guides spec still requires. The spec says generated `specflow.md` must show `openspec/changes/<CHANGE_ID>/proposal.md` being written before `specflow-run start` and must include `specflow-run advance \"<CHANGE_ID>\" propose`. Restore those explicit instructions in the guide output.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F02",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/bin/specflow-prepare-change.ts",
+      "title": "Fetch-failure error message does not match the spec format",
+      "detail": "In `normalizeRawInput()` (`src/bin/specflow-prepare-change.ts:293-297`), the wrapper interpolates raw `stderr`/`stdout` from `specflow-fetch-issue` without trimming. A failing fetch currently produces output like `Issue fetch failed: 404 not found\\n. Verify the URL and try again.` instead of the spec-required one-line message. Trim the child error text before formatting the wrapper error.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F03",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/bin/specflow-prepare-change.ts",
+      "title": "Dash-prefixed inline raw input is misparsed as an option",
+      "detail": "The new positional parser still rejects any token starting with `-` at `src/bin/specflow-prepare-change.ts:328-350`. For example, `specflow-prepare-change '--leading-dash feature'` exits with `Error: unknown option ...`, even though the proposal says every non-empty non-issue-url string should be treated as inline feature text. The parser needs an escape hatch or raw-input-first handling so inline text beginning with `-` is accepted.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F04",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/command-order.test.ts",
+      "title": "Guide tests were weakened below the updated guide contract",
+      "detail": "The diff removes the Step 3 assertions for the explicit `specflow-run start ...` and `specflow-run advance \"<CHANGE_ID>\" propose` sequence, so the suite now passes even though the generated guide no longer satisfies the slash-command-guides acceptance criteria. Restore those checks here (and in the generation assertions if needed) so the required Step 3 command sequence is enforced.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/lib/issue-url.ts",
+      "title": "URL matcher still accepts issue comment URLs",
+      "detail": "The shared `ISSUE_URL_PATTERN` ends with `(?:/.*)?$`, so inputs like `https://github.com/owner/repo/issues/99/comments` are classified as issue URLs. The proposal explicitly says pull request URLs, issue comment URLs, and shorthand refs are not supported and must be treated as inline text. Tighten the matcher to the exact `https://<host>/<owner>/<repo>/issues/<number>` shape and add a regression test that comment URLs do not enter URL mode.",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F01",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/prepare-change-raw-input.test.ts",
+      "title": "The new CLI contract tests are not included in the submitted patch",
+      "detail": "The proposal explicitly calls for transition coverage of the new positional raw-input path, deprecated `--source-file` behavior, rejected invocation shapes, and equivalence of persisted source metadata. The tracked diff only updates guide-generation assertions; the actual behavior tests live in untracked files (`src/tests/prepare-change-raw-input.test.ts` and `src/tests/issue-url.test.ts`), so they will not ship unless they are added to git.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F02",
+      "severity": "low",
+      "category": "scope",
+      "file": "multiple files",
+      "title": "Patch includes unrelated import-order churn",
+      "detail": "A large set of files unrelated to proposal-entry behavior only reorder imports (`src/bin/specflow-analyze.ts`, `src/build.ts`, review CLIs, several tests, etc.). These no-op edits are outside the proposal scope and add review noise; drop them unless they are intentionally part of a separate formatting change.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/bin/specflow-prepare-change.ts",
+      "title": "Tracked patch is missing the required CLI coverage for the new contract",
+      "detail": "This diff adds substantial new parsing and normalization logic to `specflow-prepare-change`, but the tracked test changes only update generated-guide assertions. The proposal requires behavioral coverage for raw issue URLs, raw inline text, deprecated `--source-file`, rejected invocation shapes, and transition-equivalence between the deprecated and new forms. Add tracked integration tests that execute the CLI and verify the specified stderr messages plus parity of persisted `source` metadata / run state across both invocation paths.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/bin/specflow-prepare-change.ts",
+      "title": "Empty positional raw input is skipped instead of rejected as empty",
+      "detail": "`main()` drops any falsy argv entry with `if (!arg) continue;`. As a result, `specflow-prepare-change \"\"` returns `Missing required input...` instead of the spec-required `Empty input: provide a non-empty raw input`, and `specflow-prepare-change my-change \"\"` misclassifies the call by silently discarding the empty `<raw-input>`. Remove the falsy-arg skip so explicit empty positional arguments flow into the existing `trim()` validation, and add a regression test for both 1-arg and 2-arg empty-input forms.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/prepare-change-raw-input.test.ts",
+      "title": "Parity tests do not actually verify deprecated and new invocation equivalence",
+      "detail": "The two tests named `--source-file and positional ... produce equivalent source metadata` only execute the new positional path and assert that output in isolation. They never invoke the deprecated `--source-file` form or compare the two results, so the proposal's backward-compatibility acceptance criterion is still unverified. Add paired runs for both invocation forms and compare normalized `run-state.source` (and ideally persisted `run.json` source metadata) for both issue URLs and inline text.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 2,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 3,
+      "total": 6,
+      "open": 3,
+      "new": 2,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1,
+        "low": 1
+      }
+    },
+    {
+      "round": 4,
+      "total": 10,
+      "open": 4,
+      "new": 4,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 3
+      }
+    },
+    {
+      "round": 5,
+      "total": 13,
+      "open": 3,
+      "new": 3,
+      "resolved": 10,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      }
+    },
+    {
+      "round": 6,
+      "total": 13,
+      "open": 2,
+      "new": 0,
+      "resolved": 11,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 7,
+      "total": 14,
+      "open": 2,
+      "new": 1,
+      "resolved": 12,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      }
+    },
+    {
+      "round": 8,
+      "total": 16,
+      "open": 2,
+      "new": 2,
+      "resolved": 14,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 9,
+      "total": 17,
+      "open": 3,
+      "new": 1,
+      "resolved": 14,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      }
+    }
+  ]
+}

@@ -37,7 +37,7 @@ export const commandContracts: readonly CommandContract[] = [
 			hook(
 				"Proposal Entry",
 				"Use the shared local helper to materialize proposal.md and enter proposal_draft.",
-				'specflow-prepare-change [<CHANGE_ID>] --source-file "/tmp/specflow-proposal-source.json"',
+				"specflow-prepare-change [<CHANGE_ID>] <raw-input>",
 			),
 		],
 	),
