@@ -99,6 +99,47 @@ The workflow core contract comprises:
 
 **Excluded from core contract:** CLI entry-point contracts (command names, argument signatures, output format) are implementation details of the bundled local reference. External runtimes conform to the workflow core contract only — they are not required to replicate the CLI surface.
 
+## Actor / Surface Model
+
+The actor/surface abstraction model defines who interacts with the workflow (actors) and through which interface (surfaces). This is a horizontal cross-cutting concern that complements the core/adapter dependency boundary defined below.
+
+The canonical specification is `openspec/specs/actor-surface-model/spec.md`.
+Normative actor taxonomy, surface taxonomy, capability matrix, clarify
+constraints, gated decision semantics, delegation rules, and surface-neutral
+governing rules live in that spec; this section provides architectural context
+only.
+
+### Actor Taxonomy
+
+The system recognizes three actor kinds:
+
+| Actor Kind | Description | Gated Decisions |
+|------------|-------------|-----------------|
+| `human` | Human operator | Full access: propose, clarify, approve, reject, review, advance |
+| `ai-agent` | AI agent (e.g., Claude, Codex) | Propose, clarify, review, non-gated advance; approve only with delegation; cannot reject |
+| `automation` | CI/cron/webhook triggers | Propose, non-gated advance only; no interactive or gated operations |
+
+Each actor instance is identified by both `actor` (kind) and `actor_id` (stable identity). The value `unknown` is a backward-compatibility sentinel for legacy history entries — it is not a member of the taxonomy.
+
+### Surface Taxonomy
+
+Surfaces mediate between actors and the workflow. Representative surfaces include `local-cli`, `remote-api`, `agent-native`, and `batch`. The governing rule: **actor determines permissions, surface determines presentation**. Surfaces never alter workflow semantics.
+
+### Relationship to Core/Adapter Boundary
+
+The actor/surface model and the core/adapter dependency boundary serve different purposes:
+
+- **Core/adapter boundary** (below): governs module-level import rules based on deployment topology (runtime-agnostic vs. backend-specific)
+- **Actor/surface model**: governs workflow-level permission and identity rules based on who initiates operations and through which interface
+
+Both boundaries reinforce the same principle: core workflow logic is independent of external concerns. Core modules must not depend on actor-specific or surface-specific logic, just as they must not depend on adapter-specific I/O.
+
+Slash commands are classified as **surface-layer constructs**. They belong to the adapter layer and map to core workflow events — the core state machine does not reference slash command names.
+
+### Compatibility with agent-context-template
+
+The existing surface separation in `openspec/specs/agent-context-template/spec.md` (surface-neutral core profile schema vs. surface-specific adapters like the Claude.md renderer) is encompassed by this model. The agent-context-template spec's surface adapter pattern is a valid instance of the surface taxonomy. No change to the agent-context-template spec is required; future term unification is deferred to a separate proposal.
+
 ## Core Dependency Boundary
 
 This section defines the internal module classification and dependency rules for workflow core. These rules govern which modules may import which within this repository. They are an **internal architectural boundary**, not an external API guarantee — see [Classification vs. Support Status](#classification-vs-support-status) below.
