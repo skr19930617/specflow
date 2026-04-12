@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
 	existsSync,
 	readdirSync,
@@ -8,6 +9,8 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import type { DiffSummary, ReviewLedger } from "../types/contracts.js";
+import type { ChangeArtifactStore } from "./artifact-store.js";
+import { ChangeArtifactType, changeRef } from "./artifact-types.js";
 import { atomicWriteText } from "./fs.js";
 import { currentBranch, recentChanges } from "./git.js";
 import { extractJsonFromMarkdown } from "./json.js";
@@ -409,4 +412,162 @@ export function detectProjectName(targetPath: string): string {
 
 export function repoInitMessage(branch: string): string {
 	return branch ? branch : currentBranch(process.cwd());
+}
+
+// --- Store-backed helpers ---
+
+export function validateChangeFromStore(
+	store: ChangeArtifactStore,
+	changeId: string,
+): void {
+	if (!store.changeExists(changeId)) {
+		throw new Error(`Error: change not found: ${changeId}`);
+	}
+	if (!store.exists(changeRef(changeId, ChangeArtifactType.Proposal))) {
+		throw new Error(`Error: proposal.md not found for change: ${changeId}`);
+	}
+}
+
+export function readDesignArtifactsFromStore(
+	store: ChangeArtifactStore,
+	changeId: string,
+): DesignArtifacts | null {
+	const designRef = changeRef(changeId, ChangeArtifactType.Design);
+	const tasksRef = changeRef(changeId, ChangeArtifactType.Tasks);
+	if (!store.exists(designRef) || !store.exists(tasksRef)) {
+		return null;
+	}
+	const proposalRef = changeRef(changeId, ChangeArtifactType.Proposal);
+	const specRefs = store.list({
+		changeId,
+		type: ChangeArtifactType.SpecDelta,
+	});
+	const specs = [...specRefs]
+		.map((ref) => {
+			const qualifier = "qualifier" in ref ? ref.qualifier : "";
+			return `--- specs/${qualifier}/spec.md ---\n${store.read(ref)}`;
+		})
+		.sort()
+		.join("\n\n");
+	return {
+		proposal: store.read(proposalRef),
+		design: store.read(designRef),
+		tasks: store.read(tasksRef),
+		specs,
+	};
+}
+
+export function renderCurrentPhaseToStore(
+	store: ChangeArtifactStore,
+	changeId: string,
+	ledger: ReviewLedger,
+	kind: "apply" | "design" | "proposal",
+	cwd: string,
+): void {
+	const currentRound = Number(ledger.current_round ?? 1);
+	const latestRoundSummary =
+		Array.isArray(ledger.round_summaries) && ledger.round_summaries.length > 0
+			? ledger.round_summaries[ledger.round_summaries.length - 1]
+			: null;
+	const phase =
+		kind === "proposal"
+			? currentRound <= 1
+				? "proposal-review"
+				: "proposal-fix-review"
+			: kind === "apply"
+				? currentRound <= 1
+					? "impl-review"
+					: "fix-review"
+				: currentRound <= 1
+					? "design-review"
+					: "design-fix-review";
+	const openHigh = (ledger.findings ?? []).filter((finding) => {
+		const severity = String(finding.severity ?? "");
+		const status = String(finding.status ?? "");
+		return severity === "high" && (status === "new" || status === "open");
+	});
+	const openHighStr =
+		openHigh.length > 0
+			? `${openHigh.length} 件 — "${openHigh.map((finding) => String(finding.title ?? "")).join('", "')}"`
+			: "0 件";
+	const acceptedRisks =
+		(ledger.findings ?? [])
+			.filter((finding) => {
+				const status = String(finding.status ?? "");
+				return status === "accepted_risk" || status === "ignored";
+			})
+			.map(
+				(finding) =>
+					`${String(finding.title ?? "")} (${String(finding.status ?? "")}, notes: "${String(finding.notes ?? "")}")`,
+			)
+			.join("\n") || "none";
+	const actionable = actionableCount(ledger);
+	const proposalMaxRounds = Number(
+		ledger.max_rounds ?? latestRoundSummary?.max_rounds ?? 0,
+	);
+	const proposalDecision = String(
+		ledger.latest_decision ?? latestRoundSummary?.decision ?? "UNKNOWN",
+	);
+	const proposalBlockingCount = Number(
+		ledger.blocking_count ?? latestRoundSummary?.blocking_count ?? 0,
+	);
+	const proposalStopReasonValue =
+		ledger.stop_reason ?? latestRoundSummary?.stop_reason ?? null;
+	const proposalStopReason =
+		proposalStopReasonValue == null ||
+		String(proposalStopReasonValue).length === 0
+			? "none"
+			: String(proposalStopReasonValue);
+	const proposalCapReached =
+		proposalStopReason === "max_rounds_reached" ||
+		(proposalMaxRounds > 0 && currentRound >= proposalMaxRounds);
+	const nextAction =
+		kind === "proposal"
+			? "/specflow"
+			: kind === "apply"
+				? actionable > 0
+					? "/specflow.fix_apply"
+					: "/specflow.approve"
+				: actionable > 0
+					? "/specflow.fix_design"
+					: "/specflow.apply";
+
+	store.write(
+		changeRef(changeId, ChangeArtifactType.CurrentPhase),
+		[
+			`# Current Phase: ${String(ledger.feature_id ?? changeId)}`,
+			"",
+			`- Phase: ${phase}`,
+			`- Round: ${currentRound}`,
+			...(kind === "proposal"
+				? [
+						`- Configured Round Cap: ${proposalMaxRounds > 0 ? proposalMaxRounds : "n/a"}`,
+						`- Latest Decision: ${proposalDecision}`,
+						`- Gate Blocking Findings: ${proposalBlockingCount}`,
+						`- Cap Reached: ${proposalCapReached ? "yes" : "no"}`,
+						`- Stop Reason: ${proposalStopReason}`,
+					]
+				: []),
+			`- Status: ${String(ledger.status ?? "in_progress")}`,
+			`- Open High Findings: ${openHighStr}`,
+			`- Actionable Findings: ${actionable}`,
+			`- Accepted Risks: ${acceptedRisks}`,
+			"- Latest Changes:",
+			recentChanges(cwd),
+			`- Next Recommended Action: ${nextAction}`,
+			"",
+		].join("\n"),
+	);
+	process.stderr.write("current-phase.md updated\n");
+}
+
+export function readProposalFromStore(
+	store: ChangeArtifactStore,
+	changeId: string,
+): string {
+	return store.read(changeRef(changeId, ChangeArtifactType.Proposal));
+}
+
+export function contentHash(content: string): string {
+	return createHash("sha256").update(content).digest("hex");
 }

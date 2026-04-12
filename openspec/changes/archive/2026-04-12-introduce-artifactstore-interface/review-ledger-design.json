@@ -1,0 +1,49 @@
+{
+	"feature_id": "introduce-artifactstore-interface",
+	"phase": "design",
+	"current_round": 1,
+	"status": "has_open_high",
+	"max_finding_id": 2,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "completeness",
+			"title": "Review-command migration omits helper paths that still require changeDir",
+			"detail": "The design assumes the review bins can be migrated by instantiating ChangeArtifactStore in main() and swapping a few read/write calls, but the current review commands still depend on helper APIs that take a changeDir and do change-artifact path/I/O internally (for example readLedger, backupAndWriteLedger, renderCurrentPhase, readDesignArtifacts, resetLedger, and the autofix fileHash(resolve(changeDir, ...)) paths). Without explicitly refactoring those helpers to accept ChangeArtifactStore/artifact refs, or adding store-backed wrappers for every review/fix-review/autofix/reset path, the bins cannot actually remove resolve(..., \"openspec/changes\", ...) and direct change-artifact access as required. Update the design and tasks to cover those helper-layer changes before implementation starts.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "medium",
+			"category": "risk",
+			"title": "Behavior-sensitive flows are not explicitly verified",
+			"detail": "The proposal requires no observable behavior change, and the design itself calls out regression risk around prepare-change scaffold detection and review-ledger backup behavior. The task list only adds unit tests for listChanges/changeExists plus generic bun test/typecheck/lint runs, which does not prove the refactor preserved the two-step prepare-change flow (existing change dir with missing or empty proposal) or review ledger reset/overwrite behavior. Add targeted tests or integration checks for those paths so the migration can be validated without manual rework.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 2,
+			"open": 2,
+			"new": 2,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		}
+	]
+}

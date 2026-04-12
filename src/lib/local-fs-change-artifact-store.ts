@@ -32,7 +32,12 @@ function resolvePath(projectRoot: string, ref: ChangeArtifactRef): string {
 		case ChangeArtifactType.SpecDelta:
 			return resolve(changeDir, "specs", ref.qualifier, "spec.md");
 		case ChangeArtifactType.ReviewLedger:
-			return resolve(changeDir, `review-ledger-${ref.qualifier}.json`);
+			return resolve(
+				changeDir,
+				ref.qualifier === "apply"
+					? "review-ledger.json"
+					: `review-ledger-${ref.qualifier}.json`,
+			);
 	}
 }
 
@@ -74,6 +79,20 @@ export function createLocalFsChangeArtifactStore(
 			return existsSync(resolvePath(projectRoot, ref));
 		},
 
+		listChanges(): readonly string[] {
+			const changesDir = resolve(projectRoot, "openspec/changes");
+			if (!existsSync(changesDir)) {
+				return [];
+			}
+			return readdirSync(changesDir, { withFileTypes: true })
+				.filter((entry) => entry.isDirectory())
+				.map((entry) => entry.name);
+		},
+
+		changeExists(changeId: string): boolean {
+			return existsSync(resolve(projectRoot, "openspec/changes", changeId));
+		},
+
 		list(query: ChangeArtifactQuery): readonly ChangeArtifactRef[] {
 			if (!isChangeArtifactType(query.type)) {
 				throw new UnknownArtifactTypeError(query.type);
@@ -104,7 +123,12 @@ export function createLocalFsChangeArtifactStore(
 			if (query.type === ChangeArtifactType.ReviewLedger) {
 				const refs: ChangeArtifactRef[] = [];
 				for (const kind of ["proposal", "design", "apply"] as const) {
-					const path = resolve(changeDir, `review-ledger-${kind}.json`);
+					const path = resolve(
+						changeDir,
+						kind === "apply"
+							? "review-ledger.json"
+							: `review-ledger-${kind}.json`,
+					);
 					if (existsSync(path)) {
 						refs.push(
 							changeRef(
