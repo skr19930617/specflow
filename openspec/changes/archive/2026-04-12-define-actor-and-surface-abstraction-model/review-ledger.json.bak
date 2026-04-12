@@ -1,0 +1,148 @@
+{
+  "feature_id": "define-actor-and-surface-abstraction-model",
+  "phase": "impl",
+  "current_round": 3,
+  "status": "has_open_high",
+  "max_finding_id": 7,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/specs/actor-surface-model/spec.md",
+      "title": "Required actor-surface-model spec was not added",
+      "detail": "The proposal explicitly introduces a new `actor-surface-model` capability and lists `openspec/specs/actor-surface-model/spec.md` as a required new file. That file is missing, even though `docs/architecture.md` now declares it the canonical specification. As a result, key acceptance criteria are still undocumented in normative spec form: actor/surface taxonomy, the capability matrix, gated approval/reject semantics, clarify constraints, delegation rules, and the surface-neutral governing rules. Add the new spec file and move these requirements into it.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/specs/review-orchestration/spec.md",
+      "title": "Automation review semantics remain undefined",
+      "detail": "The proposal says review orchestration must distinguish `human`, `ai-agent`, and `automation`. The new requirement only branches on `human` vs `ai-agent`, so automation behavior in review is still ambiguous. Add an explicit rule that automation cannot issue review outcomes (or otherwise define its behavior) so the actor model is complete and aligned with the proposal.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "scope",
+      "file": "CLAUDE.md",
+      "title": "CLAUDE.md rewrite is outside the proposal scope",
+      "detail": "Issue #94 scopes this change to docs/spec updates for actor/surface modeling. Replacing `CLAUDE.md` with a generic managed block is not listed in the proposal impact and removes existing project-specific specflow guidance. Drop this file from the diff or land it separately with its own rationale.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "openspec/specs/review-orchestration/spec.md",
+      "title": "Human block override rule is internally contradictory",
+      "detail": "The new `Human reviewer block is non-overridable` scenario says a human-issued block cannot be overridden \"without the blocking reviewer's consent\", which implies a consent-based override path may exist, but the next clause says any attempt to override a human-issued block must be rejected. That leaves the rule ambiguous and weakens the proposal's stated rule that human reviewer judgments are not overrideable. Remove the consent caveat or explicitly define the intended exception so implementations cannot infer two different behaviors.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F05",
+      "severity": "high",
+      "category": "correctness",
+      "file": "openspec/specs/review-orchestration/spec.md",
+      "title": "Undelegated AI approvals can still produce an approved handoff",
+      "detail": "The existing proposal-review rule still says any `APPROVE` decision with no unresolved `high` findings SHALL return `handoff.state = \"review_approved\"`. The new actor-aware section says an undelegated `ai-agent` `review_approved` is advisory only and must not advance the workflow on its own. Unless the earlier handoff rule is conditioned on reviewer kind and delegation, runtimes can still treat undelegated AI approvals as binding approvals.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F06",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/specs/review-orchestration/spec.md",
+      "title": "`request_changes` has no actor-aware transition semantics",
+      "detail": "The new requirement says review-outcome processing must account for whether the reviewer is `human`, `ai-agent`, or `automation`, but the added scenarios only define actor-specific behavior for `review_approved` and `block`. There is still no normative mapping for `request_changes` to the appropriate handoff or `revise_*` transition, and no statement of whether human and AI `request_changes` are equally binding. Add an explicit `request_changes` scenario so implementations cannot diverge.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F07",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/specs/workflow-run-state/spec.md",
+      "title": "Delegated approval audit provenance is not representable",
+      "detail": "`actor-surface-model` now requires a delegated `approve` to capture both the delegating human actor's identity and the executing `ai-agent` actor's identity, but the run-state addition only defines a single `actor`/`actor_id` pair on history entries. Without an explicit delegator field or another required persisted delegation record, the new auditability requirement cannot be satisfied.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1,
+        "low": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 1,
+      "new": 1,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1
+      }
+    },
+    {
+      "round": 3,
+      "total": 7,
+      "open": 4,
+      "new": 3,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 3,
+        "high": 1
+      }
+    }
+  ]
+}
