@@ -30,13 +30,19 @@ import {
 } from "../lib/review-ledger.js";
 import {
 	buildPrompt,
-	callCodex,
+	callMainAgent,
+	callReviewAgent,
 	contentHash,
 	errorJson,
+	loadConfigEnv,
+	type MainAgentName,
+	type ReviewAgentName,
 	readDesignArtifactsFromStore,
 	readPrompt,
 	readReviewConfig,
 	renderCurrentPhaseToStore,
+	resolveMainAgent,
+	resolveReviewAgent,
 	unresolvedHighCount,
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
@@ -216,6 +222,7 @@ function runReviewPipeline(
 	action: string,
 	changeId: string,
 	rereviewMode: boolean,
+	reviewAgent: ReviewAgentName,
 ): ReviewResult {
 	process.stderr.write("Reading artifacts...\n");
 	if (!readDesignArtifactsFromStore(changeStore, changeId)) {
@@ -228,7 +235,7 @@ function runReviewPipeline(
 		};
 	}
 
-	process.stderr.write("Calling Codex for design review...\n");
+	process.stderr.write(`Calling ${reviewAgent} for design review...\n`);
 	const prompt = rereviewMode
 		? (() => {
 				const priorLedger = readLedgerFromStore(
@@ -248,7 +255,11 @@ function runReviewPipeline(
 				);
 			})()
 		: buildReviewPrompt(runtimeRoot, changeStore, changeId);
-	const codexResult = callCodex<Record<string, unknown>>(projectRoot, prompt);
+	const reviewAgentResult = callReviewAgent<Record<string, unknown>>(
+		reviewAgent,
+		projectRoot,
+		prompt,
+	);
 
 	let parseError = false;
 	let rawResponse = "";
@@ -258,10 +269,14 @@ function runReviewPipeline(
 		summary: "parse failed",
 	};
 
-	if (!codexResult.ok) {
-		if (codexResult.exitCode) {
+	if (!reviewAgentResult.ok) {
+		if (reviewAgentResult.exitCode) {
 			return {
-				...errorJson(action, changeId, `codex_exit_${codexResult.exitCode}`),
+				...errorJson(
+					action,
+					changeId,
+					`review_agent_exit_${reviewAgentResult.exitCode}`,
+				),
 				review: null,
 				ledger: null,
 				autofix: null,
@@ -269,9 +284,9 @@ function runReviewPipeline(
 			};
 		}
 		parseError = true;
-		rawResponse = codexResult.rawResponse;
-	} else if (codexResult.payload) {
-		reviewJson = codexResult.payload;
+		rawResponse = reviewAgentResult.rawResponse;
+	} else if (reviewAgentResult.payload) {
+		reviewJson = reviewAgentResult.payload;
 	}
 
 	const ledgerRead = readLedgerFromStore(
@@ -382,6 +397,8 @@ function runAutofixLoop(
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	maxRounds: number,
+	reviewAgent: ReviewAgentName,
+	mainAgent: MainAgentName,
 ): ReviewResult {
 	if (!readDesignArtifactsFromStore(changeStore, changeId)) {
 		return {
@@ -429,7 +446,8 @@ function runAutofixLoop(
 		const preFixHash =
 			artifactHash(changeStore, changeId, ChangeArtifactType.Design) +
 			artifactHash(changeStore, changeId, ChangeArtifactType.Tasks);
-		const fixResult = callCodex(
+		const fixResult = callMainAgent(
+			mainAgent,
 			projectRoot,
 			buildFixPrompt(runtimeRoot, changeStore, changeId, actionableFindings),
 		);
@@ -467,6 +485,7 @@ function runAutofixLoop(
 			"fix_review",
 			changeId,
 			true,
+			reviewAgent,
 		);
 		if (reviewResult.status === "error" || reviewResult.review?.parse_error) {
 			consecutiveFailures += 1;
@@ -579,6 +598,7 @@ function cmdReview(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	reviewAgent: ReviewAgentName,
 ): ReviewResult {
 	const changeId = args[0];
 	if (!changeId) {
@@ -607,6 +627,7 @@ function cmdReview(
 		"review",
 		changeId,
 		false,
+		reviewAgent,
 	);
 }
 
@@ -615,6 +636,7 @@ function cmdFixReview(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	reviewAgent: ReviewAgentName,
 ): ReviewResult {
 	const changeId = args[0];
 	if (!changeId) {
@@ -645,6 +667,7 @@ function cmdFixReview(
 		"fix_review",
 		changeId,
 		true,
+		reviewAgent,
 	);
 }
 
@@ -653,6 +676,8 @@ function cmdAutofixLoop(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	reviewAgent: ReviewAgentName,
+	mainAgent: MainAgentName,
 ): ReviewResult {
 	const changeId = args[0];
 	if (!changeId) {
@@ -680,14 +705,28 @@ function cmdAutofixLoop(
 		changeStore,
 		changeId,
 		rounds,
+		reviewAgent,
+		mainAgent,
 	);
+}
+
+function parseReviewAgentFlag(args: readonly string[]): string | undefined {
+	for (let index = 0; index < args.length; index += 1) {
+		if (args[index] === "--review-agent") {
+			return args[index + 1];
+		}
+	}
+	return undefined;
 }
 
 function main(): void {
 	const projectRoot = ensureGitRepo();
+	loadConfigEnv(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
 	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
 	const [subcommand, ...args] = process.argv.slice(2);
+	const reviewAgent = resolveReviewAgent(parseReviewAgentFlag(args));
+	const mainAgent = resolveMainAgent();
 	if (!subcommand) {
 		process.stderr.write(`Usage: specflow-review-design <subcommand> <CHANGE_ID> [options]
 
@@ -703,13 +742,32 @@ Subcommands:
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
-			result = cmdReview(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdReview(
+				runtimeRoot,
+				projectRoot,
+				changeStore,
+				args,
+				reviewAgent,
+			);
 			break;
 		case "fix-review":
-			result = cmdFixReview(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdFixReview(
+				runtimeRoot,
+				projectRoot,
+				changeStore,
+				args,
+				reviewAgent,
+			);
 			break;
 		case "autofix-loop":
-			result = cmdAutofixLoop(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdAutofixLoop(
+				runtimeRoot,
+				projectRoot,
+				changeStore,
+				args,
+				reviewAgent,
+				mainAgent,
+			);
 			break;
 		default:
 			die(

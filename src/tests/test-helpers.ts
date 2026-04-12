@@ -298,6 +298,29 @@ export function createCodexStub(root: string): string {
 	return stubDir;
 }
 
+export function createClaudeStub(root: string): string {
+	const stubDir = createStubDir(root);
+	const path = join(stubDir, "claude");
+	writeExecutable(
+		path,
+		[
+			"#!/usr/bin/env node",
+			"const fs = require('node:fs');",
+			"const responsesPath = process.env.SPECFLOW_TEST_CLAUDE_RESPONSES;",
+			"const statePath = process.env.SPECFLOW_TEST_CLAUDE_STATE;",
+			"const responses = responsesPath ? JSON.parse(fs.readFileSync(responsesPath, 'utf8')) : [];",
+			"let index = 0;",
+			"if (statePath && fs.existsSync(statePath)) index = Number(fs.readFileSync(statePath, 'utf8') || '0');",
+			"const response = responses[index] || responses[responses.length - 1] || { exitCode: 0, output: '{}' };",
+			"if (statePath) fs.writeFileSync(statePath, String(index + 1));",
+			"if (response.output !== undefined) process.stdout.write(String(response.output));",
+			"process.exit(Number(response.exitCode || 0));",
+			"",
+		].join("\n"),
+	);
+	return stubDir;
+}
+
 export function prependPath(
 	env: NodeJS.ProcessEnv,
 	stubDir: string,

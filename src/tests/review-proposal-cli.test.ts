@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { validateSchemaValue } from "../lib/schemas.js";
 import {
+	createClaudeStub,
 	createCodexStub,
 	createFixtureRepo,
 	createInstalledHome,
@@ -26,6 +27,24 @@ function createCodexEnv(root: string, responses: unknown[]) {
 			HOME: createInstalledHome(root),
 			SPECFLOW_TEST_CODEX_RESPONSES: responsesPath,
 			SPECFLOW_TEST_CODEX_STATE: statePath,
+			SPECFLOW_MAIN_AGENT: "codex",
+		},
+		stubDir,
+	);
+}
+
+function createClaudeEnv(root: string, responses: unknown[]) {
+	const stubDir = createClaudeStub(root);
+	const responsesPath = join(root, "claude-responses.json");
+	const statePath = join(root, "claude-state.txt");
+	writeFileSync(responsesPath, JSON.stringify(responses), "utf8");
+	writeFileSync(statePath, "0", "utf8");
+	return prependPath(
+		{
+			HOME: createInstalledHome(root),
+			SPECFLOW_TEST_CLAUDE_RESPONSES: responsesPath,
+			SPECFLOW_TEST_CLAUDE_STATE: statePath,
+			SPECFLOW_REVIEW_AGENT: "claude",
 		},
 		stubDir,
 	);
@@ -584,6 +603,42 @@ test("specflow-review-proposal surfaces parse errors without mutating ledger", (
 			),
 			false,
 		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- Claude agent tests ---
+
+test("specflow-review-proposal works with claude as review agent", () => {
+	const tempRoot = makeTempDir("review-proposal-claude-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const env = createClaudeEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "proposal ok via claude",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-proposal",
+			["review", changeId, "--review-agent", "claude"],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			review: { summary: string };
+			handoff: { state: string };
+		};
+		assert.equal(json.status, "success");
+		assert.equal(json.review.summary, "proposal ok via claude");
+		assert.equal(json.handoff.state, "review_approved");
 	} finally {
 		removeTempDir(tempRoot);
 	}

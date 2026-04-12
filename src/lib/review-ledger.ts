@@ -232,13 +232,13 @@ export function incrementRound(ledger: ReviewLedger): ReviewLedger {
 
 export function matchFindings(
 	ledger: ReviewLedger,
-	codexFindings: readonly ReviewFinding[],
+	incomingFindings: readonly ReviewFinding[],
 	currentRound: number,
 ): ReviewLedger {
-	const codex = normalizeFindings(codexFindings);
+	const incoming = normalizeFindings(incomingFindings);
 	const existing = normalizeFindings(ledger.findings);
 
-	if (codex.length === 0) {
+	if (incoming.length === 0) {
 		return {
 			...ledger,
 			findings: existing.map((finding) => {
@@ -260,11 +260,11 @@ export function matchFindings(
 		(finding) => !isActive(finding) && !isOverride(finding),
 	);
 
-	const matchedCodex = new Set<number>();
+	const matchedIncoming = new Set<number>();
 	const matchedExisting = new Set<string>();
 	const step1Results: ReviewFinding[] = [];
 
-	for (const [index, finding] of codex.entries()) {
+	for (const [index, finding] of incoming.entries()) {
 		const match = [...active, ...overrides].find((candidate) => {
 			const id = findingId(candidate);
 			return (
@@ -276,7 +276,7 @@ export function matchFindings(
 		if (!match) {
 			continue;
 		}
-		matchedCodex.add(index);
+		matchedIncoming.add(index);
 		matchedExisting.add(findingId(match));
 		if (isOverride(match)) {
 			step1Results.push({
@@ -299,8 +299,8 @@ export function matchFindings(
 	const step2New: ReviewFinding[] = [];
 	let seq = 1;
 
-	for (const [index, finding] of codex.entries()) {
-		if (matchedCodex.has(index)) {
+	for (const [index, finding] of incoming.entries()) {
+		if (matchedIncoming.has(index)) {
 			continue;
 		}
 		const match = [...active, ...overrides].find((candidate) => {
@@ -316,7 +316,7 @@ export function matchFindings(
 			continue;
 		}
 		matchedExistingStep2.add(findingId(match));
-		matchedCodex.add(index);
+		matchedIncoming.add(index);
 		step2Resolved.push({
 			...match,
 			status: "resolved",
@@ -338,8 +338,8 @@ export function matchFindings(
 
 	const allMatchedIds = new Set([...matchedExisting, ...matchedExistingStep2]);
 	const step3New: ReviewFinding[] = [];
-	for (const [index, finding] of codex.entries()) {
-		if (matchedCodex.has(index)) {
+	for (const [index, finding] of incoming.entries()) {
+		if (matchedIncoming.has(index)) {
 			continue;
 		}
 		step3New.push(

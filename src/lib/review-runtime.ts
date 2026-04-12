@@ -22,7 +22,24 @@ export interface ReviewConfig {
 	readonly maxAutofixRounds: number;
 }
 
-export interface CodexCallResult<T> {
+export type ReviewAgentName = "codex" | "claude";
+
+export const REVIEW_AGENTS: readonly ReviewAgentName[] = ["codex", "claude"];
+
+export type MainAgentName = "claude" | "codex" | "copilot";
+
+export const MAIN_AGENTS: readonly MainAgentName[] = [
+	"claude",
+	"codex",
+	"copilot",
+];
+
+export interface MainAgentResult {
+	readonly ok: boolean;
+	readonly exitCode?: number;
+}
+
+export interface ReviewCallResult<T> {
 	readonly ok: boolean;
 	readonly exitCode?: number;
 	readonly payload?: T;
@@ -137,10 +154,10 @@ export function buildPrompt(parts: readonly [string, string][]): string {
 		.join("\n\n");
 }
 
-export function callCodex<T>(
+function callCodexDriver<T>(
 	cwd: string,
 	promptContent: string,
-): CodexCallResult<T> {
+): ReviewCallResult<T> {
 	const codex = resolveCommand("SPECFLOW_CODEX", "codex");
 	const outputPath = join(
 		tmpdir(),
@@ -156,10 +173,27 @@ export function callCodex<T>(
 		rawOutput = readFileSync(outputPath, "utf8");
 		rmSync(outputPath, { force: true });
 	}
-	if (result.status !== 0) {
+	return parseRawOutput(result.status, rawOutput);
+}
+
+function callClaudeReviewDriver<T>(
+	cwd: string,
+	promptContent: string,
+): ReviewCallResult<T> {
+	const claude = resolveCommand("SPECFLOW_CLAUDE", "claude");
+	const args = ["-p", "--output-format", "text", "--no-session-persistence"];
+	const result = tryExec(claude, args, cwd, undefined, promptContent);
+	return parseRawOutput(result.status, result.stdout);
+}
+
+function parseRawOutput<T>(
+	status: number,
+	rawOutput: string,
+): ReviewCallResult<T> {
+	if (status !== 0) {
 		return {
 			ok: false,
-			exitCode: result.status,
+			exitCode: status,
 			rawResponse: rawOutput,
 		};
 	}
@@ -181,6 +215,104 @@ export function callCodex<T>(
 		payload: parsed,
 		rawResponse: rawOutput.trim(),
 	};
+}
+
+export function callReviewAgent<T>(
+	agent: ReviewAgentName,
+	cwd: string,
+	promptContent: string,
+): ReviewCallResult<T> {
+	switch (agent) {
+		case "codex":
+			return callCodexDriver<T>(cwd, promptContent);
+		case "claude":
+			return callClaudeReviewDriver<T>(cwd, promptContent);
+	}
+}
+
+export function loadConfigEnv(projectRoot: string): void {
+	const configPath = resolve(projectRoot, ".specflow/config.env");
+	if (!existsSync(configPath)) {
+		return;
+	}
+	const content = readFileSync(configPath, "utf8");
+	for (const line of content.split("\n")) {
+		const trimmed = line.trim();
+		if (trimmed.length === 0 || trimmed.startsWith("#")) {
+			continue;
+		}
+		const eqIndex = trimmed.indexOf("=");
+		if (eqIndex === -1) {
+			continue;
+		}
+		const key = trimmed.slice(0, eqIndex);
+		const value = trimmed.slice(eqIndex + 1);
+		if (!(key in process.env)) {
+			process.env[key] = value;
+		}
+	}
+}
+
+export function resolveReviewAgent(flagValue?: string): ReviewAgentName {
+	const raw = flagValue ?? process.env.SPECFLOW_REVIEW_AGENT ?? "codex";
+	if (raw === "codex" || raw === "claude") {
+		return raw;
+	}
+	process.stderr.write(
+		`Warning: unknown review agent '${raw}', falling back to 'codex'\n`,
+	);
+	return "codex";
+}
+
+export function resolveMainAgent(flagValue?: string): MainAgentName {
+	const raw = flagValue ?? process.env.SPECFLOW_MAIN_AGENT ?? "claude";
+	if (raw === "claude" || raw === "codex" || raw === "copilot") {
+		return raw;
+	}
+	process.stderr.write(
+		`Warning: unknown main agent '${raw}', falling back to 'claude'\n`,
+	);
+	return "claude";
+}
+
+export function callMainAgent(
+	agent: MainAgentName,
+	cwd: string,
+	promptContent: string,
+): MainAgentResult {
+	switch (agent) {
+		case "codex": {
+			const codex = resolveCommand("SPECFLOW_CODEX", "codex");
+			const result = tryExec(
+				codex,
+				["exec", "--full-auto", "--ephemeral", promptContent],
+				cwd,
+			);
+			return { ok: result.status === 0, exitCode: result.status || undefined };
+		}
+		case "claude": {
+			const claude = resolveCommand("SPECFLOW_CLAUDE", "claude");
+			const result = tryExec(
+				claude,
+				["-p", "--dangerously-skip-permissions", "--no-session-persistence"],
+				cwd,
+				undefined,
+				promptContent,
+			);
+			return { ok: result.status === 0, exitCode: result.status || undefined };
+		}
+		case "copilot": {
+			const copilot = resolveCommand("SPECFLOW_COPILOT", "copilot");
+			const result = tryExec(
+				copilot,
+				["-p", "--allow-all-tools", "-s"],
+				cwd,
+				undefined,
+				promptContent,
+			);
+			return { ok: result.status === 0, exitCode: result.status || undefined };
+		}
+	}
 }
 
 export function renderCurrentPhase(

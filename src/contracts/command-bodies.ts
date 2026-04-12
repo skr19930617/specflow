@@ -3,7 +3,7 @@ import type { CommandBody } from "../types/contracts.js";
 export const commandBodies: Record<string, CommandBody> = {
 	"specflow.apply": {
 		frontmatter: {
-			description: "specflow で実装を適用し、Codex で実装レビュー",
+			description: "specflow で実装を適用し、実装レビューを実行",
 		},
 		sections: [
 			{
@@ -190,7 +190,7 @@ export const commandBodies: Record<string, CommandBody> = {
 	"specflow.design": {
 		frontmatter: {
 			description:
-				"specflow で design/tasks artifacts を生成し、Codex でレビュー",
+				"specflow で design/tasks artifacts を生成し、レビューを実行",
 		},
 		sections: [
 			{
@@ -272,7 +272,7 @@ export const commandBodies: Record<string, CommandBody> = {
 	},
 	"specflow.fix_apply": {
 		frontmatter: {
-			description: "レビュー指摘を修正し、再度 Codex review を実行",
+			description: "レビュー指摘を修正し、再度レビューを実行",
 		},
 		sections: [
 			{
@@ -312,7 +312,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 4: Display Review Results",
 				content:
-					'\n### Re-review Classification (if RESULT_JSON.review.rereview_mode == true)\n\nIf the review was a re-review, display the classified results before the standard findings table:\n\n```\n### Re-review Classification\n\n**Resolved** ({count}):\n| ID | Note |\n|----|------|\n| R1-F01 | fixed null check |\n\n**Still Open** ({count}):\n| ID | Severity | Note |\n|----|----------|------|\n| R1-F02 | high | still unresolved |\n\n**New Findings** ({count}):\n| ID | Severity | File | Title |\n|----|----------|------|-------|\n| F3 | medium | src/foo.ts | missing test |\n```\n\n### Review Findings\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nCodex Implementation Review (after fix)\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | File | Title | Detail |\n|---|----------|------|-------|--------|\n| F1 | high | src/foo.ts | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger: Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`',
+					'\n### Re-review Classification (if RESULT_JSON.review.rereview_mode == true)\n\nIf the review was a re-review, display the classified results before the standard findings table:\n\n```\n### Re-review Classification\n\n**Resolved** ({count}):\n| ID | Note |\n|----|------|\n| R1-F01 | fixed null check |\n\n**Still Open** ({count}):\n| ID | Severity | Note |\n|----|----------|------|\n| R1-F02 | high | still unresolved |\n\n**New Findings** ({count}):\n| ID | Severity | File | Title |\n|----|----------|------|-------|\n| F3 | medium | src/foo.ts | missing test |\n```\n\n### Review Findings\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nImplementation Review (after fix)\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | File | Title | Detail |\n|---|----------|------|-------|--------|\n| F1 | high | src/foo.ts | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger: Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`',
 			},
 			{
 				title: "Step 5: Handoff",
@@ -322,14 +322,13 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Important Rules",
 				content:
-					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (fix application, diff filtering, Codex invocation, ledger detection/update, finding matching, current-phase generation) is handled by the `specflow-review-apply fix-review` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.",
+					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (fix application, diff filtering, review agent invocation, ledger detection/update, finding matching, current-phase generation) is handled by the `specflow-review-apply fix-review` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.",
 			},
 		],
 	},
 	"specflow.fix_design": {
 		frontmatter: {
-			description:
-				"Design/Tasks のレビュー指摘を修正し、再度 Codex review を実行",
+			description: "Design/Tasks のレビュー指摘を修正し、再度レビューを実行",
 		},
 		sections: [
 			{
@@ -369,7 +368,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 5: Display Review Results",
 				content:
-					'\n### Re-review Classification (if RESULT_JSON.rereview_classification is not null)\n\nDisplay the classified results before the standard findings table:\n\n```\n### Re-review Classification\n\n**Resolved** ({count of RESULT_JSON.rereview_classification.resolved}):\n| ID | Note |\n|----|------|\n| R1-F01 | fixed ordering issue |\n\n**Still Open** ({count of RESULT_JSON.rereview_classification.still_open}):\n| ID | Severity | Note |\n|----|----------|------|\n| R1-F02 | high | still unresolved |\n\n**New Findings** ({count of RESULT_JSON.rereview_classification.new_findings}):\n| ID | Severity | Category | Title |\n|----|----------|----------|-------|\n| F3 | medium | completeness | missing test coverage |\n```\n\n### Review Findings\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nCodex Design/Tasks Review (after fix)\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | Category | Title | Detail |\n|---|----------|----------|-------|--------|\n| P1 | high | completeness | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger (Plan): Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`\n\nReport: `current-phase.md updated` (the orchestrator generates this automatically).',
+					'\n### Re-review Classification (if RESULT_JSON.rereview_classification is not null)\n\nDisplay the classified results before the standard findings table:\n\n```\n### Re-review Classification\n\n**Resolved** ({count of RESULT_JSON.rereview_classification.resolved}):\n| ID | Note |\n|----|------|\n| R1-F01 | fixed ordering issue |\n\n**Still Open** ({count of RESULT_JSON.rereview_classification.still_open}):\n| ID | Severity | Note |\n|----|----------|------|\n| R1-F02 | high | still unresolved |\n\n**New Findings** ({count of RESULT_JSON.rereview_classification.new_findings}):\n| ID | Severity | Category | Title |\n|----|----------|----------|-------|\n| F3 | medium | completeness | missing test coverage |\n```\n\n### Review Findings\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nDesign/Tasks Review (after fix)\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | Category | Title | Detail |\n|---|----------|----------|-------|--------|\n| P1 | high | completeness | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger (Plan): Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`\n\nReport: `current-phase.md updated` (the orchestrator generates this automatically).',
 			},
 			{
 				title: "Handoff: 次のアクション選択",
@@ -379,7 +378,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Important Rules",
 				content:
-					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (Codex invocation, ledger detection/CRUD, finding matching, current-phase generation) is handled by the `specflow-review-design fix-review` orchestrator. This slash command applies fixes (LLM), then calls the orchestrator for re-review, parses its JSON output, and displays UI.",
+					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (review agent invocation, ledger detection/CRUD, finding matching, current-phase generation) is handled by the `specflow-review-design fix-review` orchestrator. This slash command applies fixes (LLM), then calls the orchestrator for re-review, parses its JSON output, and displays UI.",
 			},
 		],
 	},
@@ -585,7 +584,7 @@ export const commandBodies: Record<string, CommandBody> = {
 	"specflow.review_apply": {
 		frontmatter: {
 			description:
-				"Codex impl review を実行し、ledger 更新・auto-fix loop・handoff を管理",
+				"実装レビューを実行し、ledger 更新・auto-fix loop・handoff を管理",
 		},
 		sections: [
 			{
@@ -620,12 +619,12 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 3: Handle Diff Warning",
 				content:
-					'\nIf `RESULT_JSON.diff_summary.diff_warning == true`:\n\nDual-Display Fallback Pattern に従う:\n\n**テキストプロンプト（AskUserQuestion の前に必ず表示）**:\n```\n⚠ Diff size warning — {RESULT_JSON.diff_summary.total_lines} lines (threshold: {RESULT_JSON.diff_summary.threshold})\n\n続行しますか？（テキスト入力またはボタンで回答）:\n- **続行** → continue\n- **中止** → abort\n```\n\n**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:\n```\nAskUserQuestion:\n  question: "フィルタリング後の diff が {total_lines} 行あります。Codex がスタックする可能性があります。続行しますか？"\n  options:\n    - label: "続行"\n      description: "このまま Codex レビューを実行"\n    - label: "中止"\n      description: "レビューをスキップ"\n```\n\n**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。\n\nIf "中止" → **STOP**.\n\nIf "続行": re-run the orchestrator with diff warning bypass enabled and replace `RESULT_JSON` with the new output.\n```bash\nspecflow-review-apply review <CHANGE_ID> --skip-diff-check\n```\nCapture stdout again as `RESULT_JSON`. If the command fails (non-zero exit), display the error and **STOP**. Parse the new `RESULT_JSON` as JSON before proceeding.',
+					'\nIf `RESULT_JSON.diff_summary.diff_warning == true`:\n\nDual-Display Fallback Pattern に従う:\n\n**テキストプロンプト（AskUserQuestion の前に必ず表示）**:\n```\n⚠ Diff size warning — {RESULT_JSON.diff_summary.total_lines} lines (threshold: {RESULT_JSON.diff_summary.threshold})\n\n続行しますか？（テキスト入力またはボタンで回答）:\n- **続行** → continue\n- **中止** → abort\n```\n\n**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:\n```\nAskUserQuestion:\n  question: "フィルタリング後の diff が {total_lines} 行あります。レビューエージェントがスタックする可能性があります。続行しますか？"\n  options:\n    - label: "続行"\n      description: "このままレビューを実行"\n    - label: "中止"\n      description: "レビューをスキップ"\n```\n\n**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。\n\nIf "中止" → **STOP**.\n\nIf "続行": re-run the orchestrator with diff warning bypass enabled and replace `RESULT_JSON` with the new output.\n```bash\nspecflow-review-apply review <CHANGE_ID> --skip-diff-check\n```\nCapture stdout again as `RESULT_JSON`. If the command fails (non-zero exit), display the error and **STOP**. Parse the new `RESULT_JSON` as JSON before proceeding.',
 			},
 			{
 				title: "Step 4: Display Review Results",
 				content:
-					'\n### Review Findings\n\nPresent the Codex review from `RESULT_JSON.review`:\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nCodex Implementation Review\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | File | Title | Detail |\n|---|----------|------|-------|--------|\n| F1 | high | src/foo.ts | ... | ... |\n| F2 | medium | src/bar.ts | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger: Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`',
+					'\n### Review Findings\n\nPresent the review from `RESULT_JSON.review`:\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nImplementation Review\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | File | Title | Detail |\n|---|----------|------|-------|--------|\n| F1 | high | src/foo.ts | ... | ... |\n| F2 | medium | src/bar.ts | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger: Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`',
 			},
 			{
 				title: "Step 5: Handoff (based on RESULT_JSON.handoff.state)",
@@ -640,14 +639,14 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Important Rules",
 				content:
-					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (diff filtering, Codex invocation, ledger update, finding matching, current-phase generation) is handled by the `specflow-review-apply` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.",
+					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (diff filtering, review agent invocation, ledger update, finding matching, current-phase generation) is handled by the `specflow-review-apply` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.",
 			},
 		],
 	},
 	"specflow.review_design": {
 		frontmatter: {
 			description:
-				"Codex design/tasks review を実行し、ledger 更新・auto-fix loop・handoff を管理",
+				"Design/tasks レビューを実行し、ledger 更新・auto-fix loop・handoff を管理",
 		},
 		sections: [
 			{
@@ -682,7 +681,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Step 4: Display Review Results",
 				content:
-					'\n### Review Findings\n\nPresent the Codex review from `RESULT_JSON.review`:\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nCodex Design/Tasks Review\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | File | Category | Title | Detail |\n|---|----------|------|----------|-------|--------|\n| P1 | high | design.md | completeness | ... | ... |\n| P2 | medium | tasks.md | ordering | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger (Plan): Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`',
+					'\n### Review Findings\n\nPresent the review from `RESULT_JSON.review`:\n\nIf `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.\n\nOtherwise display:\n```\nDesign/Tasks Review\n\n**Decision:** <RESULT_JSON.review.decision>\n**Summary:** <RESULT_JSON.review.summary>\n\n| # | Severity | File | Category | Title | Detail |\n|---|----------|------|----------|-------|--------|\n| P1 | high | design.md | completeness | ... | ... |\n| P2 | medium | tasks.md | ordering | ... | ... |\n```\n\n### Ledger Summary Display\n\nUse `RESULT_JSON.ledger` to display:\n```\nReview Ledger (Plan): Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved\n```\n\nIf `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:\n```\n| Round | Total | Open | New | Resolved | Overridden |\n|-------|-------|------|-----|----------|------------|\n| 1     | 5     | 0    | 0   | 3        | 2          |\n| 2     | 7     | 2    | 2   | 3        | 2          |\n```\nThen show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`',
 			},
 			{
 				title: "Step 5: Handoff (based on RESULT_JSON.handoff.state)",
@@ -697,7 +696,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Important Rules",
 				content:
-					'\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- Ledger file is `FEATURE_DIR/review-ledger-design.json` (NOT `review-ledger.json`).\n- Phase is `"design"` in ledger JSON.\n- Auto-fix loop calls `specflow-review-design autofix-loop` (NOT `specflow.fix_apply`).\n- ALL control flow logic (Codex invocation, ledger CRUD, finding matching, score computation, current-phase generation) is handled by the `specflow-review-design` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.',
+					'\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, design, tasks, review-ledger-design, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- Ledger file is `FEATURE_DIR/review-ledger-design.json` (NOT `review-ledger.json`).\n- Phase is `"design"` in ledger JSON.\n- Auto-fix loop calls `specflow-review-design autofix-loop` (NOT `specflow.fix_apply`).\n- ALL control flow logic (review agent invocation, ledger CRUD, finding matching, score computation, current-phase generation) is handled by the `specflow-review-design` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.',
 			},
 		],
 	},

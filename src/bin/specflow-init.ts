@@ -25,8 +25,8 @@ import {
 import type { InitProjectResult, Manifest } from "../types/contracts.js";
 
 const CONFIG_DIR = resolve(process.env.HOME ?? "", ".config/specflow");
-const MAIN_AGENTS = ["claude"];
-const REVIEW_AGENTS = ["codex"];
+const MAIN_AGENTS = ["claude", "codex", "copilot"];
+const REVIEW_AGENTS = ["codex", "claude"];
 
 function log(message: string): void {
 	process.stderr.write(`${message}\n`);

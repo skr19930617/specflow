@@ -25,13 +25,19 @@ import {
 } from "../lib/review-ledger.js";
 import {
 	buildPrompt,
-	callCodex,
+	callMainAgent,
+	callReviewAgent,
 	diffWarningSummary,
 	errorJson,
+	loadConfigEnv,
+	type MainAgentName,
+	type ReviewAgentName,
 	readPrompt,
 	readProposalFromStore,
 	readReviewConfig,
 	renderCurrentPhaseToStore,
+	resolveMainAgent,
+	resolveReviewAgent,
 	unresolvedHighCount,
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
@@ -209,6 +215,8 @@ function runReviewPipeline(
 	changeId: string,
 	rereviewMode: boolean,
 	skipDiffCheck: boolean,
+	reviewAgent: ReviewAgentName,
+	mainAgent: MainAgentName,
 ): ReviewResult {
 	process.stderr.write("Running diff filter...\n");
 	const rawDiff = diffFilter(runtimeRoot, projectRoot);
@@ -251,7 +259,7 @@ function runReviewPipeline(
 	}
 
 	if (rereviewMode) {
-		process.stderr.write("Applying fixes via Codex...\n");
+		process.stderr.write(`Applying fixes via ${mainAgent}...\n`);
 		const beforeFix = readLedgerFromStore(
 			changeStore,
 			changeId,
@@ -261,7 +269,8 @@ function runReviewPipeline(
 			const status = String(finding.status ?? "");
 			return status === "new" || status === "open";
 		});
-		void callCodex(
+		void callMainAgent(
+			mainAgent,
 			projectRoot,
 			buildFixPrompt(changeStore, changeId, diff, fixFindings),
 		);
@@ -279,7 +288,7 @@ function runReviewPipeline(
 		diffSummary = diffWarningSummary(rerun.summary, config.diffWarnThreshold);
 	}
 
-	process.stderr.write("Calling Codex for review...\n");
+	process.stderr.write(`Calling ${reviewAgent} for review...\n`);
 	const prompt = rereviewMode
 		? (() => {
 				const priorLedger = readLedgerFromStore(
@@ -300,7 +309,11 @@ function runReviewPipeline(
 				);
 			})()
 		: buildReviewPrompt(runtimeRoot, changeStore, changeId, diff);
-	const codexResult = callCodex<Record<string, unknown>>(projectRoot, prompt);
+	const reviewResult = callReviewAgent<Record<string, unknown>>(
+		reviewAgent,
+		projectRoot,
+		prompt,
+	);
 
 	let parseError = false;
 	let rawResponse = "";
@@ -310,10 +323,14 @@ function runReviewPipeline(
 		summary: "parse failed",
 	};
 
-	if (!codexResult.ok) {
-		if (codexResult.exitCode) {
+	if (!reviewResult.ok) {
+		if (reviewResult.exitCode) {
 			return {
-				...errorJson(action, changeId, `codex_exit_${codexResult.exitCode}`),
+				...errorJson(
+					action,
+					changeId,
+					`review_agent_exit_${reviewResult.exitCode}`,
+				),
 				review: null,
 				ledger: null,
 				autofix: null,
@@ -321,9 +338,9 @@ function runReviewPipeline(
 			};
 		}
 		parseError = true;
-		rawResponse = codexResult.rawResponse;
-	} else if (codexResult.payload) {
-		reviewJson = codexResult.payload;
+		rawResponse = reviewResult.rawResponse;
+	} else if (reviewResult.payload) {
+		reviewJson = reviewResult.payload;
 	}
 
 	const ledgerRead = readLedgerFromStore(
@@ -406,6 +423,8 @@ function runAutofixLoop(
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	maxRounds: number,
+	reviewAgent: ReviewAgentName,
+	mainAgent: MainAgentName,
 ): ReviewResult {
 	let ledger = readLedgerFromStore(
 		changeStore,
@@ -436,7 +455,8 @@ function runAutofixLoop(
 			const status = String(finding.status ?? "");
 			return status === "new" || status === "open";
 		});
-		const fixResult = callCodex(
+		const fixResult = callMainAgent(
+			mainAgent,
 			projectRoot,
 			buildFixPrompt(
 				changeStore,
@@ -465,6 +485,8 @@ function runAutofixLoop(
 			changeId,
 			true,
 			true,
+			reviewAgent,
+			mainAgent,
 		);
 		if (reviewResult.status === "error" || reviewResult.review?.parse_error) {
 			consecutiveFailures += 1;
@@ -585,6 +607,8 @@ function cmdReview(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	reviewAgent: ReviewAgentName,
+	mainAgent: MainAgentName,
 ): ReviewResult {
 	let changeId = "";
 	let skipDiffCheck = false;
@@ -592,6 +616,10 @@ function cmdReview(
 		const arg = args[index];
 		if (arg === "--skip-diff-check") {
 			skipDiffCheck = true;
+			continue;
+		}
+		if (arg === "--review-agent") {
+			index += 1;
 			continue;
 		}
 		if (arg.startsWith("-")) {
@@ -615,6 +643,8 @@ function cmdReview(
 		changeId,
 		false,
 		skipDiffCheck,
+		reviewAgent,
+		mainAgent,
 	);
 }
 
@@ -623,6 +653,8 @@ function cmdFixReview(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	reviewAgent: ReviewAgentName,
+	mainAgent: MainAgentName,
 ): ReviewResult {
 	let changeId = "";
 	let skipDiffCheck = false;
@@ -633,6 +665,10 @@ function cmdFixReview(
 		}
 		if (arg === "--skip-diff-check") {
 			skipDiffCheck = true;
+			continue;
+		}
+		if (arg === "--review-agent") {
+			index += 1;
 			continue;
 		}
 		if (arg.startsWith("-")) {
@@ -658,6 +694,8 @@ function cmdFixReview(
 		changeId,
 		true,
 		skipDiffCheck,
+		reviewAgent,
+		mainAgent,
 	);
 }
 
@@ -666,6 +704,8 @@ function cmdAutofixLoop(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	reviewAgent: ReviewAgentName,
+	mainAgent: MainAgentName,
 ): ReviewResult {
 	let changeId = "";
 	let maxRounds = "";
@@ -674,6 +714,10 @@ function cmdAutofixLoop(
 		if (arg === "--max-rounds") {
 			maxRounds =
 				args[index + 1] ?? die("Error: --max-rounds requires a value");
+			index += 1;
+			continue;
+		}
+		if (arg === "--review-agent") {
 			index += 1;
 			continue;
 		}
@@ -706,24 +750,59 @@ function cmdAutofixLoop(
 		changeStore,
 		changeId,
 		rounds,
+		reviewAgent,
+		mainAgent,
 	);
+}
+
+function parseReviewAgentFlag(args: readonly string[]): string | undefined {
+	for (let index = 0; index < args.length; index += 1) {
+		if (args[index] === "--review-agent") {
+			return args[index + 1];
+		}
+	}
+	return undefined;
 }
 
 function main(): void {
 	const projectRoot = ensureGitRepo();
+	loadConfigEnv(projectRoot);
 	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
 	const [subcommand = "", ...args] = process.argv.slice(2);
+	const reviewAgent = resolveReviewAgent(parseReviewAgentFlag(args));
+	const mainAgent = resolveMainAgent();
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
-			result = cmdReview(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdReview(
+				runtimeRoot,
+				projectRoot,
+				changeStore,
+				args,
+				reviewAgent,
+				mainAgent,
+			);
 			break;
 		case "fix-review":
-			result = cmdFixReview(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdFixReview(
+				runtimeRoot,
+				projectRoot,
+				changeStore,
+				args,
+				reviewAgent,
+				mainAgent,
+			);
 			break;
 		case "autofix-loop":
-			result = cmdAutofixLoop(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdAutofixLoop(
+				runtimeRoot,
+				projectRoot,
+				changeStore,
+				args,
+				reviewAgent,
+				mainAgent,
+			);
 			break;
 		case "":
 			die(
