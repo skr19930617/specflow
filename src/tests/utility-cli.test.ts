@@ -182,6 +182,61 @@ test("specflow-filter-diff returns the expected diff and summary", () => {
 	}
 });
 
+test("specflow-filter-diff preserves include pathspec filtering", () => {
+	const tempRoot = makeTempDir("filter-diff-pathspec-");
+	try {
+		const { repoPath } = createFixtureRepo(tempRoot);
+		mkdirSync(join(repoPath, "sub"), { recursive: true });
+		writeFileSync(join(repoPath, "sub", "inside.txt"), "before\n", "utf8");
+		writeFileSync(join(repoPath, "outside.txt"), "before\n", "utf8");
+		const runGit = (args: string[]) =>
+			spawnSync("git", args, { cwd: repoPath, stdio: "ignore" });
+		runGit(["add", "."]);
+		runGit(["commit", "-m", "add nested files"]);
+		writeFileSync(join(repoPath, "sub", "inside.txt"), "after\n", "utf8");
+		writeFileSync(join(repoPath, "outside.txt"), "after\n", "utf8");
+
+		const result = runNodeCli(
+			"specflow-filter-diff",
+			["--", "sub"],
+			repoPath,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		assert.match(result.stdout, /diff --git a\/sub\/inside\.txt b\/sub\/inside\.txt/);
+		assert.doesNotMatch(result.stdout, /outside\.txt/);
+		assert.deepEqual(JSON.parse(result.stderr.trim()), {
+			excluded: [],
+			warnings: [],
+			included_count: 1,
+			excluded_count: 0,
+			total_lines: 7,
+		});
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-filter-diff preserves invalid exclude warnings on empty diff", () => {
+	const tempRoot = makeTempDir("filter-diff-empty-warning-");
+	try {
+		const { repoPath } = createFixtureRepo(tempRoot);
+		const result = runNodeCli("specflow-filter-diff", [], repoPath, {
+			DIFF_EXCLUDE_PATTERNS: "[",
+		});
+		assert.equal(result.status, 0, result.stderr);
+		assert.equal(result.stdout, "");
+		assert.deepEqual(JSON.parse(result.stderr.trim()), {
+			excluded: [],
+			warnings: ["invalid pattern '[' — skipping"],
+			included_count: 0,
+			excluded_count: 0,
+			total_lines: 0,
+		});
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
 test("specflow-design-artifacts wraps openspec next and validate", () => {
 	const tempRoot = makeTempDir("design-artifacts-");
 	try {

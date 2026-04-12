@@ -164,6 +164,25 @@ test("specflow-run start rejects removed --issue-url option", () => {
 	}
 });
 
+test("specflow-run start returns not_in_git_repo JSON outside git", () => {
+	const tempRoot = makeTempDir("specflow-run-nogit-");
+	try {
+		const result = runNodeCli(
+			"specflow-run",
+			["start", "test-change"],
+			tempRoot,
+		);
+		assert.notEqual(result.status, 0);
+		assert.equal(
+			result.stdout.trim(),
+			'{"status":"error","error":"not_in_git_repo"}',
+		);
+		assert.equal(result.stderr, "");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
 test("specflow-run supports the full happy path from start to approved", () => {
 	const tempRoot = makeTempDir("specflow-run-happy-");
 	try {

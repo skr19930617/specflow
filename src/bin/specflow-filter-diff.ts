@@ -1,7 +1,9 @@
-import { basename } from "node:path";
-import { matchesGlobPattern } from "../lib/glob.js";
-import { printSchemaJson, tryExec } from "../lib/process.js";
-import type { DiffExcludedEntry, DiffSummary } from "../types/contracts.js";
+import {
+	createLocalWorkspaceContext,
+	filterLocalWorkspaceDiff,
+} from "../lib/local-workspace-context.js";
+import { printSchemaJson } from "../lib/process.js";
+import type { DiffSummary } from "../types/contracts.js";
 
 const HELP_TEXT = `Usage: specflow-filter-diff [-- <pathspec>...]
 
@@ -24,54 +26,6 @@ Examples:
   DIFF_EXCLUDE_PATTERNS="*.lock:dist/**" specflow-filter-diff
 `;
 
-const BUILTIN_EXCLUDE_PATTERNS = [
-	"*/review-ledger.json",
-	"*/review-ledger.json.bak",
-	"*/review-ledger.json.corrupt",
-	"*/review-ledger-design.json",
-	"*/review-ledger-design.json.bak",
-	"*/current-phase.md",
-];
-
-function parsePatterns(raw: string | undefined): {
-	patterns: string[];
-	warnings: string[];
-} {
-	const patterns: string[] = [];
-	const warnings: string[] = [];
-	if (raw) {
-		for (const pattern of raw.split(":")) {
-			if (!pattern) {
-				continue;
-			}
-			try {
-				matchesGlobPattern("___test___", pattern);
-				patterns.push(pattern);
-			} catch {
-				warnings.push(`invalid pattern '${pattern}' — skipping`);
-			}
-		}
-	}
-	return {
-		patterns: [...patterns, ...BUILTIN_EXCLUDE_PATTERNS],
-		warnings,
-	};
-}
-
-function pathMatchesPattern(filePath: string, pattern: string): boolean {
-	if (matchesGlobPattern(filePath, pattern)) {
-		return true;
-	}
-	if (!pattern.includes("/")) {
-		return matchesGlobPattern(basename(filePath), pattern);
-	}
-	return false;
-}
-
-function git(args: readonly string[]) {
-	return tryExec("git", args, process.cwd());
-}
-
 function printSummary(summary: DiffSummary): void {
 	printSchemaJson("diff-summary", summary, { stream: "stderr", pretty: false });
 }
@@ -83,14 +37,23 @@ function main(): void {
 		process.exit(0);
 	}
 
-	const { patterns, warnings } = parsePatterns(
-		process.env.DIFF_EXCLUDE_PATTERNS,
-	);
-	const nameStatus = git(["diff", "--name-status", "-M100", ...args]);
-	if (!nameStatus.stdout.trim()) {
+	let ctx: import("../lib/workspace-context.js").WorkspaceContext;
+	try {
+		ctx = createLocalWorkspaceContext();
+	} catch (err) {
+		const message = err instanceof Error ? err.message : "not a git repository";
+		process.stderr.write(`Error: ${message}\n`);
+		process.exit(1);
+	}
+
+	const result = filterLocalWorkspaceDiff(ctx.projectRoot(), {
+		pathspecs: args,
+	});
+
+	if (result.summary === "empty") {
 		printSummary({
 			excluded: [],
-			warnings,
+			warnings: [...result.warnings],
 			included_count: 0,
 			excluded_count: 0,
 			total_lines: 0,
@@ -98,63 +61,11 @@ function main(): void {
 		process.exit(0);
 	}
 
-	const includedFiles: string[] = [];
-	const excluded: DiffExcludedEntry[] = [];
-
-	for (const line of nameStatus.stdout.trim().split("\n")) {
-		const [status, file1 = "", file2 = ""] = line.split("\t");
-		if (!status) {
-			continue;
-		}
-		if (status === "D") {
-			excluded.push({ file: file1, reason: "deleted_file" });
-			continue;
-		}
-		if (status === "R100") {
-			excluded.push({ file: file1, reason: "rename_only", new_path: file2 });
-			continue;
-		}
-
-		let filePath = file1;
-		if (status.startsWith("R") || status.startsWith("C")) {
-			filePath = file2;
-		}
-
-		const matchedPattern = patterns.find((pattern) =>
-			pathMatchesPattern(filePath, pattern),
-		);
-		if (matchedPattern) {
-			excluded.push({
-				file: filePath,
-				reason: "pattern_match",
-				pattern: matchedPattern,
-			});
-			continue;
-		}
-
-		includedFiles.push(filePath);
+	if (result.diff) {
+		process.stdout.write(result.diff);
 	}
 
-	let filteredDiff = "";
-	let totalLines = 0;
-	if (includedFiles.length > 0) {
-		const diff = git(["diff", "--", ...includedFiles]);
-		filteredDiff = diff.stdout;
-		if (filteredDiff) {
-			process.stdout.write(filteredDiff);
-			totalLines = filteredDiff.endsWith("\n")
-				? filteredDiff.split("\n").length - 1
-				: filteredDiff.split("\n").length;
-		}
-	}
-
-	printSummary({
-		excluded,
-		warnings,
-		included_count: includedFiles.length,
-		excluded_count: excluded.length,
-		total_lines: totalLines,
-	});
+	printSummary(result.summary);
 }
 
 main();

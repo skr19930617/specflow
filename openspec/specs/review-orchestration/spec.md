@@ -4,9 +4,7 @@
 
 Describe the Codex-backed proposal, design, and apply review orchestration used
 by the current `specflow` runtime.
-
 ## Requirements
-
 ### Requirement: Proposal review uses proposal artifacts and a dedicated proposal ledger
 
 `specflow-review-proposal` SHALL review `proposal.md` and SHALL persist proposal
@@ -94,33 +92,22 @@ and any change-local `spec.md` files, and SHALL persist its state in
   actionable findings, reaches the configured round cap, or detects no progress
 
 ### Requirement: Apply review operates on filtered git diffs and an implementation ledger
+`specflow-review-apply` SHALL obtain the implementation diff via the injected
+`WorkspaceContext.filteredDiff()` method instead of calling `specflow-filter-diff`
+directly, and SHALL persist implementation review state in `review-ledger.json`.
 
-`specflow-review-apply` SHALL review the current implementation diff and SHALL
-persist implementation review state in `review-ledger.json`.
-
-#### Scenario: Apply review filters the diff before calling Codex
-
+#### Scenario: Apply review filters the diff via WorkspaceContext
 - **WHEN** `specflow-review-apply review <CHANGE_ID>` runs
-- **THEN** it SHALL call `specflow-filter-diff`
-- **AND** it SHALL pass the filtered diff and `proposal.md` content into the
-  review prompt
+- **THEN** it SHALL call `WorkspaceContext.filteredDiff()` with appropriate exclude globs
+- **AND** it SHALL pass the filtered diff and `proposal.md` content into the review prompt
 
-#### Scenario: Empty diffs return `no_changes`
+#### Scenario: Apply review handles empty diff from WorkspaceContext
+- **WHEN** `WorkspaceContext.filteredDiff()` returns `summary: "empty"`
+- **THEN** it SHALL skip the review and report that no reviewable changes were found
 
-- **WHEN** the filtered diff is empty
-- **THEN** `specflow-review-apply` SHALL return `error: "no_changes"`
-
-#### Scenario: Diff-threshold warnings short-circuit before Codex review
-
-- **WHEN** the filtered diff line count exceeds `diff_warn_threshold`
-- **THEN** the CLI SHALL return `status: "warning"` with
-  `warning: "diff_threshold_exceeded"`
-
-#### Scenario: Apply review supports an autofix loop
-
-- **WHEN** `specflow-review-apply autofix-loop <CHANGE_ID>` is invoked
-- **THEN** the CLI SHALL re-run fix-review rounds until the loop resolves the
-  actionable findings, reaches the configured round cap, or detects no progress
+#### Scenario: Apply review warns on large diffs from WorkspaceContext
+- **WHEN** `WorkspaceContext.filteredDiff()` returns a `DiffSummary` with `total_lines` exceeding the configured threshold
+- **THEN** it SHALL set the `diff_warning` flag and follow the existing warning flow
 
 ### Requirement: Review configuration is read from `openspec/config.yaml` with stable defaults
 
@@ -318,3 +305,4 @@ external runtime context.
 
 - **WHEN** a finding's status is manually changed to `accepted_risk` or `ignored`
 - **THEN** the finding SHALL include an `overridden_by` field identifying the actor kind and `overridden_by_id` identifying the specific actor that performed the override
+

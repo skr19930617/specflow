@@ -1,9 +1,8 @@
 import { resolve } from "node:path";
 import type { ChangeArtifactStore } from "../lib/artifact-store.js";
 import { ReviewLedgerKind } from "../lib/artifact-types.js";
-import { tryGit } from "../lib/git.js";
-import { tryParseJson } from "../lib/json.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
+import { createLocalWorkspaceContext } from "../lib/local-workspace-context.js";
 import { moduleRepoRoot, printSchemaJson, tryExec } from "../lib/process.js";
 import {
 	actionableCount,
@@ -41,6 +40,7 @@ import {
 	unresolvedHighCount,
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
+import type { WorkspaceContext } from "../lib/workspace-context.js";
 import type {
 	AutofixRoundScore,
 	DiffSummary,
@@ -56,49 +56,29 @@ function notInGitRepo(): never {
 	process.exit(1);
 }
 
-function ensureGitRepo(): string {
-	const result = tryGit(["rev-parse", "--show-toplevel"], process.cwd());
-	if (result.status !== 0) {
-		notInGitRepo();
-	}
-	return result.stdout.trim();
-}
-
 function die(message: string): never {
 	process.stderr.write(`${message}\n`);
 	process.exit(1);
 }
 
-function diffFilter(
-	runtimeRoot: string,
-	cwd: string,
-): { diff: string; summary: DiffSummary | "empty" } {
-	const diffFilterPath = resolve(runtimeRoot, "bin/specflow-filter-diff");
-	const result = tryExec(
-		diffFilterPath,
-		[
-			"--",
-			".",
-			":(exclude)*/review-ledger.json",
-			":(exclude)*/review-ledger.json.bak",
-			":(exclude)*/review-ledger.json.corrupt",
-			":(exclude)*/current-phase.md",
-		],
-		cwd,
-	);
-	const stderrLines = result.stderr.trim().split("\n").filter(Boolean);
-	const lastLine = stderrLines.at(-1) ?? "{}";
-	const parsed = tryParseJson<DiffSummary>(lastLine) ?? {
-		excluded: [],
-		warnings: [],
-		included_count: 0,
-		excluded_count: 0,
-		total_lines: 0,
-	};
-	if (!result.stdout) {
+const REVIEW_EXCLUDE_GLOBS = [
+	"*/review-ledger.json",
+	"*/review-ledger.json.bak",
+	"*/review-ledger.json.corrupt",
+	"*/current-phase.md",
+];
+
+function diffFilter(ctx: WorkspaceContext): {
+	diff: string;
+	summary: DiffSummary | "empty";
+} {
+	const result = ctx.filteredDiff(REVIEW_EXCLUDE_GLOBS);
+	// Deleted files and other excluded-only entries can produce a non-empty
+	// summary with an empty patch body. Review should still short-circuit.
+	if (result.diff === "") {
 		return { diff: "", summary: "empty" };
 	}
-	return { diff: result.stdout, summary: parsed };
+	return result;
 }
 
 function buildReviewPrompt(
@@ -210,6 +190,7 @@ function resultFromLedger(
 function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
+	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	action: string,
 	changeId: string,
@@ -219,7 +200,7 @@ function runReviewPipeline(
 	mainAgent: MainAgentName,
 ): ReviewResult {
 	process.stderr.write("Running diff filter...\n");
-	const rawDiff = diffFilter(runtimeRoot, projectRoot);
+	const rawDiff = diffFilter(ctx);
 	if (rawDiff.summary === "empty") {
 		return {
 			...errorJson(action, changeId, "no_changes"),
@@ -274,7 +255,7 @@ function runReviewPipeline(
 			projectRoot,
 			buildFixPrompt(changeStore, changeId, diff, fixFindings),
 		);
-		const rerun = diffFilter(runtimeRoot, projectRoot);
+		const rerun = diffFilter(ctx);
 		if (rerun.summary === "empty") {
 			return {
 				...errorJson(action, changeId, "no_changes"),
@@ -420,6 +401,7 @@ function runReviewPipeline(
 function runAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
+	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	maxRounds: number,
@@ -446,7 +428,7 @@ function runAutofixLoop(
 		process.stderr.write(
 			`Auto-fix Round ${autofixRound}/${maxRounds}: Starting fix...\n`,
 		);
-		const diffResult = diffFilter(runtimeRoot, projectRoot);
+		const diffResult = diffFilter(ctx);
 		if (diffResult.summary === "empty") {
 			loopResult = "no_changes";
 			break;
@@ -480,6 +462,7 @@ function runAutofixLoop(
 		const reviewResult = runReviewPipeline(
 			runtimeRoot,
 			projectRoot,
+			ctx,
 			changeStore,
 			"fix_review",
 			changeId,
@@ -605,6 +588,7 @@ function runAutofixLoop(
 function cmdReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
@@ -638,6 +622,7 @@ function cmdReview(
 	return runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
+		ctx,
 		changeStore,
 		"review",
 		changeId,
@@ -651,6 +636,7 @@ function cmdReview(
 function cmdFixReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
@@ -689,6 +675,7 @@ function cmdFixReview(
 	return runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
+		ctx,
 		changeStore,
 		"fix_review",
 		changeId,
@@ -702,6 +689,7 @@ function cmdFixReview(
 function cmdAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
+	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
@@ -747,6 +735,7 @@ function cmdAutofixLoop(
 	return runAutofixLoop(
 		runtimeRoot,
 		projectRoot,
+		ctx,
 		changeStore,
 		changeId,
 		rounds,
@@ -765,7 +754,13 @@ function parseReviewAgentFlag(args: readonly string[]): string | undefined {
 }
 
 function main(): void {
-	const projectRoot = ensureGitRepo();
+	let ctx: WorkspaceContext;
+	try {
+		ctx = createLocalWorkspaceContext();
+	} catch {
+		notInGitRepo();
+	}
+	const projectRoot = ctx.projectRoot();
 	loadConfigEnv(projectRoot);
 	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
@@ -778,6 +773,7 @@ function main(): void {
 			result = cmdReview(
 				runtimeRoot,
 				projectRoot,
+				ctx,
 				changeStore,
 				args,
 				reviewAgent,
@@ -788,6 +784,7 @@ function main(): void {
 			result = cmdFixReview(
 				runtimeRoot,
 				projectRoot,
+				ctx,
 				changeStore,
 				args,
 				reviewAgent,
@@ -798,6 +795,7 @@ function main(): void {
 			result = cmdAutofixLoop(
 				runtimeRoot,
 				projectRoot,
+				ctx,
 				changeStore,
 				args,
 				reviewAgent,

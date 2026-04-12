@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type {
@@ -13,6 +12,7 @@ import {
 } from "../lib/artifact-types.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
+import { createLocalWorkspaceContext } from "../lib/local-workspace-context.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import { readSourceMetadataFile } from "../lib/proposal-source.js";
 import {
@@ -40,32 +40,12 @@ function fail(message: string): never {
 	process.exit(1);
 }
 
-function git(args: readonly string[]): string {
+function projectRoot(): string {
 	try {
-		return execFileSync("git", [...args], {
-			cwd: process.cwd(),
-			encoding: "utf8",
-			stdio: ["ignore", "pipe", "pipe"],
-		}).trim();
+		return createLocalWorkspaceContext().projectRoot();
 	} catch {
 		fail("Error: not inside a git repository");
 	}
-}
-
-function gitOrFail(args: readonly string[], message: string): string {
-	try {
-		return execFileSync("git", [...args], {
-			cwd: process.cwd(),
-			encoding: "utf8",
-			stdio: ["ignore", "pipe", "pipe"],
-		}).trim();
-	} catch {
-		fail(message);
-	}
-}
-
-function projectRoot(): string {
-	return git(["rev-parse", "--show-toplevel"]);
 }
 
 function stateMachinePath(root: string): string {
@@ -136,14 +116,6 @@ function nowIso(): string {
 	return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-function detectProjectId(): string {
-	const remote = gitOrFail(
-		["remote", "get-url", "origin"],
-		"Error: could not detect git remote origin",
-	);
-	return remote.replace(/\.git$/, "").replace(/^.*[:/]([^/]+\/[^/]+)$/, "$1");
-}
-
 function writeRunState(
 	store: RunArtifactStore,
 	runId: string,
@@ -177,6 +149,7 @@ function cmdStart(
 	workflow: WorkflowDefinition,
 	runStore: RunArtifactStore,
 	changeStore: ChangeArtifactStore,
+	ctx: import("../lib/workspace-context.js").WorkspaceContext,
 ): void {
 	let positionalArg = "";
 	let sourceFile = "";
@@ -249,20 +222,11 @@ function cmdStart(
 			status: "active" as RunStatus,
 			allowed_events: deriveAllowedEvents("active", "start"),
 			source: sourceFile ? readSourceMetadataFile(sourceFile) : null,
-			project_id: detectProjectId(),
-			repo_name: detectProjectId(),
-			repo_path: gitOrFail(
-				["rev-parse", "--show-toplevel"],
-				"Error: could not detect repository root",
-			),
-			branch_name: gitOrFail(
-				["rev-parse", "--abbrev-ref", "HEAD"],
-				"Error: could not detect current branch",
-			),
-			worktree_path: gitOrFail(
-				["rev-parse", "--show-toplevel"],
-				"Error: could not detect worktree path",
-			),
+			project_id: ctx.projectIdentity(),
+			repo_name: ctx.projectDisplayName(),
+			repo_path: ctx.projectRoot(),
+			branch_name: ctx.branchName() ?? "HEAD",
+			worktree_path: ctx.worktreePath(),
 			agents: { main: agentMain, review: agentReview },
 			last_summary_path: null,
 			created_at: nowIso(),
@@ -330,20 +294,11 @@ function cmdStart(
 		status: "active" as RunStatus,
 		allowed_events: deriveAllowedEvents("active", "start"),
 		source,
-		project_id: detectProjectId(),
-		repo_name: detectProjectId(),
-		repo_path: gitOrFail(
-			["rev-parse", "--show-toplevel"],
-			"Error: could not detect repository root",
-		),
-		branch_name: gitOrFail(
-			["rev-parse", "--abbrev-ref", "HEAD"],
-			"Error: could not detect current branch",
-		),
-		worktree_path: gitOrFail(
-			["rev-parse", "--show-toplevel"],
-			"Error: could not detect worktree path",
-		),
+		project_id: ctx.projectIdentity(),
+		repo_name: ctx.projectDisplayName(),
+		repo_path: ctx.projectRoot(),
+		branch_name: ctx.branchName() ?? "HEAD",
+		worktree_path: ctx.worktreePath(),
 		agents,
 		last_summary_path: null,
 		created_at: nowIso(),
@@ -535,34 +490,61 @@ function cmdGetField(args: string[], store: RunArtifactStore): void {
 }
 
 function main(): void {
-	const root = projectRoot();
-	const workflow = loadWorkflow(stateMachinePath(root));
-	const runStore = createLocalFsRunArtifactStore(root);
-	const changeStore = createLocalFsChangeArtifactStore(root);
 	const [subcommand, ...args] = process.argv.slice(2);
 
 	switch (subcommand) {
-		case "start":
-			cmdStart(args, root, workflow, runStore, changeStore);
+		case "start": {
+			let ctx: import("../lib/workspace-context.js").WorkspaceContext;
+			try {
+				ctx = createLocalWorkspaceContext();
+			} catch {
+				process.stdout.write('{"status":"error","error":"not_in_git_repo"}\n');
+				process.exit(1);
+			}
+			const root = ctx.projectRoot();
+			const workflow = loadWorkflow(stateMachinePath(root));
+			const runStore = createLocalFsRunArtifactStore(root);
+			const changeStore = createLocalFsChangeArtifactStore(root);
+			cmdStart(args, root, workflow, runStore, changeStore, ctx);
 			return;
-		case "advance":
+		}
+		case "advance": {
+			const root = projectRoot();
+			const workflow = loadWorkflow(stateMachinePath(root));
+			const runStore = createLocalFsRunArtifactStore(root);
 			cmdAdvance(args, root, workflow, runStore);
 			return;
-		case "suspend":
+		}
+		case "suspend": {
+			const root = projectRoot();
+			const runStore = createLocalFsRunArtifactStore(root);
 			cmdSuspend(args, runStore);
 			return;
-		case "resume":
+		}
+		case "resume": {
+			const root = projectRoot();
+			const runStore = createLocalFsRunArtifactStore(root);
 			cmdResume(args, runStore);
 			return;
-		case "status":
+		}
+		case "status": {
+			const root = projectRoot();
+			const runStore = createLocalFsRunArtifactStore(root);
 			cmdStatus(args, runStore);
 			return;
-		case "update-field":
+		}
+		case "update-field": {
+			const root = projectRoot();
+			const runStore = createLocalFsRunArtifactStore(root);
 			cmdUpdateField(args, runStore);
 			return;
-		case "get-field":
+		}
+		case "get-field": {
+			const root = projectRoot();
+			const runStore = createLocalFsRunArtifactStore(root);
 			cmdGetField(args, runStore);
 			return;
+		}
 		case undefined:
 			fail(
 				"Usage: specflow-run <start|advance|suspend|resume|status|update-field|get-field> [args...]",
