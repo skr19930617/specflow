@@ -29,12 +29,15 @@ import {
 } from "../lib/review-ledger.js";
 import {
 	buildPrompt,
-	callCodex,
+	callReviewAgent,
 	errorJson,
+	loadConfigEnv,
+	type ReviewAgentName,
 	readPrompt,
 	readProposalFromStore,
 	readReviewConfig,
 	renderCurrentPhaseToStore,
+	resolveReviewAgent,
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
 import type {
@@ -352,6 +355,7 @@ function runReviewPipeline(
 	action: string,
 	changeId: string,
 	rereviewMode: boolean,
+	agent: ReviewAgentName,
 ): ReviewResult {
 	process.stderr.write("Reading proposal...\n");
 	const proposalRef = changeRef(changeId, ChangeArtifactType.Proposal);
@@ -430,7 +434,7 @@ function runReviewPipeline(
 		}
 	}
 
-	process.stderr.write("Calling Codex for proposal review...\n");
+	process.stderr.write(`Calling ${agent} for proposal review...\n`);
 	const prompt = rereviewMode
 		? buildRereviewPrompt(
 				runtimeRoot,
@@ -442,7 +446,11 @@ function runReviewPipeline(
 				Number(ledger.max_finding_id ?? 0),
 			)
 		: buildReviewPrompt(runtimeRoot, changeStore, changeId);
-	const codexResult = callCodex<Record<string, unknown>>(projectRoot, prompt);
+	const reviewAgentResult = callReviewAgent<Record<string, unknown>>(
+		agent,
+		projectRoot,
+		prompt,
+	);
 
 	let parseError = false;
 	let rawResponse = "";
@@ -452,10 +460,14 @@ function runReviewPipeline(
 		summary: "parse failed",
 	};
 
-	if (!codexResult.ok) {
-		if (codexResult.exitCode) {
+	if (!reviewAgentResult.ok) {
+		if (reviewAgentResult.exitCode) {
 			return {
-				...errorJson(action, changeId, `codex_exit_${codexResult.exitCode}`),
+				...errorJson(
+					action,
+					changeId,
+					`review_agent_exit_${reviewAgentResult.exitCode}`,
+				),
 				review: null,
 				ledger: null,
 				autofix: null,
@@ -463,9 +475,9 @@ function runReviewPipeline(
 			};
 		}
 		parseError = true;
-		rawResponse = codexResult.rawResponse;
-	} else if (codexResult.payload) {
-		reviewJson = codexResult.payload;
+		rawResponse = reviewAgentResult.rawResponse;
+	} else if (reviewAgentResult.payload) {
+		reviewJson = reviewAgentResult.payload;
 	}
 
 	let rereviewClassification: {
@@ -618,6 +630,7 @@ function cmdReview(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	agent: ReviewAgentName,
 ): ReviewResult {
 	const changeId = args[0];
 	if (!changeId) {
@@ -634,6 +647,7 @@ function cmdReview(
 		"review",
 		changeId,
 		false,
+		agent,
 	);
 }
 
@@ -642,6 +656,7 @@ function cmdFixReview(
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
+	agent: ReviewAgentName,
 ): ReviewResult {
 	const changeId = args[0];
 	if (!changeId) {
@@ -660,21 +675,33 @@ function cmdFixReview(
 		"fix_review",
 		changeId,
 		true,
+		agent,
 	);
+}
+
+function parseReviewAgentFlag(args: readonly string[]): string | undefined {
+	for (let index = 0; index < args.length; index += 1) {
+		if (args[index] === "--review-agent") {
+			return args[index + 1];
+		}
+	}
+	return undefined;
 }
 
 function main(): void {
 	const projectRoot = ensureGitRepo();
+	loadConfigEnv(projectRoot);
 	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
 	const [subcommand = "", ...args] = process.argv.slice(2);
+	const agent = resolveReviewAgent(parseReviewAgentFlag(args));
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
-			result = cmdReview(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdReview(runtimeRoot, projectRoot, changeStore, args, agent);
 			break;
 		case "fix-review":
-			result = cmdFixReview(runtimeRoot, projectRoot, changeStore, args);
+			result = cmdFixReview(runtimeRoot, projectRoot, changeStore, args, agent);
 			break;
 		case "":
 			die(

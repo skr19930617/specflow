@@ -6,6 +6,7 @@ import {
 	addDesignArtifacts,
 	addImplementationDiff,
 	createBareHome,
+	createClaudeStub,
 	createCodexStub,
 	createFixtureRepo,
 	createInstalledHome,
@@ -27,6 +28,24 @@ function createCodexEnv(root: string, responses: unknown[]) {
 			HOME: createInstalledHome(root),
 			SPECFLOW_TEST_CODEX_RESPONSES: responsesPath,
 			SPECFLOW_TEST_CODEX_STATE: statePath,
+			SPECFLOW_MAIN_AGENT: "codex",
+		},
+		stubDir,
+	);
+}
+
+function createClaudeEnv(root: string, responses: unknown[]) {
+	const stubDir = createClaudeStub(root);
+	const responsesPath = join(root, "claude-responses.json");
+	const statePath = join(root, "claude-state.txt");
+	writeFileSync(responsesPath, JSON.stringify(responses), "utf8");
+	writeFileSync(statePath, "0", "utf8");
+	return prependPath(
+		{
+			HOME: createInstalledHome(root),
+			SPECFLOW_TEST_CLAUDE_RESPONSES: responsesPath,
+			SPECFLOW_TEST_CLAUDE_STATE: statePath,
+			SPECFLOW_REVIEW_AGENT: "claude",
 		},
 		stubDir,
 	);
@@ -402,6 +421,107 @@ test("specflow-review-design falls back to module-local prompts when no installe
 		};
 		assert.equal(json.status, "success");
 		assert.equal(json.review.summary, "done");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- Claude agent tests ---
+
+test("specflow-review-apply works with claude as review agent via --review-agent flag", () => {
+	const tempRoot = makeTempDir("review-apply-claude-flag-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addImplementationDiff(repoPath);
+		const env = createClaudeEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "all good via claude",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-apply",
+			["review", changeId, "--review-agent", "claude"],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			review: { summary: string };
+		};
+		assert.equal(json.status, "success");
+		assert.equal(json.review.summary, "all good via claude");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-apply works with claude as review agent via env var", () => {
+	const tempRoot = makeTempDir("review-apply-claude-env-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addImplementationDiff(repoPath);
+		const env = createClaudeEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "all good via claude env",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-apply",
+			["review", changeId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			review: { summary: string };
+		};
+		assert.equal(json.status, "success");
+		assert.equal(json.review.summary, "all good via claude env");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-design works with claude as review agent", () => {
+	const tempRoot = makeTempDir("review-design-claude-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addDesignArtifacts(repoPath, changeId);
+		const env = createClaudeEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "OK",
+					findings: [],
+					summary: "design ok via claude",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-design",
+			["review", changeId, "--review-agent", "claude"],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			review: { summary: string };
+		};
+		assert.equal(json.status, "success");
+		assert.equal(json.review.summary, "design ok via claude");
 	} finally {
 		removeTempDir(tempRoot);
 	}
