@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import { tryGit } from "../lib/git.js";
+import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import {
 	actionableCount,
 	applyStillOpenSeverityOverrides,
@@ -12,16 +12,16 @@ import {
 	computeSummary,
 	emptyLedger,
 	incrementRound,
+	type LedgerConfig,
 	ledgerSnapshot,
 	matchFindings,
 	matchRereview,
+	type ProposalRoundMetadata,
 	persistMaxFindingId,
 	readLedger,
 	setProposalReviewMetadata,
 	severitySummary,
 	validateLedger,
-	type LedgerConfig,
-	type ProposalRoundMetadata,
 } from "../lib/review-ledger.js";
 import {
 	buildPrompt,

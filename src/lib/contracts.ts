@@ -1,3 +1,4 @@
+import { existsSync, readdirSync, statSync } from "node:fs";
 import type {
 	CommandContract,
 	ContractsBundle,
@@ -12,7 +13,6 @@ import type {
 } from "../types/contracts.js";
 import { AssetType } from "../types/contracts.js";
 import { fromRepo } from "./paths.js";
-import { existsSync, readdirSync, statSync } from "node:fs";
 import { schemaIds } from "./schemas.js";
 
 function validateUnique(

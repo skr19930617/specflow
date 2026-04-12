@@ -1,10 +1,10 @@
-import { AssetType, type WorkflowContract } from "../types/contracts.js";
 import {
 	workflowEvents,
 	workflowStates,
 	workflowTransitions,
 	workflowVersion,
 } from "../lib/workflow-machine.js";
+import { AssetType, type WorkflowContract } from "../types/contracts.js";
 
 export const workflowContract: WorkflowContract = {
 	id: "specflow-workflow",

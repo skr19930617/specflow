@@ -1,6 +1,4 @@
-import { exec } from "./lib/process.js";
 import { contracts } from "./contracts/install.js";
-import { validateContracts, createManifest } from "./lib/contracts.js";
 import { renderCommands } from "./generators/commands.js";
 import { renderInstallPlan } from "./generators/install-plan.js";
 import { renderPrompts } from "./generators/prompts.js";
@@ -8,9 +6,11 @@ import { renderReadmeWorkflowDiagram } from "./generators/readme.js";
 import { renderStaticAssets } from "./generators/static-assets.js";
 import { renderTemplates } from "./generators/templates.js";
 import { renderWorkflow } from "./generators/workflow.js";
-import { renderWorkflowReadmeBlock } from "./lib/workflow-machine.js";
-import { fromRepo } from "./lib/paths.js";
+import { createManifest, validateContracts } from "./lib/contracts.js";
 import { writeText } from "./lib/fs.js";
+import { fromRepo } from "./lib/paths.js";
+import { exec } from "./lib/process.js";
+import { renderWorkflowReadmeBlock } from "./lib/workflow-machine.js";
 
 function gitCommit(): string {
 	try {

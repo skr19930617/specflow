@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import test from "node:test";
 import {
 	addDesignArtifacts,
 	addImplementationDiff,

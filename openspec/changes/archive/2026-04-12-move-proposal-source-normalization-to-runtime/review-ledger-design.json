@@ -1,118 +1,118 @@
 {
-  "feature_id": "move-proposal-source-normalization-to-runtime",
-  "phase": "design",
-  "current_round": 5,
-  "status": "all_resolved",
-  "max_finding_id": 2,
-  "findings": [
-    {
-      "id": "R2-F01",
-      "severity": "medium",
-      "category": "consistency",
-      "title": "Deprecated --source-file parsing is underspecified",
-      "detail": "Decision 4 and task 2.2 define positional disambiguation as `1 arg = raw-input` and `2 args = change-id + raw-input`, but the spec also requires the deprecated form `specflow-prepare-change <CHANGE_ID> --source-file <path>` to keep working. As written, the plan does not explicitly state how parsing changes when `--source-file` is present, so an implementation could misclassify the lone positional argument as raw input and incorrectly raise the conflicting-input error, or leave `--source-file` arity behavior undefined. Update the design and tasks to spell out the parser contract for the deprecated path and add explicit coverage for its allowed/rejected shapes.",
-      "origin_round": 2,
-      "latest_round": 4,
-      "status": "resolved",
-      "relation": "same",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 5
-    },
-    {
-      "id": "R3-F01",
-      "severity": "medium",
-      "category": "completeness",
-      "title": "Existing scaffold-only change reuse is not explicitly covered",
-      "detail": "The design mentions reusing existing changes, but the tasks and tests only spell out the 'change does not exist' path. The spec separately requires that an existing 'openspec/changes/<CHANGE_ID>/' containing '.openspec.yaml' but no 'proposal.md' receives a seeded proposal and ends in 'proposal_draft'. Add an explicit task/test for this reuse path, including assertion that 'openspec new change' is not called and the run state still lands in 'proposal_draft'.",
-      "origin_round": 3,
-      "latest_round": 3,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F01",
-      "severity": "high",
-      "category": "completeness",
-      "title": "Single-argument raw-input mode is not fully specified in the implementation plan",
-      "detail": "The spec requires `specflow-prepare-change <raw-input>` to derive `CHANGE_ID` from the normalized source, using the fetched issue title for URL mode and sanitized inline text for inline mode, and to create the change when it does not exist. The design only defines positional disambiguation, and the tasks never explicitly implement or test derived-ID behavior for either one-argument shape. Add a concrete design note for where derivation happens after normalization/fetch, plus tasks and tests for both `specflow-prepare-change <issue-url>` and `specflow-prepare-change <inline-text>` including the `openspec new change <CHANGE_ID>` path.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R1-F02",
-      "severity": "medium",
-      "category": "completeness",
-      "title": "Backward-compatibility coverage is too narrow for the deprecated path",
-      "detail": "The proposal requires the deprecated `--source-file` path to continue functioning identically to the new positional form, but the tasks only add an equivalence test for issue input. That leaves inline-text compatibility and persisted `run.json` source metadata unverified, which is where differences such as `kind: \"inline\"`, `provider: \"generic\"`, or reduced source persistence could slip through. Expand the transition tests to cover both URL and inline inputs and assert parity of normalized source metadata and generated proposal artifacts, aside from the deprecation warning.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    }
-  ],
-  "round_summaries": [
-    {
-      "round": 1,
-      "total": 2,
-      "open": 2,
-      "new": 2,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "high": 1,
-        "medium": 1
-      }
-    },
-    {
-      "round": 2,
-      "total": 3,
-      "open": 1,
-      "new": 1,
-      "resolved": 2,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 1
-      }
-    },
-    {
-      "round": 3,
-      "total": 4,
-      "open": 2,
-      "new": 1,
-      "resolved": 2,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 2
-      }
-    },
-    {
-      "round": 4,
-      "total": 4,
-      "open": 1,
-      "new": 0,
-      "resolved": 3,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 1
-      }
-    },
-    {
-      "round": 5,
-      "total": 4,
-      "open": 0,
-      "new": 0,
-      "resolved": 4,
-      "overridden": 0,
-      "by_severity": {}
-    }
-  ]
+	"feature_id": "move-proposal-source-normalization-to-runtime",
+	"phase": "design",
+	"current_round": 5,
+	"status": "all_resolved",
+	"max_finding_id": 2,
+	"findings": [
+		{
+			"id": "R2-F01",
+			"severity": "medium",
+			"category": "consistency",
+			"title": "Deprecated --source-file parsing is underspecified",
+			"detail": "Decision 4 and task 2.2 define positional disambiguation as `1 arg = raw-input` and `2 args = change-id + raw-input`, but the spec also requires the deprecated form `specflow-prepare-change <CHANGE_ID> --source-file <path>` to keep working. As written, the plan does not explicitly state how parsing changes when `--source-file` is present, so an implementation could misclassify the lone positional argument as raw input and incorrectly raise the conflicting-input error, or leave `--source-file` arity behavior undefined. Update the design and tasks to spell out the parser contract for the deprecated path and add explicit coverage for its allowed/rejected shapes.",
+			"origin_round": 2,
+			"latest_round": 4,
+			"status": "resolved",
+			"relation": "same",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 5
+		},
+		{
+			"id": "R3-F01",
+			"severity": "medium",
+			"category": "completeness",
+			"title": "Existing scaffold-only change reuse is not explicitly covered",
+			"detail": "The design mentions reusing existing changes, but the tasks and tests only spell out the 'change does not exist' path. The spec separately requires that an existing 'openspec/changes/<CHANGE_ID>/' containing '.openspec.yaml' but no 'proposal.md' receives a seeded proposal and ends in 'proposal_draft'. Add an explicit task/test for this reuse path, including assertion that 'openspec new change' is not called and the run state still lands in 'proposal_draft'.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "completeness",
+			"title": "Single-argument raw-input mode is not fully specified in the implementation plan",
+			"detail": "The spec requires `specflow-prepare-change <raw-input>` to derive `CHANGE_ID` from the normalized source, using the fetched issue title for URL mode and sanitized inline text for inline mode, and to create the change when it does not exist. The design only defines positional disambiguation, and the tasks never explicitly implement or test derived-ID behavior for either one-argument shape. Add a concrete design note for where derivation happens after normalization/fetch, plus tasks and tests for both `specflow-prepare-change <issue-url>` and `specflow-prepare-change <inline-text>` including the `openspec new change <CHANGE_ID>` path.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F02",
+			"severity": "medium",
+			"category": "completeness",
+			"title": "Backward-compatibility coverage is too narrow for the deprecated path",
+			"detail": "The proposal requires the deprecated `--source-file` path to continue functioning identically to the new positional form, but the tasks only add an equivalence test for issue input. That leaves inline-text compatibility and persisted `run.json` source metadata unverified, which is where differences such as `kind: \"inline\"`, `provider: \"generic\"`, or reduced source persistence could slip through. Expand the transition tests to cover both URL and inline inputs and assert parity of normalized source metadata and generated proposal artifacts, aside from the deprecation warning.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 2,
+			"open": 2,
+			"new": 2,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1,
+				"medium": 1
+			}
+		},
+		{
+			"round": 2,
+			"total": 3,
+			"open": 1,
+			"new": 1,
+			"resolved": 2,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 1
+			}
+		},
+		{
+			"round": 3,
+			"total": 4,
+			"open": 2,
+			"new": 1,
+			"resolved": 2,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 2
+			}
+		},
+		{
+			"round": 4,
+			"total": 4,
+			"open": 1,
+			"new": 0,
+			"resolved": 3,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 1
+			}
+		},
+		{
+			"round": 5,
+			"total": 4,
+			"open": 0,
+			"new": 0,
+			"resolved": 4,
+			"overridden": 0,
+			"by_severity": {}
+		}
+	]
 }

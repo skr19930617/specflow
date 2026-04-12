@@ -1,7 +1,7 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 
 const forced = process.env.SPECFLOW_FORCE_POSTINSTALL === "1";
 const skipped = process.env.SPECFLOW_SKIP_AUTO_INSTALL === "1";

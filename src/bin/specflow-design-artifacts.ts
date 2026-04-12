@@ -1,9 +1,9 @@
+import { parseJson, tryParseJson } from "../lib/json.js";
+import { printSchemaJson, resolveCommand, tryExec } from "../lib/process.js";
 import type {
 	DesignArtifactNextResult,
 	DesignArtifactValidateResult,
 } from "../types/contracts.js";
-import { parseJson, tryParseJson } from "../lib/json.js";
-import { printSchemaJson, resolveCommand, tryExec } from "../lib/process.js";
 
 function usage(): never {
 	process.stderr.write(`Usage: specflow-design-artifacts <subcommand> <CHANGE_ID>

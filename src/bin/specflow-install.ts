@@ -9,10 +9,10 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { moduleRepoRoot } from "../lib/process.js";
-import type { InstallPlan, Manifest } from "../types/contracts.js";
 import { copyPath } from "../lib/fs.js";
+import { moduleRepoRoot } from "../lib/process.js";
 import { templateFileAliases } from "../lib/template-files.js";
+import type { InstallPlan, Manifest } from "../types/contracts.js";
 
 function out(message: string): void {
 	process.stdout.write(`${message}\n`);

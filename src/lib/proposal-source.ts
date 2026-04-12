@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { parseSchemaJson } from "./schemas.js";
 import type { ProposalSource, SourceMetadata } from "../types/contracts.js";
+import { parseSchemaJson } from "./schemas.js";
 
 export interface ProposalInstructions {
 	readonly outputPath?: string;
