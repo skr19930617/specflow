@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import {
@@ -181,6 +181,55 @@ test("specflow-review-apply surfaces parse errors without mutating ledger", () =
 		assert.equal(
 			existsSync(
 				join(repoPath, "openspec/changes", changeId, "review-ledger.json"),
+			),
+			false,
+		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-apply returns no_changes for deleted-file-only diffs", () => {
+	const tempRoot = makeTempDir("review-apply-deleted-only-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		unlinkSync(join(repoPath, "app.txt"));
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "should not run",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-apply",
+			["review", changeId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		assert.deepEqual(JSON.parse(result.stdout), {
+			status: "error",
+			action: "review",
+			change_id: changeId,
+			error: "no_changes",
+			review: null,
+			ledger: null,
+			autofix: null,
+			handoff: null,
+		});
+		assert.equal(
+			existsSync(
+				join(repoPath, "openspec/changes", changeId, "review-ledger.json"),
+			),
+			false,
+		);
+		assert.equal(
+			existsSync(
+				join(repoPath, "openspec/changes", changeId, "current-phase.md"),
 			),
 			false,
 		);

@@ -1,0 +1,135 @@
+{
+	"feature_id": "introduce-workspacecontext-interface",
+	"phase": "design",
+	"current_round": 4,
+	"status": "all_resolved",
+	"max_finding_id": 3,
+	"findings": [
+		{
+			"id": "R1-F03",
+			"severity": "medium",
+			"category": "completeness",
+			"title": "Diff parity coverage omits required exclusion cases",
+			"detail": "The spec/proposal requires `filteredDiff()` parity with the current filter behavior, including excluded-file accounting beyond the happy path: deleted files must be omitted from the patch but recorded in `summary.excluded`, untracked files remain out of scope, and pure renames need the expected excluded metadata. The design/tasks only call out generic parity plus pure renames, so an implementer could miss deleted/untracked handling or change the serialized `DiffSummary` shape without a failing task. Add explicit design notes and tests for deleted files, untracked files, excluded counts/warnings, and the exact summary output contract used by `specflow-filter-diff`.",
+			"origin_round": 1,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "same",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 4
+		},
+		{
+			"id": "R1-F02",
+			"severity": "medium",
+			"category": "consistency",
+			"title": "Originless repo fallback no longer matches the approved contract",
+			"detail": "The proposal explicitly defines the no-`origin` fallback as `local/<directory-name>` for `projectIdentity()` and says `projectDisplayName()` should use the same fallback, but D8 changes the identifier to a hashed form. That is a behavioral change to persisted metadata for originless repositories and can break parity/backward-compatibility assumptions. Either keep the specified fallback or amend the spec first and add explicit tests for the chosen fallback behavior.",
+			"origin_round": 1,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "reframed",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R3-F01",
+			"severity": "high",
+			"category": "consistency",
+			"title": "Detached-HEAD behavior conflicts with the stated WorkspaceContext contract",
+			"detail": "The proposal/spec define LocalWorkspaceContext.branchName() in terms of `git branch --show-current`, which yields `null`/empty when the branch cannot be determined, but D9 and tasks 2.4/7.1a intentionally switch to `git rev-parse --abbrev-ref HEAD` and return `\"HEAD\"`. That leaves the interface contract, local implementation, and tests disagreeing on observable behavior. Decide which behavior is authoritative, then align the design and tasks to that single contract before implementation.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "reframed",
+			"supersedes": "R1-F02",
+			"notes": "",
+			"resolved_round": 4
+		},
+		{
+			"id": "R3-F02",
+			"severity": "medium",
+			"category": "feasibility",
+			"title": "Shared DiffSummary ownership is left undefined",
+			"detail": "D3 says WorkspaceContext will reuse the existing `DiffSummary` type from `specflow-filter-diff`, while D5 turns `specflow-filter-diff` into a thin CLI wrapper. The design never states where `DiffSummary` will live after that refactor. If the type remains owned by the CLI module, `src/lib/workspace-context.ts` will depend on a binary/wrapper module or create an import cycle, which breaks the intended layering. Define a shared library location for `DiffSummary` and add an explicit task to move/update imports.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 4
+		},
+		{
+			"id": "R2-F01",
+			"severity": "medium",
+			"category": "risk",
+			"title": "CLI failure-path compatibility is underspecified",
+			"detail": "`LocalWorkspaceContext` is required to fail during construction for invalid workspaces, but the design does not define how `specflow-run start`, `specflow-review-apply`, and `specflow-filter-diff` will catch and surface that exception while preserving existing CLI stderr/exit-code behavior. A constructor unit test alone does not satisfy Acceptance Criteria 5 and 6. Specify the CLI error-handling path and add integration tests for invalid-workspace execution to verify clear messages and non-breaking exit semantics.",
+			"origin_round": 2,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R1-F01",
+			"severity": "medium",
+			"category": "feasibility",
+			"title": "Factory requires the value it is supposed to resolve",
+			"detail": "`createLocalWorkspaceContext(projectRoot: string)` is circular with the interface contract: `WorkspaceContext.projectRoot()` is supposed to resolve the git root, but the factory as written implies the CLI must already know that root before construction. That leaves the ownership of workspace validation/root resolution ambiguous and weakens the intended abstraction boundary. Change the constructor/factory to accept `cwd`/`workspacePath` (or no argument) and have `LocalWorkspaceContext` resolve and validate the root internally; if you keep the factory pattern, make it a thin wrapper around an actual `LocalWorkspaceContext` class so the design still matches the spec.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 3,
+			"open": 3,
+			"new": 3,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 3
+			}
+		},
+		{
+			"round": 2,
+			"total": 4,
+			"open": 3,
+			"new": 1,
+			"resolved": 1,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 3
+			}
+		},
+		{
+			"round": 3,
+			"total": 6,
+			"open": 3,
+			"new": 1,
+			"resolved": 3,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 2,
+				"high": 1
+			}
+		},
+		{
+			"round": 4,
+			"total": 6,
+			"open": 0,
+			"new": 0,
+			"resolved": 6,
+			"overridden": 0,
+			"by_severity": {}
+		}
+	]
+}
