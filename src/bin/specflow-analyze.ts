@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { matchesGlobPattern } from "../lib/glob.js";
 import { tryGit } from "../lib/git.js";
+import { matchesGlobPattern } from "../lib/glob.js";
 import { tryParseJson } from "../lib/json.js";
 import { printSchemaJson, tryExec } from "../lib/process.js";
 import type { AnalyzeProjectResult } from "../types/contracts.js";

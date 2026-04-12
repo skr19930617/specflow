@@ -1,5 +1,5 @@
-import { validateContracts } from "./lib/contracts.js";
 import { contracts } from "./contracts/install.js";
+import { validateContracts } from "./lib/contracts.js";
 
 function printErrors(): never {
 	const errors = validateContracts(contracts);

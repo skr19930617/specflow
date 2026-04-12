@@ -1,15 +1,15 @@
+import { spawnSync } from "node:child_process";
 import {
-	mkdtempSync,
+	copyFileSync,
 	mkdirSync,
-	readFileSync,
+	mkdtempSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	writeFileSync,
-	copyFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 import type { ProposalSource, SourceMetadata } from "../types/contracts.js";
 
 export const repoRoot = process.cwd();

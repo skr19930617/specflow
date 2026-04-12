@@ -1,8 +1,8 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { stringifySchemaJson } from "./schemas.js";
 import type { SchemaId } from "../types/contracts.js";
+import { stringifySchemaJson } from "./schemas.js";
 
 export interface CommandResult {
 	readonly stdout: string;

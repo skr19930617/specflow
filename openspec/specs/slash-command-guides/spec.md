@@ -4,9 +4,7 @@
 
 Describe the slash-command guides generated from the current command contract
 registry.
-
 ## Requirements
-
 ### Requirement: Contract-defined slash-command assets
 
 The system SHALL define slash-command assets from `commandContracts`. Each
@@ -57,7 +55,9 @@ gates.
 
 - **WHEN** generated `specflow.md` is read
 - **THEN** it SHALL include
-  `specflow-prepare-change [<CHANGE_ID>] --source-file /tmp/specflow-proposal-source.json`
+  `specflow-prepare-change [<CHANGE_ID>] <raw-input>`
+- **AND** it SHALL NOT require the caller to write a temp file before invoking
+  `specflow-prepare-change`
 - **AND** it SHALL document writing `openspec/changes/<CHANGE_ID>/proposal.md`
   before `specflow-run start`
 - **AND** it SHALL include `specflow-run advance "<CHANGE_ID>" propose`
@@ -133,3 +133,4 @@ run-state branch behavior implemented in their hooks.
 - **WHEN** generated `specflow.spec.md` is read
 - **THEN** it SHALL start a synthetic run id and record
   `spec_bootstrap_start` and `spec_bootstrap_complete`
+

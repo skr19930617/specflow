@@ -1,6 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { atomicWriteText } from "../lib/fs.js";
+import { matchIssueUrl } from "../lib/issue-url.js";
 import { parseJson } from "../lib/json.js";
 import {
 	moduleRepoRoot,
@@ -16,9 +18,19 @@ import {
 import { parseSchemaJson } from "../lib/schemas.js";
 import type { ProposalSource, RunState } from "../types/contracts.js";
 
-const HELP_TEXT = `Usage: specflow-prepare-change [CHANGE_ID] --source-file <path> [--agent-main <name>] [--agent-review <name>]
+const HELP_TEXT = `Usage: specflow-prepare-change [CHANGE_ID] <raw-input>
+       specflow-prepare-change [CHANGE_ID] --source-file <path> (deprecated)
 
 Create or reuse a local OpenSpec change, seed proposal.md, and enter proposal_draft.
+
+Arguments:
+  CHANGE_ID    Optional change identifier (derived from input if omitted)
+  raw-input    Issue URL or inline feature text (auto-detected)
+
+Options:
+  --source-file <path>  (deprecated) Read pre-normalized JSON source file
+  --agent-main <name>   Override main agent name
+  --agent-review <name> Override review agent name
 `;
 
 interface ProposalInstructions {
@@ -198,36 +210,50 @@ function findExistingNonTerminalRun(
 	return null;
 }
 
+function writeInternalTempSourceFile(source: ProposalSource): string {
+	const tempPath = join(tmpdir(), `specflow-source-${Date.now()}.json`);
+	writeFileSync(tempPath, JSON.stringify(source, null, 2), "utf8");
+	return tempPath;
+}
+
 function ensureRunStarted(
 	root: string,
 	changeId: string,
-	sourceFile: string,
+	source: ProposalSource,
 	agentMain: string | null,
 	agentReview: string | null,
 ): RunState {
-	// Check for existing non-terminal run for this change
 	const existing = findExistingNonTerminalRun(root, changeId);
 	if (existing) {
 		return existing;
 	}
-	const args = ["start", changeId, "--source-file", sourceFile];
-	if (agentMain) {
-		args.push("--agent-main", agentMain);
-	}
-	if (agentReview) {
-		args.push("--agent-review", agentReview);
-	}
-	const start = specflowRun(args, root);
-	if (start.status !== 0) {
-		fail(
-			start.stderr || start.stdout || `specflow-run start ${changeId} failed`,
+	const tempSourceFile = writeInternalTempSourceFile(source);
+	try {
+		const args = ["start", changeId, "--source-file", tempSourceFile];
+		if (agentMain) {
+			args.push("--agent-main", agentMain);
+		}
+		if (agentReview) {
+			args.push("--agent-review", agentReview);
+		}
+		const start = specflowRun(args, root);
+		if (start.status !== 0) {
+			fail(
+				start.stderr || start.stdout || `specflow-run start ${changeId} failed`,
+			);
+		}
+		return parseSchemaJson<RunState>(
+			"run-state",
+			start.stdout,
+			`specflow-run start ${changeId}`,
 		);
+	} finally {
+		try {
+			unlinkSync(tempSourceFile);
+		} catch {
+			// cleanup is best-effort
+		}
 	}
-	return parseSchemaJson<RunState>(
-		"run-state",
-		start.stdout,
-		`specflow-run start ${changeId}`,
-	);
 }
 
 function ensureProposalPhase(
@@ -254,15 +280,60 @@ function ensureProposalPhase(
 	);
 }
 
+function isValidChangeIdSlug(value: string): boolean {
+	return !matchIssueUrl(value) && !/\s/.test(value) && value.length > 0;
+}
+
+function normalizeRawInput(rawInput: string, root: string): ProposalSource {
+	const issueMatch = matchIssueUrl(rawInput);
+	if (issueMatch) {
+		const fetchIssueBin =
+			process.env.SPECFLOW_FETCH_ISSUE ??
+			resolve(moduleRepoRoot(import.meta.url), "bin/specflow-fetch-issue");
+		const result = tryExec(fetchIssueBin, [rawInput], root);
+		if (result.status !== 0) {
+			fail(
+				`Issue fetch failed: ${(result.stderr || result.stdout || "unknown error").trim()}. Verify the URL and try again.`,
+			);
+		}
+		const issue = parseJson<{
+			readonly number: number;
+			readonly title: string;
+			readonly body: string;
+			readonly url: string;
+		}>(result.stdout, "fetched issue");
+		return {
+			kind: "url",
+			provider: "github",
+			reference: rawInput.trim(),
+			title: issue.title,
+			body: issue.body ?? "",
+		};
+	}
+	return {
+		kind: "inline",
+		provider: "generic",
+		reference: rawInput.trim(),
+		title: null,
+		body: rawInput.trim(),
+	};
+}
+
 function main(): void {
-	let requestedChangeId: string | null = null;
+	const positionalArgs: string[] = [];
 	let sourceFile = "";
 	let agentMain: string | null = null;
 	let agentReview: string | null = null;
 
+	let endOfOptions = false;
 	for (let index = 2; index < process.argv.length; index += 1) {
-		const arg = process.argv[index];
-		if (!arg) {
+		const arg = process.argv[index] ?? "";
+		if (endOfOptions) {
+			positionalArgs.push(arg);
+			continue;
+		}
+		if (arg === "--") {
+			endOfOptions = true;
 			continue;
 		}
 		if (arg === "--help" || arg === "-h") {
@@ -283,22 +354,70 @@ function main(): void {
 				process.argv[++index] ?? fail("Error: --agent-review requires a value");
 			continue;
 		}
-		if (arg.startsWith("-")) {
+		if (arg.startsWith("-") && arg !== "-") {
 			fail(`Error: unknown option '${arg}'`);
 		}
-		if (requestedChangeId !== null) {
-			fail(`Error: unexpected argument '${arg}'`);
+		positionalArgs.push(arg);
+	}
+
+	// Validate arguments before any repo or file I/O
+	let source: ProposalSource;
+	let changeId: string;
+	let rawInput: string | null = null;
+
+	if (sourceFile) {
+		// Deprecated --source-file path
+		process.stderr.write(
+			"Warning: --source-file is deprecated. Pass raw input as a positional argument instead.\n",
+		);
+		if (positionalArgs.length > 1) {
+			fail(
+				"Conflicting inputs: provide either a raw input argument or --source-file, not both",
+			);
 		}
-		requestedChangeId = arg;
+		if (positionalArgs.length === 1) {
+			const singleArg = positionalArgs[0]!;
+			if (!isValidChangeIdSlug(singleArg)) {
+				fail(
+					"Conflicting inputs: provide either a raw input argument or --source-file, not both",
+				);
+			}
+		}
+		source = readProposalSourceFile(sourceFile);
+		changeId = positionalArgs[0] ?? deriveChangeId(source);
+	} else {
+		// New raw-input path — validate argument shapes before repo lookup
+		if (positionalArgs.length === 0) {
+			fail(
+				"Missing required input: provide a raw input argument or --source-file",
+			);
+		}
+		if (positionalArgs.length > 2) {
+			fail("Too many arguments: expected [CHANGE_ID] <raw-input>");
+		}
+		if (positionalArgs.length === 2) {
+			changeId = positionalArgs[0]!;
+			rawInput = positionalArgs[1]!;
+		} else {
+			rawInput = positionalArgs[0]!;
+			changeId = ""; // derived after normalization
+		}
+		if (!rawInput.trim()) {
+			fail("Empty input: provide a non-empty raw input");
+		}
+		// Defer normalization until after projectRoot() — need root for fetch
+		source = undefined as unknown as ProposalSource;
 	}
 
-	if (!sourceFile) {
-		fail("Error: --source-file is required");
-	}
-
-	const source = readProposalSourceFile(sourceFile);
-	const changeId = requestedChangeId ?? deriveChangeId(source);
 	const root = projectRoot();
+
+	// Complete normalization for raw-input path (needs root for fetch)
+	if (rawInput !== null) {
+		source = normalizeRawInput(rawInput, root);
+		if (!changeId) {
+			changeId = deriveChangeId(source);
+		}
+	}
 
 	ensureChangeExists(root, changeId);
 	ensureBranch(root, changeId);
@@ -307,7 +426,7 @@ function main(): void {
 	const state = ensureProposalPhase(
 		root,
 		changeId,
-		ensureRunStarted(root, changeId, sourceFile, agentMain, agentReview),
+		ensureRunStarted(root, changeId, source, agentMain, agentReview),
 	);
 	printSchemaJson("run-state", state);
 }

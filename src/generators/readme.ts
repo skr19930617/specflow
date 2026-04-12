@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { fromRepo } from "../lib/paths.js";
 import { writeText } from "../lib/fs.js";
+import { fromRepo } from "../lib/paths.js";
 
 const beginMarker = "<!-- BEGIN GENERATED WORKFLOW DIAGRAM -->";
 const endMarker = "<!-- END GENERATED WORKFLOW DIAGRAM -->";

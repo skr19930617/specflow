@@ -1,21 +1,21 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import {
 	existsSync,
+	lstatSync,
 	mkdirSync,
+	readdirSync,
 	readFileSync,
 	writeFileSync,
-	lstatSync,
-	readdirSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import test from "node:test";
+import type { Manifest } from "../types/contracts.js";
 import {
 	makeTempDir,
 	removeTempDir,
 	repoRoot,
 	runNodeCli,
 } from "./test-helpers.js";
-import type { Manifest } from "../types/contracts.js";
 
 test("manifest-driven installer deploys commands, links bins, and merges settings", () => {
 	const tempHome = makeTempDir("specflow-home-");
