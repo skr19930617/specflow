@@ -3,6 +3,7 @@ import { basename, join, resolve } from "node:path";
 import { tryGit } from "../lib/git.js";
 import { matchesGlobPattern } from "../lib/glob.js";
 import { tryParseJson } from "../lib/json.js";
+import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { printSchemaJson, tryExec } from "../lib/process.js";
 import type { AnalyzeProjectResult } from "../types/contracts.js";
 
@@ -153,12 +154,8 @@ function openspecInfo(cwd: string) {
 				.map((entry) => entry.name)
 				.sort()
 		: [];
-	const activeChanges = existsSync(resolve(cwd, "openspec/changes"))
-		? readdirSync(resolve(cwd, "openspec/changes"), { withFileTypes: true })
-				.filter((entry) => entry.isDirectory())
-				.map((entry) => entry.name)
-				.sort()
-		: [];
+	const changeStore = createLocalFsChangeArtifactStore(cwd);
+	const activeChanges = [...changeStore.listChanges()].sort();
 
 	return {
 		has_config: true,

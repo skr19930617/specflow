@@ -1,35 +1,41 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import type { ChangeArtifactStore } from "../lib/artifact-store.js";
+import {
+	ChangeArtifactType,
+	changeRef,
+	ReviewLedgerKind,
+} from "../lib/artifact-types.js";
 import { tryGit } from "../lib/git.js";
+import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import {
 	actionableCount,
 	applyStillOpenSeverityOverrides,
-	backupAndWriteLedger,
 	clearLedgerFindings,
 	computeStatus,
 	computeSummary,
 	emptyLedger,
 	incrementRound,
-	type LedgerConfig,
 	ledgerSnapshot,
 	matchFindings,
 	matchRereview,
 	type ProposalRoundMetadata,
 	persistMaxFindingId,
-	readLedger,
+	readLedgerFromStore,
 	setProposalReviewMetadata,
 	severitySummary,
 	validateLedger,
+	writeLedgerToStore,
 } from "../lib/review-ledger.js";
 import {
 	buildPrompt,
 	callCodex,
 	errorJson,
 	readPrompt,
+	readProposalFromStore,
 	readReviewConfig,
-	renderCurrentPhase,
+	renderCurrentPhaseToStore,
+	validateChangeFromStore,
 } from "../lib/review-runtime.js";
 import type {
 	ReviewFinding,
@@ -37,11 +43,6 @@ import type {
 	ReviewPayload,
 	ReviewResult,
 } from "../types/contracts.js";
-
-const LEDGER_CONFIG: LedgerConfig = {
-	filename: "review-ledger-proposal.json",
-	defaultPhase: "proposal",
-};
 
 type ProposalStopReason = "max_rounds_reached" | "no_progress";
 
@@ -77,10 +78,6 @@ function ensureGitRepo(): string {
 function die(message: string): never {
 	process.stderr.write(`${message}\n`);
 	process.exit(1);
-}
-
-function readProposal(changeDir: string): string {
-	return readFileSync(resolve(changeDir, "proposal.md"), "utf8");
 }
 
 function hashProposal(content: string): string {
@@ -260,16 +257,23 @@ function hydrateProposalGateFromLedger(
 	};
 }
 
-function buildReviewPrompt(runtimeRoot: string, changeDir: string): string {
+function buildReviewPrompt(
+	runtimeRoot: string,
+	changeStore: ChangeArtifactStore,
+	changeId: string,
+): string {
 	return [
 		readPrompt(runtimeRoot, "review_proposal_prompt.md").trimEnd(),
-		buildPrompt([["PROPOSAL CONTENT", readProposal(changeDir)]]),
+		buildPrompt([
+			["PROPOSAL CONTENT", readProposalFromStore(changeStore, changeId)],
+		]),
 	].join("\n\n");
 }
 
 function buildRereviewPrompt(
 	runtimeRoot: string,
-	changeDir: string,
+	changeStore: ChangeArtifactStore,
+	changeId: string,
 	previousFindings: readonly ReviewFinding[],
 	maxFindingId: number,
 ): string {
@@ -278,7 +282,7 @@ function buildRereviewPrompt(
 		buildPrompt([
 			["PREVIOUS_FINDINGS", JSON.stringify(previousFindings)],
 			["MAX_FINDING_ID", String(maxFindingId)],
-			["PROPOSAL CONTENT", readProposal(changeDir)],
+			["PROPOSAL CONTENT", readProposalFromStore(changeStore, changeId)],
 		]),
 	].join("\n\n");
 }
@@ -344,13 +348,14 @@ function buildProposalHandoff(
 function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
-	changeDir: string,
+	changeStore: ChangeArtifactStore,
 	action: string,
 	changeId: string,
 	rereviewMode: boolean,
 ): ReviewResult {
 	process.stderr.write("Reading proposal...\n");
-	if (!existsSync(resolve(changeDir, "proposal.md"))) {
+	const proposalRef = changeRef(changeId, ChangeArtifactType.Proposal);
+	if (!changeStore.exists(proposalRef)) {
 		return {
 			...errorJson(action, changeId, "missing_proposal"),
 			review: null,
@@ -359,12 +364,16 @@ function runReviewPipeline(
 			handoff: null,
 		};
 	}
-	const proposalContent = readProposal(changeDir);
+	const proposalContent = readProposalFromStore(changeStore, changeId);
 	const proposalHash = hashProposal(proposalContent);
 	const config = readReviewConfig(projectRoot);
 	const maxRounds = config.maxAutofixRounds;
 
-	const ledgerRead = readLedger(changeDir, LEDGER_CONFIG);
+	const ledgerRead = readLedgerFromStore(
+		changeStore,
+		changeId,
+		ReviewLedgerKind.Proposal,
+	);
 	if (ledgerRead.status === "prompt_user") {
 		return {
 			status: "success",
@@ -396,13 +405,20 @@ function runReviewPipeline(
 				state: "max_rounds_reached",
 			};
 			ledger = setProposalReviewMetadata(ledger, proposalMetadata(stopped));
-			backupAndWriteLedger(
-				changeDir,
+			writeLedgerToStore(
+				changeStore,
+				changeId,
+				ReviewLedgerKind.Proposal,
 				ledger,
-				LEDGER_CONFIG,
 				ledgerRead.status === "clean",
 			);
-			renderCurrentPhase(changeDir, ledger, "proposal", projectRoot);
+			renderCurrentPhaseToStore(
+				changeStore,
+				changeId,
+				ledger,
+				"proposal",
+				projectRoot,
+			);
 			return resultFromLedger(
 				action,
 				changeId,
@@ -418,13 +434,14 @@ function runReviewPipeline(
 	const prompt = rereviewMode
 		? buildRereviewPrompt(
 				runtimeRoot,
-				changeDir,
+				changeStore,
+				changeId,
 				(ledger.findings ?? []).filter(
 					(finding) => String(finding.status ?? "") !== "resolved",
 				),
 				Number(ledger.max_finding_id ?? 0),
 			)
-		: buildReviewPrompt(runtimeRoot, changeDir);
+		: buildReviewPrompt(runtimeRoot, changeStore, changeId);
 	const codexResult = callCodex<Record<string, unknown>>(projectRoot, prompt);
 
 	let parseError = false;
@@ -505,13 +522,20 @@ function runReviewPipeline(
 
 		if (evaluation.stopReason === "no_progress") {
 			ledger = setProposalReviewMetadata(ledger, proposalMetadata(evaluation));
-			backupAndWriteLedger(
-				changeDir,
+			writeLedgerToStore(
+				changeStore,
+				changeId,
+				ReviewLedgerKind.Proposal,
 				ledger,
-				LEDGER_CONFIG,
 				ledgerRead.status === "clean",
 			);
-			renderCurrentPhase(changeDir, ledger, "proposal", projectRoot);
+			renderCurrentPhaseToStore(
+				changeStore,
+				changeId,
+				ledger,
+				"proposal",
+				projectRoot,
+			);
 			return resultFromLedger(
 				action,
 				changeId,
@@ -525,13 +549,20 @@ function runReviewPipeline(
 		candidate = computeSummary(candidate, round, proposalMetadata(evaluation));
 		candidate = computeStatus(candidate);
 		candidate = persistMaxFindingId(candidate);
-		backupAndWriteLedger(
-			changeDir,
+		writeLedgerToStore(
+			changeStore,
+			changeId,
+			ReviewLedgerKind.Proposal,
 			candidate,
-			LEDGER_CONFIG,
 			ledgerRead.status === "clean",
 		);
-		renderCurrentPhase(changeDir, candidate, "proposal", projectRoot);
+		renderCurrentPhaseToStore(
+			changeStore,
+			changeId,
+			candidate,
+			"proposal",
+			projectRoot,
+		);
 		ledger = candidate;
 		return resultFromLedger(
 			action,
@@ -553,41 +584,53 @@ function runReviewPipeline(
 	);
 }
 
-function resetLedger(changeDir: string, changeId: string): void {
-	const ledger = emptyLedger(changeId, LEDGER_CONFIG.defaultPhase);
-	const path = resolve(changeDir, LEDGER_CONFIG.filename);
-	writeFileSync(path, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+function resetLedgerViaStore(
+	changeStore: ChangeArtifactStore,
+	changeId: string,
+): void {
+	writeLedgerToStore(
+		changeStore,
+		changeId,
+		ReviewLedgerKind.Proposal,
+		emptyLedger(changeId, "proposal"),
+		false,
+	);
 	process.stderr.write("Ledger reset to empty\n");
 }
 
-function ensureChangeDir(projectRoot: string, changeId: string): string {
-	const changeDir = resolve(projectRoot, "openspec/changes", changeId);
-	if (
-		!existsSync(changeDir) ||
-		!existsSync(resolve(changeDir, "proposal.md"))
-	) {
-		die(`Error: change directory not found: ${changeDir}`);
+function ensureChangeViaStore(
+	changeStore: ChangeArtifactStore,
+	changeId: string,
+): void {
+	try {
+		validateChangeFromStore(changeStore, changeId);
+	} catch (error) {
+		die(
+			error instanceof Error
+				? error.message
+				: `Error: change not found: ${changeId}`,
+		);
 	}
-	return changeDir;
 }
 
 function cmdReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 ): ReviewResult {
 	const changeId = args[0];
 	if (!changeId) {
 		die("Usage: specflow-review-proposal review <CHANGE_ID> [--reset-ledger]");
 	}
-	const changeDir = ensureChangeDir(projectRoot, changeId);
+	ensureChangeViaStore(changeStore, changeId);
 	if (args.includes("--reset-ledger")) {
-		resetLedger(changeDir, changeId);
+		resetLedgerViaStore(changeStore, changeId);
 	}
 	return runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
-		changeDir,
+		changeStore,
 		"review",
 		changeId,
 		false,
@@ -597,6 +640,7 @@ function cmdReview(
 function cmdFixReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 ): ReviewResult {
 	const changeId = args[0];
@@ -605,14 +649,14 @@ function cmdFixReview(
 			"Usage: specflow-review-proposal fix-review <CHANGE_ID> [--reset-ledger]",
 		);
 	}
-	const changeDir = ensureChangeDir(projectRoot, changeId);
+	ensureChangeViaStore(changeStore, changeId);
 	if (args.includes("--reset-ledger")) {
-		resetLedger(changeDir, changeId);
+		resetLedgerViaStore(changeStore, changeId);
 	}
 	return runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
-		changeDir,
+		changeStore,
 		"fix_review",
 		changeId,
 		true,
@@ -621,15 +665,16 @@ function cmdFixReview(
 
 function main(): void {
 	const projectRoot = ensureGitRepo();
+	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
 	const [subcommand = "", ...args] = process.argv.slice(2);
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
-			result = cmdReview(runtimeRoot, projectRoot, args);
+			result = cmdReview(runtimeRoot, projectRoot, changeStore, args);
 			break;
 		case "fix-review":
-			result = cmdFixReview(runtimeRoot, projectRoot, args);
+			result = cmdFixReview(runtimeRoot, projectRoot, changeStore, args);
 			break;
 		case "":
 			die(

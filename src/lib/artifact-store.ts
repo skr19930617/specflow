@@ -13,6 +13,8 @@ export interface ChangeArtifactStore {
 	write(ref: ChangeArtifactRef, content: string): void;
 	exists(ref: ChangeArtifactRef): boolean;
 	list(query: ChangeArtifactQuery): readonly ChangeArtifactRef[];
+	listChanges(): readonly string[];
+	changeExists(changeId: string): boolean;
 }
 
 export interface RunArtifactStore {

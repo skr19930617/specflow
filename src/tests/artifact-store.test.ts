@@ -171,6 +171,67 @@ test("ChangeArtifactStore: list singleton returns 0 or 1", () => {
 	}
 });
 
+test("ChangeArtifactStore: listChanges returns empty when no changes exist", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsChangeArtifactStore(root);
+		assert.deepEqual(store.listChanges(), []);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("ChangeArtifactStore: listChanges returns all change identifiers", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsChangeArtifactStore(root);
+		store.write(changeRef("alpha", ChangeArtifactType.Proposal), "a");
+		store.write(changeRef("beta", ChangeArtifactType.Proposal), "b");
+
+		const changes = [...store.listChanges()].sort();
+		assert.deepEqual(changes, ["alpha", "beta"]);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("ChangeArtifactStore: changeExists returns true for existing change directory", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsChangeArtifactStore(root);
+		store.write(changeRef("my-change", ChangeArtifactType.Proposal), "x");
+
+		assert.equal(store.changeExists("my-change"), true);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("ChangeArtifactStore: changeExists returns false for non-existent change", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsChangeArtifactStore(root);
+		assert.equal(store.changeExists("nonexistent"), false);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("ChangeArtifactStore: changeExists returns true for empty change directory", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsChangeArtifactStore(root);
+		// Create the directory without any artifacts
+		mkdirSync(join(root, "openspec/changes/empty-change"), {
+			recursive: true,
+		});
+
+		assert.equal(store.changeExists("empty-change"), true);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("RunArtifactStore: read/write/exists for run-state", () => {
 	const root = makeTempRoot();
 	try {

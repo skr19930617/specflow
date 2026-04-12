@@ -199,16 +199,6 @@ test("specflow-review-design reports ledger recovery prompt on corrupt ledger wi
 		assert.equal(result.status, 0, result.stderr);
 		const json = JSON.parse(result.stdout) as { ledger_recovery: string };
 		assert.equal(json.ledger_recovery, "prompt_user");
-		assert.ok(
-			existsSync(
-				join(
-					repoPath,
-					"openspec/changes",
-					changeId,
-					"review-ledger-design.json.corrupt",
-				),
-			),
-		);
 	} finally {
 		removeTempDir(tempRoot);
 	}

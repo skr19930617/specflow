@@ -1,10 +1,14 @@
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import type { RunArtifactStore } from "../lib/artifact-store.js";
-import { atomicWriteText } from "../lib/fs.js";
+import type {
+	ChangeArtifactStore,
+	RunArtifactStore,
+} from "../lib/artifact-store.js";
+import { ChangeArtifactType, changeRef } from "../lib/artifact-types.js";
 import { matchIssueUrl } from "../lib/issue-url.js";
 import { parseJson } from "../lib/json.js";
+import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import {
 	moduleRepoRoot,
@@ -90,16 +94,12 @@ function specflowRun(
 	);
 }
 
-function changeDir(root: string, changeId: string): string {
-	return resolve(root, "openspec/changes", changeId);
-}
-
-function proposalPath(root: string, changeId: string): string {
-	return resolve(changeDir(root, changeId), "proposal.md");
-}
-
-function ensureChangeExists(root: string, changeId: string): void {
-	if (existsSync(changeDir(root, changeId))) {
+function ensureChangeExists(
+	root: string,
+	changeId: string,
+	changeStore: ChangeArtifactStore,
+): void {
+	if (changeStore.changeExists(changeId)) {
 		return;
 	}
 	const result = openspec(["new", "change", changeId], root);
@@ -110,7 +110,7 @@ function ensureChangeExists(root: string, changeId: string): void {
 				`openspec new change ${changeId} failed`,
 		);
 	}
-	if (!existsSync(changeDir(root, changeId))) {
+	if (!changeStore.changeExists(changeId)) {
 		fail(`Error: OpenSpec did not create change directory for '${changeId}'`);
 	}
 }
@@ -163,10 +163,18 @@ function ensureProposalDraft(
 	root: string,
 	changeId: string,
 	source: ProposalSource,
+	changeStore: ChangeArtifactStore,
 ): void {
-	const path = proposalPath(root, changeId);
-	if (existsSync(path) && readFileSync(path, "utf8").trim().length > 0) {
-		return;
+	const proposalRef = changeRef(changeId, ChangeArtifactType.Proposal);
+	if (changeStore.exists(proposalRef)) {
+		try {
+			const content = changeStore.read(proposalRef);
+			if (content.trim().length > 0) {
+				return;
+			}
+		} catch {
+			// Fall through to seed a new draft.
+		}
 	}
 	const instructions = loadProposalInstructions(root, changeId);
 	const outputPath = instructions.outputPath ?? "proposal.md";
@@ -175,8 +183,8 @@ function ensureProposalDraft(
 			`Error: expected OpenSpec proposal outputPath to be proposal.md, received '${outputPath}'`,
 		);
 	}
-	atomicWriteText(
-		path,
+	changeStore.write(
+		proposalRef,
 		`${renderSeededProposal(changeId, source, instructions)}\n`,
 	);
 }
@@ -405,9 +413,10 @@ function main(): void {
 		}
 	}
 
-	ensureChangeExists(root, changeId);
+	const changeStore = createLocalFsChangeArtifactStore(root);
+	ensureChangeExists(root, changeId, changeStore);
 	ensureBranch(root, changeId);
-	ensureProposalDraft(root, changeId, source);
+	ensureProposalDraft(root, changeId, source, changeStore);
 
 	const state = ensureProposalPhase(
 		root,

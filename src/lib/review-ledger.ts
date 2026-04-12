@@ -9,6 +9,12 @@ import type {
 	ReviewFindingStatus,
 	ReviewLedger,
 } from "../types/contracts.js";
+import type { ChangeArtifactStore } from "./artifact-store.js";
+import {
+	ChangeArtifactType,
+	changeRef,
+	type ReviewLedgerKind,
+} from "./artifact-types.js";
 import { atomicWriteText } from "./fs.js";
 import { parseJson } from "./json.js";
 
@@ -772,4 +778,42 @@ export function reemergedFindingTitle(
 		}
 	}
 	return null;
+}
+
+// --- Store-backed ledger operations ---
+
+export function readLedgerFromStore(
+	store: ChangeArtifactStore,
+	changeId: string,
+	kind: ReviewLedgerKind,
+): LedgerReadResult {
+	const ref = changeRef(changeId, ChangeArtifactType.ReviewLedger, kind);
+	const phase = kind === "apply" ? "impl" : kind;
+	if (!store.exists(ref)) {
+		return { ledger: emptyLedger(changeId, phase), status: "new" };
+	}
+	try {
+		return {
+			ledger: parseJson<ReviewLedger>(
+				store.read(ref),
+				kind === "apply" ? "review-ledger.json" : `review-ledger-${kind}.json`,
+			),
+			status: "clean",
+		};
+	} catch {
+		return { ledger: emptyLedger(changeId, phase), status: "prompt_user" };
+	}
+}
+
+export function writeLedgerToStore(
+	store: ChangeArtifactStore,
+	changeId: string,
+	kind: ReviewLedgerKind,
+	ledger: ReviewLedger,
+	_cleanRead: boolean,
+): void {
+	store.write(
+		changeRef(changeId, ChangeArtifactType.ReviewLedger, kind),
+		`${JSON.stringify(ledger, null, 2)}\n`,
+	);
 }

@@ -1,12 +1,15 @@
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import type { ChangeArtifactStore } from "../lib/artifact-store.js";
+import {
+	ChangeArtifactType,
+	changeRef,
+	ReviewLedgerKind,
+} from "../lib/artifact-types.js";
 import { tryGit } from "../lib/git.js";
+import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import {
 	actionableCount,
 	applyStillOpenSeverityOverrides,
-	backupAndWriteLedger,
 	clearLedgerFindings,
 	computeScore,
 	computeStatus,
@@ -14,26 +17,28 @@ import {
 	emptyLedger,
 	highFindingTitles,
 	incrementRound,
-	type LedgerConfig,
 	ledgerSnapshot,
 	matchFindings,
 	matchRereview,
 	openHighFindings,
 	persistMaxFindingId,
-	readLedger,
+	readLedgerFromStore,
 	resolvedHighFindingTitles,
 	severitySummary,
 	validateLedger,
+	writeLedgerToStore,
 } from "../lib/review-ledger.js";
 import {
 	buildPrompt,
 	callCodex,
+	contentHash,
 	errorJson,
-	readDesignArtifacts,
+	readDesignArtifactsFromStore,
 	readPrompt,
 	readReviewConfig,
-	renderCurrentPhase,
+	renderCurrentPhaseToStore,
 	unresolvedHighCount,
+	validateChangeFromStore,
 } from "../lib/review-runtime.js";
 import type {
 	AutofixRoundScore,
@@ -43,11 +48,6 @@ import type {
 	ReviewPayload,
 	ReviewResult,
 } from "../types/contracts.js";
-
-const LEDGER_CONFIG: LedgerConfig = {
-	filename: "review-ledger-design.json",
-	defaultPhase: "design",
-};
 
 function notInGitRepo(): never {
 	process.stdout.write('{"status":"error","error":"not_in_git_repo"}\n');
@@ -67,16 +67,12 @@ function die(message: string): never {
 	process.exit(1);
 }
 
-function artifactContents(changeDir: string) {
-	const artifacts = readDesignArtifacts(changeDir);
-	if (!artifacts) {
-		return null;
-	}
-	return artifacts;
-}
-
-function buildReviewPrompt(runtimeRoot: string, changeDir: string): string {
-	const artifacts = artifactContents(changeDir);
+function buildReviewPrompt(
+	runtimeRoot: string,
+	changeStore: ChangeArtifactStore,
+	changeId: string,
+): string {
+	const artifacts = readDesignArtifactsFromStore(changeStore, changeId);
 	if (!artifacts) {
 		throw new Error("missing_artifacts");
 	}
@@ -96,11 +92,12 @@ function buildReviewPrompt(runtimeRoot: string, changeDir: string): string {
 
 function buildRereviewPrompt(
 	runtimeRoot: string,
-	changeDir: string,
+	changeStore: ChangeArtifactStore,
+	changeId: string,
 	previousFindings: readonly ReviewFinding[],
 	maxFindingId: number,
 ): string {
-	const artifacts = artifactContents(changeDir);
+	const artifacts = readDesignArtifactsFromStore(changeStore, changeId);
 	if (!artifacts) {
 		throw new Error("missing_artifacts");
 	}
@@ -124,10 +121,11 @@ function buildRereviewPrompt(
 
 function buildFixPrompt(
 	runtimeRoot: string,
-	changeDir: string,
+	changeStore: ChangeArtifactStore,
+	changeId: string,
 	findings: readonly ReviewFinding[],
 ): string {
-	const artifacts = artifactContents(changeDir);
+	const artifacts = readDesignArtifactsFromStore(changeStore, changeId);
 	if (!artifacts) {
 		throw new Error("missing_artifacts");
 	}
@@ -199,16 +197,28 @@ function resultFromLedger(
 	};
 }
 
+function artifactHash(
+	changeStore: ChangeArtifactStore,
+	changeId: string,
+	type: typeof ChangeArtifactType.Design | typeof ChangeArtifactType.Tasks,
+): string {
+	const ref = changeRef(changeId, type);
+	if (!changeStore.exists(ref)) {
+		return "";
+	}
+	return contentHash(changeStore.read(ref));
+}
+
 function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
-	changeDir: string,
+	changeStore: ChangeArtifactStore,
 	action: string,
 	changeId: string,
 	rereviewMode: boolean,
 ): ReviewResult {
 	process.stderr.write("Reading artifacts...\n");
-	if (!artifactContents(changeDir)) {
+	if (!readDesignArtifactsFromStore(changeStore, changeId)) {
 		return {
 			...errorJson(action, changeId, "missing_artifacts"),
 			review: null,
@@ -221,18 +231,23 @@ function runReviewPipeline(
 	process.stderr.write("Calling Codex for design review...\n");
 	const prompt = rereviewMode
 		? (() => {
-				const priorLedger = readLedger(changeDir, LEDGER_CONFIG).ledger;
+				const priorLedger = readLedgerFromStore(
+					changeStore,
+					changeId,
+					ReviewLedgerKind.Design,
+				).ledger;
 				const previousFindings = (priorLedger.findings ?? []).filter(
 					(finding) => String(finding.status ?? "") !== "resolved",
 				);
 				return buildRereviewPrompt(
 					runtimeRoot,
-					changeDir,
+					changeStore,
+					changeId,
 					previousFindings,
 					Number(priorLedger.max_finding_id ?? 0),
 				);
 			})()
-		: buildReviewPrompt(runtimeRoot, changeDir);
+		: buildReviewPrompt(runtimeRoot, changeStore, changeId);
 	const codexResult = callCodex<Record<string, unknown>>(projectRoot, prompt);
 
 	let parseError = false;
@@ -259,7 +274,11 @@ function runReviewPipeline(
 		reviewJson = codexResult.payload;
 	}
 
-	const ledgerRead = readLedger(changeDir, LEDGER_CONFIG);
+	const ledgerRead = readLedgerFromStore(
+		changeStore,
+		changeId,
+		ReviewLedgerKind.Design,
+	);
 	if (ledgerRead.status === "prompt_user") {
 		return {
 			status: "success",
@@ -329,13 +348,20 @@ function runReviewPipeline(
 		ledger = computeSummary(ledger, round);
 		ledger = computeStatus(ledger);
 		ledger = persistMaxFindingId(ledger);
-		backupAndWriteLedger(
-			changeDir,
+		writeLedgerToStore(
+			changeStore,
+			changeId,
+			ReviewLedgerKind.Design,
 			ledger,
-			LEDGER_CONFIG,
 			ledgerRead.status === "clean",
 		);
-		renderCurrentPhase(changeDir, ledger, "design", projectRoot);
+		renderCurrentPhaseToStore(
+			changeStore,
+			changeId,
+			ledger,
+			"design",
+			projectRoot,
+		);
 	}
 
 	return resultFromLedger(
@@ -350,21 +376,14 @@ function runReviewPipeline(
 	);
 }
 
-function fileHash(path: string): string {
-	if (!existsSync(path)) {
-		return "";
-	}
-	return createHash("sha256").update(readFileSync(path)).digest("hex");
-}
-
 function runAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
-	changeDir: string,
+	changeStore: ChangeArtifactStore,
 	changeId: string,
 	maxRounds: number,
 ): ReviewResult {
-	if (!artifactContents(changeDir)) {
+	if (!readDesignArtifactsFromStore(changeStore, changeId)) {
 		return {
 			...errorJson("autofix_loop", changeId, "missing_artifacts"),
 			review: null,
@@ -374,13 +393,17 @@ function runAutofixLoop(
 		};
 	}
 
-	const ledgerRead = readLedger(changeDir, LEDGER_CONFIG);
+	const ledgerRead = readLedgerFromStore(
+		changeStore,
+		changeId,
+		ReviewLedgerKind.Design,
+	);
 	let ledger = ledgerRead.ledger;
 	if (ledgerRead.status === "prompt_user") {
 		process.stderr.write(
 			"Warning: corrupt ledger, auto-reinitializing for autofix mode\n",
 		);
-		ledger = emptyLedger(changeId, LEDGER_CONFIG.defaultPhase);
+		ledger = emptyLedger(changeId, "design");
 	}
 
 	let previousScore = computeScore(ledger);
@@ -404,11 +427,11 @@ function runAutofixLoop(
 			return status === "new" || status === "open";
 		});
 		const preFixHash =
-			fileHash(resolve(changeDir, "design.md")) +
-			fileHash(resolve(changeDir, "tasks.md"));
+			artifactHash(changeStore, changeId, ChangeArtifactType.Design) +
+			artifactHash(changeStore, changeId, ChangeArtifactType.Tasks);
 		const fixResult = callCodex(
 			projectRoot,
-			buildFixPrompt(runtimeRoot, changeDir, actionableFindings),
+			buildFixPrompt(runtimeRoot, changeStore, changeId, actionableFindings),
 		);
 		if (!fixResult.ok) {
 			consecutiveFailures += 1;
@@ -422,8 +445,8 @@ function runAutofixLoop(
 			continue;
 		}
 		const postFixHash =
-			fileHash(resolve(changeDir, "design.md")) +
-			fileHash(resolve(changeDir, "tasks.md"));
+			artifactHash(changeStore, changeId, ChangeArtifactType.Design) +
+			artifactHash(changeStore, changeId, ChangeArtifactType.Tasks);
 		if (preFixHash === postFixHash) {
 			consecutiveNoChange += 1;
 			process.stderr.write(
@@ -440,7 +463,7 @@ function runAutofixLoop(
 		const reviewResult = runReviewPipeline(
 			runtimeRoot,
 			projectRoot,
-			changeDir,
+			changeStore,
 			"fix_review",
 			changeId,
 			true,
@@ -458,7 +481,11 @@ function runAutofixLoop(
 		}
 
 		consecutiveFailures = 0;
-		ledger = readLedger(changeDir, LEDGER_CONFIG).ledger;
+		ledger = readLedgerFromStore(
+			changeStore,
+			changeId,
+			ReviewLedgerKind.Design,
+		).ledger;
 		const currentScore = computeScore(ledger);
 		const unresolvedHigh = unresolvedHighCount(ledger);
 		const currentAllHighTitles = highFindingTitles(ledger);
@@ -547,16 +574,10 @@ function runAutofixLoop(
 	};
 }
 
-function resetLedger(changeDir: string, changeId: string): void {
-	const ledger = emptyLedger(changeId, LEDGER_CONFIG.defaultPhase);
-	const path = resolve(changeDir, LEDGER_CONFIG.filename);
-	writeFileSync(path, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
-	process.stderr.write("Ledger reset to empty\n");
-}
-
 function cmdReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 ): ReviewResult {
 	const changeId = args[0];
@@ -564,20 +585,25 @@ function cmdReview(
 		die("Usage: specflow-review-design review <CHANGE_ID> [--reset-ledger]");
 	}
 	const reset = args.includes("--reset-ledger");
-	const changeDir = resolve(projectRoot, "openspec/changes", changeId);
-	if (
-		!existsSync(changeDir) ||
-		!existsSync(resolve(changeDir, "proposal.md"))
-	) {
-		die(`Error: change directory not found: ${changeDir}`);
+	try {
+		validateChangeFromStore(changeStore, changeId);
+	} catch (error) {
+		die(String((error as Error).message));
 	}
 	if (reset) {
-		resetLedger(changeDir, changeId);
+		writeLedgerToStore(
+			changeStore,
+			changeId,
+			ReviewLedgerKind.Design,
+			emptyLedger(changeId, "design"),
+			false,
+		);
+		process.stderr.write("Ledger reset to empty\n");
 	}
 	return runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
-		changeDir,
+		changeStore,
 		"review",
 		changeId,
 		false,
@@ -587,6 +613,7 @@ function cmdReview(
 function cmdFixReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 ): ReviewResult {
 	const changeId = args[0];
@@ -596,20 +623,25 @@ function cmdFixReview(
 		);
 	}
 	const reset = args.includes("--reset-ledger");
-	const changeDir = resolve(projectRoot, "openspec/changes", changeId);
-	if (
-		!existsSync(changeDir) ||
-		!existsSync(resolve(changeDir, "proposal.md"))
-	) {
-		die(`Error: change directory not found: ${changeDir}`);
+	try {
+		validateChangeFromStore(changeStore, changeId);
+	} catch (error) {
+		die(String((error as Error).message));
 	}
 	if (reset) {
-		resetLedger(changeDir, changeId);
+		writeLedgerToStore(
+			changeStore,
+			changeId,
+			ReviewLedgerKind.Design,
+			emptyLedger(changeId, "design"),
+			false,
+		);
+		process.stderr.write("Ledger reset to empty\n");
 	}
 	return runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
-		changeDir,
+		changeStore,
 		"fix_review",
 		changeId,
 		true,
@@ -619,6 +651,7 @@ function cmdFixReview(
 function cmdAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 ): ReviewResult {
 	const changeId = args[0];
@@ -636,19 +669,24 @@ function cmdAutofixLoop(
 	}
 	const config = readReviewConfig(projectRoot);
 	const rounds = maxRounds ? Number(maxRounds) : config.maxAutofixRounds;
-	const changeDir = resolve(projectRoot, "openspec/changes", changeId);
-	if (
-		!existsSync(changeDir) ||
-		!existsSync(resolve(changeDir, "proposal.md"))
-	) {
-		die(`Error: change directory not found: ${changeDir}`);
+	try {
+		validateChangeFromStore(changeStore, changeId);
+	} catch (error) {
+		die(String((error as Error).message));
 	}
-	return runAutofixLoop(runtimeRoot, projectRoot, changeDir, changeId, rounds);
+	return runAutofixLoop(
+		runtimeRoot,
+		projectRoot,
+		changeStore,
+		changeId,
+		rounds,
+	);
 }
 
 function main(): void {
 	const projectRoot = ensureGitRepo();
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
+	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
 	const [subcommand, ...args] = process.argv.slice(2);
 	if (!subcommand) {
 		process.stderr.write(`Usage: specflow-review-design <subcommand> <CHANGE_ID> [options]
@@ -665,13 +703,13 @@ Subcommands:
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
-			result = cmdReview(runtimeRoot, projectRoot, args);
+			result = cmdReview(runtimeRoot, projectRoot, changeStore, args);
 			break;
 		case "fix-review":
-			result = cmdFixReview(runtimeRoot, projectRoot, args);
+			result = cmdFixReview(runtimeRoot, projectRoot, changeStore, args);
 			break;
 		case "autofix-loop":
-			result = cmdAutofixLoop(runtimeRoot, projectRoot, args);
+			result = cmdAutofixLoop(runtimeRoot, projectRoot, changeStore, args);
 			break;
 		default:
 			die(
