@@ -196,13 +196,12 @@ test("specflow-filter-diff preserves include pathspec filtering", () => {
 		writeFileSync(join(repoPath, "sub", "inside.txt"), "after\n", "utf8");
 		writeFileSync(join(repoPath, "outside.txt"), "after\n", "utf8");
 
-		const result = runNodeCli(
-			"specflow-filter-diff",
-			["--", "sub"],
-			repoPath,
-		);
+		const result = runNodeCli("specflow-filter-diff", ["--", "sub"], repoPath);
 		assert.equal(result.status, 0, result.stderr);
-		assert.match(result.stdout, /diff --git a\/sub\/inside\.txt b\/sub\/inside\.txt/);
+		assert.match(
+			result.stdout,
+			/diff --git a\/sub\/inside\.txt b\/sub\/inside\.txt/,
+		);
 		assert.doesNotMatch(result.stdout, /outside\.txt/);
 		assert.deepEqual(JSON.parse(result.stderr.trim()), {
 			excluded: [],

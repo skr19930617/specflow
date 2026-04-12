@@ -1,149 +1,149 @@
 {
-  "feature_id": "introduce-workspacecontext-interface",
-  "phase": "impl",
-  "current_round": 3,
-  "status": "in_progress",
-  "max_finding_id": 7,
-  "findings": [
-    {
-      "id": "R1-F01",
-      "severity": "high",
-      "category": "correctness",
-      "file": "src/bin/specflow-run.ts",
-      "title": "`specflow-run start` still fails through the old git-root path before WorkspaceContext is injected",
-      "detail": "`main()` still calls `projectRoot()` before dispatching subcommands. Outside a git repo, `specflow-run start` exits with stderr `Error: not inside a git repository` instead of the required stdout JSON `{\"status\":\"error\",\"error\":\"not_in_git_repo\"}`. This breaks Acceptance Criteria 5/6 and task 3.4/7.14. Fix by dispatching `start` before any raw git lookup, constructing `WorkspaceContext` first, and deriving the root/workflow/store paths from `ctx.projectRoot()`. Add an integration test for `specflow-run start` in a non-git directory.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 2
-    },
-    {
-      "id": "R1-F02",
-      "severity": "high",
-      "category": "correctness",
-      "file": "src/bin/specflow-filter-diff.ts",
-      "title": "CLI pathspec filtering regressed",
-      "detail": "The new arg handling only extracts `:(exclude)...` entries and ignores all other pathspecs. That breaks the documented interface `specflow-filter-diff [-- <pathspec>...]`: for example, `specflow-filter-diff -- sub` now returns diffs for files outside `sub/` as well. This violates the no-breaking-change requirement and diff parity. Preserve non-exclude pathspecs and pass them through to diff selection, or explicitly reject unsupported args after updating the spec. Add a regression test covering an include pathspec.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 2
-    },
-    {
-      "id": "R1-F03",
-      "severity": "medium",
-      "category": "error_handling",
-      "file": "src/lib/local-workspace-context.ts",
-      "title": "Invalid exclude-pattern warnings are lost on empty diffs",
-      "detail": "Before this refactor, `specflow-filter-diff` preserved `DIFF_EXCLUDE_PATTERNS` validation warnings even when there were no changes. Now `filteredDiff()` collapses all no-change cases to `summary: \"empty\"`, and the CLI synthesizes `warnings: []`, so `DIFF_EXCLUDE_PATTERNS='[' specflow-filter-diff` silently drops the invalid-pattern warning. That changes user-input error handling and violates the parity requirement for warning behavior. Return warnings alongside the empty result or have the CLI preserve the old warning-generation path. Add a test for invalid `DIFF_EXCLUDE_PATTERNS` with no repo changes.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 2
-    },
-    {
-      "id": "R1-F04",
-      "severity": "low",
-      "category": "scope",
-      "file": "openspec/config.yaml",
-      "title": "Unrelated runtime config change is bundled into the WorkspaceContext work",
-      "detail": "Adding `max_autofix_rounds: 6` changes repository behavior but is not described anywhere in the WorkspaceContext proposal. It should be removed from this diff or split into a separate spec/change so the implementation stays within scope.",
-      "origin_round": 1,
-      "latest_round": 1,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 2
-    },
-    {
-      "id": "R2-F05",
-      "severity": "high",
-      "category": "correctness",
-      "file": "src/bin/specflow-review-apply.ts",
-      "title": "Apply review no longer skips excluded-only diffs",
-      "detail": "The old `diffFilter()` treated an empty patch body from `specflow-filter-diff` as `no_changes`, so apply review skipped when the worktree contained only deleted files / pure renames / other filtered-out tracked entries. After switching to `ctx.filteredDiff(...)`, `runReviewPipeline()` only short-circuits on `summary === \"empty\"`. For a deleted-file-only change, `filteredDiff()` returns `diff: \"\"` with a non-empty summary, so `specflow-review-apply review` now calls the reviewer on an empty diff and can write a success ledger/current-phase update even though there are no reviewable changes. Restore the old behavior by treating `rawDiff.diff === \"\"` as `no_changes` (or normalizing that case inside `diffFilter()`), and add a regression test for an excluded-only diff such as a deleted file.",
-      "origin_round": 2,
-      "latest_round": 2,
-      "status": "resolved",
-      "relation": "new",
-      "supersedes": null,
-      "notes": "",
-      "resolved_round": 3
-    },
-    {
-      "id": "R3-F06",
-      "severity": "medium",
-      "category": "correctness",
-      "file": "src/bin/specflow-filter-diff.ts",
-      "title": "Pathspecs are now resolved from the repo root instead of the caller's cwd",
-      "detail": "The old implementation ran `git diff` in `process.cwd()`, so `specflow-filter-diff -- file.txt` worked when invoked from a nested directory like `repo/sub`. The refactor now calls `filterLocalWorkspaceDiff(ctx.projectRoot(), { pathspecs: args })`, which reroots the command to the repository root and turns that same invocation into an empty diff. Preserve the original cwd when evaluating user pathspecs, and add a regression test that runs the CLI from a subdirectory.",
-      "origin_round": 3,
-      "latest_round": 3,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    },
-    {
-      "id": "R3-F07",
-      "severity": "medium",
-      "category": "completeness",
-      "file": "src/bin/specflow-run.ts",
-      "title": "`specflow-run start` changes the existing non-git error output contract",
-      "detail": "Before this refactor, running `specflow-run start` outside a git repo failed with the standard stderr message `Error: not inside a git repository`. The new `start` branch now emits `{\"status\":\"error\",\"error\":\"not_in_git_repo\"}` on stdout with empty stderr, and the added test locks in that behavior. That does not satisfy the proposal's `No CLI breaking change` acceptance criterion. Restore the previous error surface, or explicitly update the requirement and all consumers if the JSON error is intentional.",
-      "origin_round": 3,
-      "latest_round": 3,
-      "status": "new",
-      "relation": "new",
-      "supersedes": null,
-      "notes": ""
-    }
-  ],
-  "round_summaries": [
-    {
-      "round": 1,
-      "total": 4,
-      "open": 4,
-      "new": 4,
-      "resolved": 0,
-      "overridden": 0,
-      "by_severity": {
-        "high": 2,
-        "medium": 1,
-        "low": 1
-      }
-    },
-    {
-      "round": 2,
-      "total": 5,
-      "open": 1,
-      "new": 1,
-      "resolved": 4,
-      "overridden": 0,
-      "by_severity": {
-        "high": 1
-      }
-    },
-    {
-      "round": 3,
-      "total": 7,
-      "open": 2,
-      "new": 2,
-      "resolved": 5,
-      "overridden": 0,
-      "by_severity": {
-        "medium": 2
-      }
-    }
-  ]
+	"feature_id": "introduce-workspacecontext-interface",
+	"phase": "impl",
+	"current_round": 3,
+	"status": "in_progress",
+	"max_finding_id": 7,
+	"findings": [
+		{
+			"id": "R1-F01",
+			"severity": "high",
+			"category": "correctness",
+			"file": "src/bin/specflow-run.ts",
+			"title": "`specflow-run start` still fails through the old git-root path before WorkspaceContext is injected",
+			"detail": "`main()` still calls `projectRoot()` before dispatching subcommands. Outside a git repo, `specflow-run start` exits with stderr `Error: not inside a git repository` instead of the required stdout JSON `{\"status\":\"error\",\"error\":\"not_in_git_repo\"}`. This breaks Acceptance Criteria 5/6 and task 3.4/7.14. Fix by dispatching `start` before any raw git lookup, constructing `WorkspaceContext` first, and deriving the root/workflow/store paths from `ctx.projectRoot()`. Add an integration test for `specflow-run start` in a non-git directory.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 2
+		},
+		{
+			"id": "R1-F02",
+			"severity": "high",
+			"category": "correctness",
+			"file": "src/bin/specflow-filter-diff.ts",
+			"title": "CLI pathspec filtering regressed",
+			"detail": "The new arg handling only extracts `:(exclude)...` entries and ignores all other pathspecs. That breaks the documented interface `specflow-filter-diff [-- <pathspec>...]`: for example, `specflow-filter-diff -- sub` now returns diffs for files outside `sub/` as well. This violates the no-breaking-change requirement and diff parity. Preserve non-exclude pathspecs and pass them through to diff selection, or explicitly reject unsupported args after updating the spec. Add a regression test covering an include pathspec.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 2
+		},
+		{
+			"id": "R1-F03",
+			"severity": "medium",
+			"category": "error_handling",
+			"file": "src/lib/local-workspace-context.ts",
+			"title": "Invalid exclude-pattern warnings are lost on empty diffs",
+			"detail": "Before this refactor, `specflow-filter-diff` preserved `DIFF_EXCLUDE_PATTERNS` validation warnings even when there were no changes. Now `filteredDiff()` collapses all no-change cases to `summary: \"empty\"`, and the CLI synthesizes `warnings: []`, so `DIFF_EXCLUDE_PATTERNS='[' specflow-filter-diff` silently drops the invalid-pattern warning. That changes user-input error handling and violates the parity requirement for warning behavior. Return warnings alongside the empty result or have the CLI preserve the old warning-generation path. Add a test for invalid `DIFF_EXCLUDE_PATTERNS` with no repo changes.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 2
+		},
+		{
+			"id": "R1-F04",
+			"severity": "low",
+			"category": "scope",
+			"file": "openspec/config.yaml",
+			"title": "Unrelated runtime config change is bundled into the WorkspaceContext work",
+			"detail": "Adding `max_autofix_rounds: 6` changes repository behavior but is not described anywhere in the WorkspaceContext proposal. It should be removed from this diff or split into a separate spec/change so the implementation stays within scope.",
+			"origin_round": 1,
+			"latest_round": 1,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 2
+		},
+		{
+			"id": "R2-F05",
+			"severity": "high",
+			"category": "correctness",
+			"file": "src/bin/specflow-review-apply.ts",
+			"title": "Apply review no longer skips excluded-only diffs",
+			"detail": "The old `diffFilter()` treated an empty patch body from `specflow-filter-diff` as `no_changes`, so apply review skipped when the worktree contained only deleted files / pure renames / other filtered-out tracked entries. After switching to `ctx.filteredDiff(...)`, `runReviewPipeline()` only short-circuits on `summary === \"empty\"`. For a deleted-file-only change, `filteredDiff()` returns `diff: \"\"` with a non-empty summary, so `specflow-review-apply review` now calls the reviewer on an empty diff and can write a success ledger/current-phase update even though there are no reviewable changes. Restore the old behavior by treating `rawDiff.diff === \"\"` as `no_changes` (or normalizing that case inside `diffFilter()`), and add a regression test for an excluded-only diff such as a deleted file.",
+			"origin_round": 2,
+			"latest_round": 2,
+			"status": "resolved",
+			"relation": "new",
+			"supersedes": null,
+			"notes": "",
+			"resolved_round": 3
+		},
+		{
+			"id": "R3-F06",
+			"severity": "medium",
+			"category": "correctness",
+			"file": "src/bin/specflow-filter-diff.ts",
+			"title": "Pathspecs are now resolved from the repo root instead of the caller's cwd",
+			"detail": "The old implementation ran `git diff` in `process.cwd()`, so `specflow-filter-diff -- file.txt` worked when invoked from a nested directory like `repo/sub`. The refactor now calls `filterLocalWorkspaceDiff(ctx.projectRoot(), { pathspecs: args })`, which reroots the command to the repository root and turns that same invocation into an empty diff. Preserve the original cwd when evaluating user pathspecs, and add a regression test that runs the CLI from a subdirectory.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		},
+		{
+			"id": "R3-F07",
+			"severity": "medium",
+			"category": "completeness",
+			"file": "src/bin/specflow-run.ts",
+			"title": "`specflow-run start` changes the existing non-git error output contract",
+			"detail": "Before this refactor, running `specflow-run start` outside a git repo failed with the standard stderr message `Error: not inside a git repository`. The new `start` branch now emits `{\"status\":\"error\",\"error\":\"not_in_git_repo\"}` on stdout with empty stderr, and the added test locks in that behavior. That does not satisfy the proposal's `No CLI breaking change` acceptance criterion. Restore the previous error surface, or explicitly update the requirement and all consumers if the JSON error is intentional.",
+			"origin_round": 3,
+			"latest_round": 3,
+			"status": "new",
+			"relation": "new",
+			"supersedes": null,
+			"notes": ""
+		}
+	],
+	"round_summaries": [
+		{
+			"round": 1,
+			"total": 4,
+			"open": 4,
+			"new": 4,
+			"resolved": 0,
+			"overridden": 0,
+			"by_severity": {
+				"high": 2,
+				"medium": 1,
+				"low": 1
+			}
+		},
+		{
+			"round": 2,
+			"total": 5,
+			"open": 1,
+			"new": 1,
+			"resolved": 4,
+			"overridden": 0,
+			"by_severity": {
+				"high": 1
+			}
+		},
+		{
+			"round": 3,
+			"total": 7,
+			"open": 2,
+			"new": 2,
+			"resolved": 5,
+			"overridden": 0,
+			"by_severity": {
+				"medium": 2
+			}
+		}
+	]
 }

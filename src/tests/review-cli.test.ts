@@ -228,7 +228,9 @@ test("specflow-review-apply returns no_changes for deleted-file-only diffs", () 
 			false,
 		);
 		assert.equal(
-			existsSync(join(repoPath, "openspec/changes", changeId, "current-phase.md")),
+			existsSync(
+				join(repoPath, "openspec/changes", changeId, "current-phase.md"),
+			),
 			false,
 		);
 	} finally {
