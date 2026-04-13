@@ -469,7 +469,6 @@ test("specflow-init --update refreshes installed commands and skips profile rend
 		assert.equal(json.mode, "update");
 		assert.equal(realpathSync(json.location), realpathSync(repoPath));
 		assert.ok(json.installed_commands.includes("specflow"));
-		assert.ok(existsSync(join(repoPath, ".mcp.json")));
 		assert.ok(existsSync(join(home, ".claude/commands/specflow.md")));
 		assert.equal(readFileSync(join(repoPath, "CLAUDE.md"), "utf8"), "custom\n");
 		assert.match(
@@ -480,6 +479,30 @@ test("specflow-init --update refreshes installed commands and skips profile rend
 			result.stderr.includes("Rendered CLAUDE.md from profile"),
 			false,
 		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-init --update installs missing template files without confirmation", () => {
+	const tempRoot = makeTempDir("specflow-init-missing-files-");
+	try {
+		const { home, repoPath } = createUpdateRepo(tempRoot);
+		const result = runNodeCli(
+			"specflow-init",
+			["--update"],
+			repoPath,
+			{ HOME: home },
+			"n\n",
+		);
+		assert.equal(result.status, 0, result.stderr);
+		assert.ok(existsSync(join(repoPath, ".specflow/config.env")));
+		assert.ok(existsSync(join(repoPath, ".gitignore")));
+		const config = readFileSync(join(repoPath, ".specflow/config.env"), "utf8");
+		assert.match(config, /SPECFLOW_MAIN_AGENT=/);
+		const json = JSON.parse(result.stdout) as { created_files: string[] };
+		assert.ok(json.created_files.includes(".specflow/config.env"));
+		assert.ok(json.created_files.includes(".gitignore"));
 	} finally {
 		removeTempDir(tempRoot);
 	}

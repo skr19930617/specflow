@@ -35,21 +35,21 @@ template files when they do not already exist. `.specflow/profile.json` SHALL NO
 
 - **WHEN** `specflow-init` succeeds
 - **THEN** it SHALL create `.specflow/config.env`
-- **AND** it SHALL create `.mcp.json` and `CLAUDE.md` from the configured
-  template directory when those files are absent
+- **AND** it SHALL create `CLAUDE.md` from the configured template directory
+  when that file is absent
 
 #### Scenario: Init updates `.gitignore` for local-only files
 
 - **WHEN** `specflow-init` succeeds
-- **THEN** it SHALL add `.mcp.json`, `.specflow/config.env`, and
-  `.specflow/runs/` to `.gitignore`
+- **THEN** it SHALL add `.specflow/config.env` and `.specflow/runs/` to
+  `.gitignore`
 - **AND** it SHALL either ignore `.claude/` or only the local Claude settings
   files based on the `track .claude/ in git` choice
 - **AND** it SHALL NOT add `.specflow/profile.json` to `.gitignore`
 
 #### Scenario: Existing local template files are preserved
 
-- **WHEN** `.mcp.json` or `CLAUDE.md` already exists in the target project
+- **WHEN** `CLAUDE.md` already exists in the target project
 - **THEN** `specflow-init` SHALL leave the existing file in place
 
 ### Requirement: `specflow-init --update` refreshes project-facing assets from the installed bundle
@@ -57,12 +57,11 @@ template files when they do not already exist. `.specflow/profile.json` SHALL NO
 Update mode SHALL operate from the current repository root and SHALL refresh the
 installed slash commands and template-backed project files. When a valid profile exists, update mode SHALL also trigger adapter rendering.
 
-#### Scenario: Update refreshes slash commands and `.mcp.json`
+#### Scenario: Update refreshes slash commands
 
 - **WHEN** `specflow-init --update` succeeds
 - **THEN** it SHALL copy the installed command markdown into
   `$HOME/.claude/commands`
-- **AND** it SHALL refresh the project `.mcp.json` from the template bundle
 
 #### Scenario: Update prompts before overwriting `CLAUDE.md`
 
