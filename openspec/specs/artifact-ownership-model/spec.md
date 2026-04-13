@@ -231,9 +231,9 @@ The gate matrix SHALL preserve current implicit behavior — it codifies existin
 
 Existing changes and runs created before this change SHALL remain valid without migration.
 
-#### Scenario: Proposal-draft to proposal-review requires proposal
+#### Scenario: Proposal-clarify to proposal-challenge requires proposal
 
-- **WHEN** a transition from `proposal_draft` to `proposal_review` is attempted
+- **WHEN** a transition from `proposal_clarify` to `proposal_challenge` is attempted
 - **AND** `(changeId, proposal)` does not exist
 - **THEN** the transition SHALL fail with a typed error identifying the missing proposal artifact
 

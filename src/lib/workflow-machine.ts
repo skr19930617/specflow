@@ -1,6 +1,6 @@
 import { createMachine } from "xstate";
 
-export const workflowVersion = "5.0";
+export const workflowVersion = "6.0";
 
 const workflowMachineConfig = {
 	id: "specflow-workflow",
@@ -28,20 +28,25 @@ const workflowMachineConfig = {
 		},
 		proposal_clarify: {
 			on: {
-				review_proposal: { target: "proposal_review" },
+				challenge_proposal: { target: "proposal_challenge" },
 				reject: { target: "rejected" },
 			},
 		},
-		proposal_review: {
+		proposal_challenge: {
 			on: {
-				proposal_review_approved: { target: "spec_draft" },
-				revise_proposal: { target: "proposal_clarify" },
+				reclarify: { target: "proposal_reclarify" },
+				reject: { target: "rejected" },
+			},
+		},
+		proposal_reclarify: {
+			on: {
+				accept_proposal: { target: "spec_draft" },
 				reject: { target: "rejected" },
 			},
 		},
 		spec_draft: {
 			on: {
-				revise_proposal: { target: "proposal_clarify" },
+				reclarify: { target: "proposal_reclarify" },
 				validate_spec: { target: "spec_validate" },
 				reject: { target: "rejected" },
 			},
@@ -124,9 +129,9 @@ const workflowEventOrder = [
 	"check_scope",
 	"continue_proposal",
 	"decompose",
-	"review_proposal",
-	"proposal_review_approved",
-	"revise_proposal",
+	"challenge_proposal",
+	"reclarify",
+	"accept_proposal",
 	"validate_spec",
 	"revise_spec",
 	"spec_validated",

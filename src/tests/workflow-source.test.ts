@@ -12,13 +12,14 @@ import {
 } from "../lib/workflow-machine.js";
 
 test("workflow machine exports the exact detailed state graph", () => {
-	assert.equal(workflowVersion, "5.0");
+	assert.equal(workflowVersion, "6.0");
 	assert.deepEqual(workflowStates, [
 		"start",
 		"proposal_draft",
 		"proposal_scope",
 		"proposal_clarify",
-		"proposal_review",
+		"proposal_challenge",
+		"proposal_reclarify",
 		"spec_draft",
 		"spec_validate",
 		"spec_ready",
@@ -39,9 +40,9 @@ test("workflow machine exports the exact detailed state graph", () => {
 		"check_scope",
 		"continue_proposal",
 		"decompose",
-		"review_proposal",
-		"proposal_review_approved",
-		"revise_proposal",
+		"challenge_proposal",
+		"reclarify",
+		"accept_proposal",
 		"validate_spec",
 		"revise_spec",
 		"spec_validated",
@@ -75,25 +76,26 @@ test("workflow machine exports the exact detailed state graph", () => {
 		{ from: "proposal_scope", event: "reject", to: "rejected" },
 		{
 			from: "proposal_clarify",
-			event: "review_proposal",
-			to: "proposal_review",
+			event: "challenge_proposal",
+			to: "proposal_challenge",
 		},
 		{ from: "proposal_clarify", event: "reject", to: "rejected" },
 		{
-			from: "proposal_review",
-			event: "proposal_review_approved",
+			from: "proposal_challenge",
+			event: "reclarify",
+			to: "proposal_reclarify",
+		},
+		{ from: "proposal_challenge", event: "reject", to: "rejected" },
+		{
+			from: "proposal_reclarify",
+			event: "accept_proposal",
 			to: "spec_draft",
 		},
-		{
-			from: "proposal_review",
-			event: "revise_proposal",
-			to: "proposal_clarify",
-		},
-		{ from: "proposal_review", event: "reject", to: "rejected" },
+		{ from: "proposal_reclarify", event: "reject", to: "rejected" },
 		{
 			from: "spec_draft",
-			event: "revise_proposal",
-			to: "proposal_clarify",
+			event: "reclarify",
+			to: "proposal_reclarify",
 		},
 		{
 			from: "spec_draft",
@@ -166,7 +168,8 @@ test("workflow machine final states are terminal and reject coverage is explicit
 		"proposal_draft",
 		"proposal_scope",
 		"proposal_clarify",
-		"proposal_review",
+		"proposal_challenge",
+		"proposal_reclarify",
 		"spec_draft",
 		"spec_validate",
 		"spec_ready",
@@ -189,9 +192,7 @@ test("workflow mermaid diagram is generated from the machine", () => {
 	const diagram = renderWorkflowMermaid();
 	assert.ok(diagram.startsWith("stateDiagram-v2\n  [*] --> start"));
 	assert.ok(
-		diagram.includes(
-			"proposal_review --> spec_draft: proposal_review_approved",
-		),
+		diagram.includes("proposal_reclarify --> spec_draft: accept_proposal"),
 	);
 	assert.ok(diagram.includes("apply_ready --> approved: accept_apply"));
 	assert.ok(diagram.includes("approved --> [*]"));

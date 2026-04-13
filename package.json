@@ -14,7 +14,7 @@
 		"specflow-prepare-change": "bin/specflow-prepare-change",
 		"specflow-review-apply": "bin/specflow-review-apply",
 		"specflow-review-design": "bin/specflow-review-design",
-		"specflow-review-proposal": "bin/specflow-review-proposal",
+		"specflow-challenge-proposal": "bin/specflow-challenge-proposal",
 		"specflow-run": "bin/specflow-run"
 	},
 	"files": [
