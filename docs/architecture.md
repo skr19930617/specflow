@@ -57,11 +57,21 @@ The previous Bash implementation is archived at git tag `legacy-v1-final`. Activ
   - State machine definition (`src/lib/workflow-machine.ts` and rendered `state-machine.json`)
   - Run-state management (persisted run-state JSON lifecycle)
   - Review orchestration (proposal, design, and apply review protocols)
-- **Bundled local reference implementation** — a complete, file-system-based execution environment shipped with this repository:
-  - `specflow-*` CLI tools (specflow-run, specflow-analyze, specflow-review-proposal, etc.)
-  - Slash command guides (generated from command contracts)
-  - Templates and installer assets
-  - This implementation is bundled but replaceable: any external runtime that conforms to the workflow core contract can substitute it
+- **Bundled local reference implementation** — the **canonical reference implementation** of the workflow core contract: a complete, file-system-based execution environment shipped with this repository.
+  - **Constituent adapters and surfaces:**
+    - `specflow-*` CLI tools (specflow-run, specflow-analyze, specflow-review-proposal, etc.)
+    - Slash command guides (generated from command contracts)
+    - Templates and installer assets
+  - **Framing properties** (these three properties together define what "reference implementation" means in this repo and are the testable acceptance criteria for any docs that re-state this positioning):
+    1. **Conformance target.** The bundled local mode is the canonical conformance target for the workflow core contract. Any other runtime claiming to implement the contract is expected to behave the same as this implementation for the contract surfaces it covers.
+    2. **Replaceability.** The bundled local mode is replaceable. Any external runtime (e.g., a DB-backed runtime, a server-backed runtime) that conforms to the workflow core contract can substitute it without changes to the core.
+    3. **Contract mapping.** Each bundled adapter maps to a specific workflow core contract surface:
+
+       | Bundled adapter | Source location | Workflow core contract surface implemented |
+       |-----------------|-----------------|---------------------------------------------|
+       | CLI entrypoints | `src/bin/specflow-*.ts` | Bundled-adapter surface only — exposes the workflow core (state machine schema and run-state JSON structure) to the local execution environment via `specflow-run` and related entrypoints. The CLI surface itself is not a core contract surface (consistent with the "Excluded from core contract" listing in the inventory below). |
+       | File-backed RunStore | `.specflow/runs/<run_id>/run.json` (file layout) backed by `src/lib/fs.ts`, `src/lib/paths.ts` | Persistence of the run-state JSON structure. The persistence mechanism (filesystem layout, atomic write semantics) is bundled-adapter surface; the run-state JSON shape itself is core contract surface. |
+       | Git-backed ArtifactStore | `openspec/changes/<CHANGE_ID>/` artifacts backed by `src/lib/git.ts` | Persistence and review-orchestration interaction for change artifacts (proposal, design, tasks, specs deltas). Bundled-adapter surface — the review protocol payloads exchanged with reviewers are core contract surface; the on-disk + git layout is not. |
 
 ### This repo does not own
 
@@ -97,7 +107,11 @@ The workflow core contract comprises:
 | Run-state JSON structure | `src/types/contracts.ts` (`RunState`) | Persisted run-state shape including phase, history, agents, and metadata | **Not yet supported** — `RunState` mixes core and local-adapter fields; field-level split deferred. `specflow-run` remains the current local implementation of this contract surface. |
 | Review protocol interface | `specflow-review-*` orchestrators | Review request/response schema, ledger structure, finding format | **Not yet supported** — canonical transport contract deferred |
 
-**Excluded from core contract:** CLI entry-point contracts (command names, argument signatures, output format) are implementation details of the bundled local reference. External runtimes conform to the workflow core contract only — they are not required to replicate the CLI surface.
+**Excluded from core contract (bundled-adapter surface):** The following are implementation details of the bundled local reference, not part of the workflow core contract surface. External runtimes conform to the workflow core contract only — they are not required to replicate any of these adapter surfaces.
+
+- **CLI entrypoints** (`src/bin/specflow-*.ts`) — command names, argument signatures, exit codes, and output format. Bundled-adapter surface, **not** core contract surface.
+- **File-backed RunStore** (`.specflow/runs/<run_id>/run.json` file layout, atomic-write semantics, on-disk persistence backed by `src/lib/fs.ts`) — the persistence *mechanism* is bundled-adapter surface; the run-state JSON *shape* is core contract surface and lives in the row above.
+- **Git-backed ArtifactStore** (`openspec/changes/<CHANGE_ID>/` directory layout, file naming, and git-history coupling backed by `src/lib/git.ts`) — the *storage* of change artifacts is bundled-adapter surface, **not** core contract surface. The review protocol payloads exchanged between core and reviewers remain core contract surface, separately listed above.
 
 ## Actor / Surface Model
 
