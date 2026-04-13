@@ -94,10 +94,10 @@ name MAY classify differently depending on the source phase.
 | `proposal_draft` | `check_scope` | `proposal_scope` | `advance` (non-gated) | Use capability matrix `advance` permissions |
 | `proposal_scope` | `continue_proposal` | `proposal_clarify` | `advance` (non-gated) | Use capability matrix `advance` permissions |
 | `proposal_scope` | `decompose` | `decomposed` | `advance` (non-gated) | Use capability matrix `advance` permissions |
-| `proposal_clarify` | `review_proposal` | `proposal_review` | `review` (enter review phase) | Use capability matrix `review` permissions |
-| `proposal_review` | `proposal_review_approved` | `spec_draft` | `review` outcome `review_approved` | Permit only when the reviewer may produce a binding `review_approved` outcome under `review-orchestration` |
-| `proposal_review` | `revise_proposal` | `proposal_clarify` | `review` outcome `request_changes` | Review-phase outcome semantics apply; this transition is not gated `approve` |
-| `spec_draft` | `revise_proposal` | `proposal_clarify` | `advance` (non-gated) | Use capability matrix `advance` permissions |
+| `proposal_clarify` | `challenge_proposal` | `proposal_challenge` | `challenge` (enter challenge phase) | Use capability matrix `challenge` permissions |
+| `proposal_challenge` | `reclarify` | `proposal_reclarify` | `challenge` outcome `reclarify` | Challenge-phase outcome; always proceeds to reclarification |
+| `proposal_reclarify` | `accept_proposal` | `spec_draft` | `advance` (non-gated) | Use capability matrix `advance` permissions |
+| `spec_draft` | `reclarify` | `proposal_reclarify` | `advance` (non-gated) | Use capability matrix `advance` permissions |
 | `spec_draft` | `validate_spec` | `spec_validate` | `advance` (non-gated) | Use capability matrix `advance` permissions |
 | `spec_validate` | `revise_spec` | `spec_draft` | `advance` (non-gated) | Use capability matrix `advance` permissions |
 | `spec_validate` | `spec_validated` | `spec_ready` | `advance` (non-gated) | Use capability matrix `advance` permissions |
@@ -114,7 +114,7 @@ name MAY classify differently depending on the source phase.
 | `explore` | `explore_complete` | `start` | `advance` (non-gated) | Use capability matrix `advance` permissions |
 | `start` | `spec_bootstrap_start` | `spec_bootstrap` | `advance` (non-gated) | Use capability matrix `advance` permissions |
 | `spec_bootstrap` | `spec_bootstrap_complete` | `start` | `advance` (non-gated) | Use capability matrix `advance` permissions |
-| `proposal_draft`, `proposal_scope`, `proposal_clarify`, `proposal_review`, `spec_draft`, `spec_validate`, `spec_ready`, `design_draft`, `design_review`, `design_ready`, `apply_draft`, `apply_review`, `apply_ready` | `reject` | `rejected` | `reject` | Use human-only `reject` semantics |
+| `proposal_draft`, `proposal_scope`, `proposal_clarify`, `proposal_challenge`, `proposal_reclarify`, `spec_draft`, `spec_validate`, `spec_ready`, `design_draft`, `design_review`, `design_ready`, `apply_draft`, `apply_review`, `apply_ready` | `reject` | `rejected` | `reject` | Use human-only `reject` semantics |
 
 Interactive `clarify` has no standalone workflow event. Clarify permissions
 apply to the interactive exchange within clarify-capable phases, not to the
@@ -136,8 +136,7 @@ phase-entry transitions that move the workflow into or out of those phases.
 
 #### Scenario: Review-approved transitions require a binding review outcome
 
-- **WHEN** `proposal_review_approved`, `design_review_approved`, or
-  `apply_review_approved` is evaluated
+- **WHEN** `design_review_approved` or `apply_review_approved` is evaluated
 - **THEN** the system SHALL treat the transition as the concrete manifestation
   of a `review_approved` review outcome
 - **AND** it SHALL permit the transition only when the reviewer may produce a
@@ -145,19 +144,15 @@ phase-entry transitions that move the workflow into or out of those phases.
 - **AND** an undelegated `ai-agent` review approval SHALL remain advisory and
   SHALL NOT emit the transition
 
-#### Scenario: The same event name can classify differently by source phase
+#### Scenario: The `reclarify` event classifies as non-gated advance
 
-- **WHEN** `revise_proposal` is evaluated from `proposal_review`
-- **THEN** the system SHALL classify it as the concrete manifestation of the
-  `request_changes` review outcome
-- **AND** review-phase actor rules SHALL apply
-- **WHEN** `revise_proposal` is evaluated from `spec_draft`
+- **WHEN** `reclarify` is evaluated from `proposal_challenge` or `spec_draft`
 - **THEN** the system SHALL classify it as non-gated `advance`
 - **AND** gated approval delegation rules SHALL NOT apply
 
 #### Scenario: Clarify permissions do not attach to phase-entry transitions
 
-- **WHEN** `continue_proposal` or `revise_proposal` is evaluated
+- **WHEN** `continue_proposal` or `reclarify` is evaluated
 - **THEN** the system SHALL NOT treat either transition as abstract `clarify`
 - **AND** interactive clarify permissions SHALL apply to the clarify exchange
   within the phase, not to those transitions

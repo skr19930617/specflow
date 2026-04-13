@@ -986,6 +986,45 @@ function profileValidator(
 	}
 }
 
+function challengeItemValidator(
+	value: unknown,
+	path: string,
+	errors: ValidationErrors,
+): void {
+	const record = expectRecord(value, path, errors);
+	if (!record) {
+		return;
+	}
+	stringValidator(record.id, `${path}.id`, errors);
+	stringValidator(record.category, `${path}.category`, errors);
+	stringValidator(record.question, `${path}.question`, errors);
+	stringValidator(record.context, `${path}.context`, errors);
+}
+
+function challengeResultValidator(
+	value: unknown,
+	path: string,
+	errors: ValidationErrors,
+): void {
+	const record = expectRecord(value, path, errors);
+	if (!record) {
+		return;
+	}
+	stringValidator(record.status, `${path}.status`, errors);
+	stringValidator(record.action, `${path}.action`, errors);
+	stringValidator(record.change_id, `${path}.change_id`, errors);
+	stringValidator(record.summary, `${path}.summary`, errors);
+	if (Array.isArray(record.challenges)) {
+		for (let index = 0; index < record.challenges.length; index += 1) {
+			challengeItemValidator(
+				record.challenges[index],
+				`${path}.challenges[${index}]`,
+				errors,
+			);
+		}
+	}
+}
+
 export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"issue-metadata": issueMetadataValidator,
 	"source-metadata": sourceMetadataValidator,
@@ -998,6 +1037,7 @@ export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"review-apply-result": reviewResultValidator,
 	"review-design-result": reviewResultValidator,
 	"review-proposal-result": reviewResultValidator,
+	"challenge-proposal-result": challengeResultValidator,
 	"run-state": runStateValidator,
 	"create-sub-issues-input": createSubIssuesInputValidator,
 	"create-sub-issues-result": createSubIssuesResultValidator,

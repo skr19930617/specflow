@@ -42,9 +42,9 @@ const gateMatrix = new Map<string, GateEntry>([
 		},
 	],
 
-	// review_proposal: proposal_clarify → proposal_review
+	// challenge_proposal: proposal_clarify → proposal_challenge
 	[
-		gateKey("proposal_clarify", "review_proposal"),
+		gateKey("proposal_clarify", "challenge_proposal"),
 		{
 			required: [req("proposal")],
 			produced: [],

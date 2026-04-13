@@ -65,10 +65,9 @@ test("workflow OpenSpec stays aligned with current workflow, run-state, and revi
 	assert.ok(slashCommandSpec.includes("validate_spec"));
 	assert.ok(slashCommandSpec.includes("spec_ready"));
 	assert.ok(slashCommandSpec.includes("specflow.explore.md"));
-	assert.ok(reviewSpec.includes("specflow-review-proposal"));
-	assert.ok(reviewSpec.includes("proposal ledger"));
+	assert.ok(reviewSpec.includes("specflow-challenge-proposal"));
+	assert.ok(reviewSpec.includes("challenges"));
 	assert.ok(reviewSpec.includes("current-phase.md"));
-	assert.ok(reviewSpec.includes("recommend `/specflow`"));
 	assert.ok(reviewSpec.includes("max_rounds_reached"));
 	assert.ok(reviewSpec.includes("no_progress"));
 	assert.equal(reviewSpec.includes("recommend `/specflow.design`"), false);

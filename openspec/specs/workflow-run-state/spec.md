@@ -98,9 +98,9 @@ Repository metadata SHALL be obtained via the injected `WorkspaceContext` interf
 - **THEN** the run SHALL reach `approved`
 - **AND** `allowed_events` SHALL become an empty array
 
-#### Scenario: Proposal review approval enters the spec phase
+#### Scenario: Proposal acceptance enters the spec phase
 
-- **WHEN** `proposal_review_approved` is applied in `proposal_review`
+- **WHEN** `accept_proposal` is applied in `proposal_reclarify`
 - **THEN** the run SHALL transition to `spec_draft`
 
 #### Scenario: Successful spec validation gates access to design work
@@ -112,9 +112,9 @@ Repository metadata SHALL be obtained via the injected `WorkspaceContext` interf
 
 #### Scenario: Revision events return to the phase draft state
 
-- **WHEN** `revise_proposal`, `revise_spec`, `revise_design`, or
-  `revise_apply` is applied in an allowed review or validation state
-- **THEN** the run SHALL transition back to the matching draft phase
+- **WHEN** `reclarify`, `revise_spec`, `revise_design`, or
+  `revise_apply` is applied in an allowed review, challenge, or validation state
+- **THEN** the run SHALL transition back to the matching draft or reclarify phase
 
 #### Scenario: Invalid transitions report allowed events
 

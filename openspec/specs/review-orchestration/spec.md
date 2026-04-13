@@ -5,68 +5,29 @@
 Describe the Codex-backed proposal, design, and apply review orchestration used
 by the current `specflow` runtime.
 ## Requirements
-### Requirement: Proposal review uses proposal artifacts and a dedicated proposal ledger
+### Requirement: Proposal challenge uses a single-pass challenge agent
 
-`specflow-review-proposal` SHALL review `proposal.md` and SHALL persist proposal
-review state in `review-ledger-proposal.json`.
+`specflow-challenge-proposal` SHALL read `proposal.md` and identify ambiguous or
+underspecified points as clarification questions for the author. The proposal
+phase does NOT use a review ledger or multi-round review loop.
 
-#### Scenario: Initial proposal review creates ledger and current-phase output
+#### Scenario: Challenge returns clarification questions
 
-- **WHEN** `specflow-review-proposal review <CHANGE_ID>` succeeds
-- **THEN** it SHALL create or update
-  `openspec/changes/<CHANGE_ID>/review-ledger-proposal.json`
-- **AND** it SHALL update `openspec/changes/<CHANGE_ID>/current-phase.md`
+- **WHEN** `specflow-challenge-proposal challenge <CHANGE_ID>` succeeds
+- **THEN** it SHALL return a `challenges` array with questions for the author
+- **AND** it SHALL return a `summary` assessing proposal readiness for design
 
-#### Scenario: Proposal re-review classifies still-open and new findings
+#### Scenario: Challenge returns empty when proposal is clear
 
-- **WHEN** `specflow-review-proposal fix-review <CHANGE_ID>` returns
-  rereview-classification data
-- **THEN** the ledger SHALL preserve matched findings by id
-- **AND** it SHALL record newly introduced findings for the new round
+- **WHEN** the proposal has no ambiguous or underspecified points
+- **THEN** the `challenges` array SHALL be empty
+- **AND** the flow SHALL proceed directly to `proposal_reclarify` then `spec_draft`
 
-#### Scenario: Proposal review uses the configured round cap
+#### Scenario: Challenge parse errors are reported gracefully
 
-- **WHEN** proposal review remains blocked through `max_autofix_rounds`
-- **THEN** the runtime SHALL stop with `handoff.state = "max_rounds_reached"`
-- **AND** it SHALL not increment the proposal review round past the configured cap
-
-#### Scenario: Proposal review uses decision-first gating with a high-severity backstop
-
-- **WHEN** the review decision is `APPROVE` and no unresolved `high` findings remain
-- **AND** the approval is binding for the reviewer actor under the actor-aware review handoff rules
-- **THEN** the runtime SHALL return `handoff.state = "review_approved"`
-- **AND** non-blocking findings MAY remain advisory only
-
-#### Scenario: Proposal review does not treat advisory approvals as approved handoff
-
-- **WHEN** the review decision is `APPROVE` and no unresolved `high` findings remain
-- **AND** the approval is advisory only for the reviewer actor under the actor-aware review handoff rules
-- **THEN** the runtime SHALL NOT return `handoff.state = "review_approved"`
-- **AND** it SHALL report a non-approved handoff state
-
-#### Scenario: Proposal review blocks approval when unresolved high findings remain
-
-- **WHEN** the review decision is `APPROVE` but unresolved `high` findings remain
-- **THEN** the runtime SHALL keep the proposal blocked in place
-- **AND** it SHALL report a non-approved handoff state
-
-#### Scenario: Proposal review detects no-progress after repeated stagnant re-reviews
-
-- **WHEN** proposal re-review is stagnant for two consecutive rounds
-- **THEN** the runtime SHALL stop with `handoff.state = "no_progress"`
-- **AND** it SHALL not append an additional proposal review round
-
-#### Scenario: Proposal parse errors do not mutate the ledger
-
-- **WHEN** Codex output cannot be parsed as review JSON
+- **WHEN** agent output cannot be parsed as challenge JSON
 - **THEN** the CLI SHALL report `parse_error: true`
-- **AND** it SHALL not create a proposal ledger file
-
-#### Scenario: Corrupt proposal ledgers request manual recovery
-
-- **WHEN** `review-ledger-proposal.json` is corrupt and no backup is usable
-- **THEN** the CLI SHALL rename the corrupt file with a `.corrupt` suffix
-- **AND** it SHALL return `ledger_recovery: "prompt_user"`
+- **AND** the flow SHALL still proceed to reclarify (the user can address issues manually)
 
 ### Requirement: Design review operates on change artifacts and a design ledger
 
@@ -89,7 +50,7 @@ and any change-local `spec.md` files, and SHALL persist its state in
 
 - **WHEN** `specflow-review-design autofix-loop <CHANGE_ID>` is invoked
 - **THEN** the CLI SHALL iterate review rounds until the loop resolves the
-  actionable findings, reaches the configured round cap, or detects no progress
+  actionable findings, reaches `max_rounds_reached`, or detects `no_progress`
 
 ### Requirement: Apply review operates on filtered git diffs and an implementation ledger
 `specflow-review-apply` SHALL obtain the implementation diff via the injected
@@ -133,21 +94,11 @@ Downstream consumers SHALL derive binding versus advisory review approval from
 persisted round-summary metadata rather than inferring it from reviewer actor
 kind alone or from external runtime-only delegation context.
 
-#### Scenario: Proposal review with no actionable findings recommends specflow continuation
+#### Scenario: Proposal challenge does not use a review ledger
 
-- **WHEN** the proposal ledger has zero actionable findings
-- **THEN** `current-phase.md` SHALL recommend `/specflow`
-
-#### Scenario: Proposal re-review with findings recommends proposal work
-
-- **WHEN** the proposal ledger still has actionable findings after re-review
-- **THEN** `current-phase.md` SHALL recommend `/specflow`
-
-#### Scenario: Proposal current-phase output includes cap and stop metadata
-
-- **WHEN** proposal review updates `current-phase.md`
-- **THEN** the file SHALL include the current round, configured round cap,
-  latest decision, gate-blocking finding count, and any explicit stop reason
+- **WHEN** the proposal phase completes via the challenge-reclarify flow
+- **THEN** no `review-ledger-proposal.json` SHALL be created
+- **AND** no `current-phase.md` SHALL be written for the proposal phase
 
 #### Scenario: Design and apply ledgers recommend the next phase-specific action
 
@@ -206,7 +157,7 @@ issue review outcomes and SHALL NOT participate in review phases.
 - **THEN** the review orchestration SHALL return a non-approved handoff for the
   current phase
 - **AND** the handoff SHALL require the phase-appropriate revise transition
-  (`revise_proposal`, `revise_design`, or `revise_apply`) before the next
+  (`revise_design` or `revise_apply`) before the next
   review round
 - **AND** delegation SHALL NOT change this mapping because `request_changes` is
   a review-phase outcome, not a gated workflow approval

@@ -274,12 +274,13 @@ stateDiagram-v2
   proposal_scope --> proposal_clarify: continue_proposal
   proposal_scope --> decomposed: decompose
   proposal_scope --> rejected: reject
-  proposal_clarify --> proposal_review: review_proposal
+  proposal_clarify --> proposal_challenge: challenge_proposal
   proposal_clarify --> rejected: reject
-  proposal_review --> spec_draft: proposal_review_approved
-  proposal_review --> proposal_clarify: revise_proposal
-  proposal_review --> rejected: reject
-  spec_draft --> proposal_clarify: revise_proposal
+  proposal_challenge --> proposal_reclarify: reclarify
+  proposal_challenge --> rejected: reject
+  proposal_reclarify --> spec_draft: accept_proposal
+  proposal_reclarify --> rejected: reject
+  spec_draft --> proposal_reclarify: reclarify
   spec_draft --> spec_validate: validate_spec
   spec_draft --> rejected: reject
   spec_validate --> spec_draft: revise_spec

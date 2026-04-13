@@ -193,8 +193,9 @@ test("specflow-run supports the full happy path from start to approved", () => {
 			["propose", "proposal_draft"],
 			["check_scope", "proposal_scope"],
 			["continue_proposal", "proposal_clarify"],
-			["review_proposal", "proposal_review"],
-			["proposal_review_approved", "spec_draft"],
+			["challenge_proposal", "proposal_challenge"],
+			["reclarify", "proposal_reclarify"],
+			["accept_proposal", "spec_draft"],
 			["validate_spec", "spec_validate"],
 			["spec_validated", "spec_ready"],
 			["accept_spec", "design_draft"],
@@ -232,34 +233,29 @@ test("specflow-run supports the full happy path from start to approved", () => {
 	}
 });
 
-test("specflow-run supports proposal, design, and apply loop transitions", () => {
+test("specflow-run supports proposal linear flow, spec_draft reclarify, and design/apply loops", () => {
 	const tempRoot = makeTempDir("specflow-run-loops-");
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
 		const startJson = startRun(repoPath, changeId);
 		const runId = startJson.run_id;
+		// proposal linear flow: clarify → challenge → reclarify → spec_draft
 		advancePhase(repoPath, runId, "propose");
 		advancePhase(repoPath, runId, "check_scope");
 		advancePhase(repoPath, runId, "continue_proposal");
-		advancePhase(repoPath, runId, "review_proposal");
+		advancePhase(repoPath, runId, "challenge_proposal");
+		advancePhase(repoPath, runId, "reclarify");
+		advancePhase(repoPath, runId, "accept_proposal");
+		// spec_draft → reclarify → proposal_reclarify → accept_proposal → spec_draft
 		assert.equal(
-			advancePhase(repoPath, runId, "revise_proposal").current_phase,
-			"proposal_clarify",
+			advancePhase(repoPath, runId, "reclarify").current_phase,
+			"proposal_reclarify",
 		);
-		advancePhase(repoPath, runId, "review_proposal");
-		advancePhase(repoPath, runId, "proposal_review_approved");
 		assert.equal(
-			advancePhase(repoPath, runId, "revise_proposal").current_phase,
-			"proposal_clarify",
+			advancePhase(repoPath, runId, "accept_proposal").current_phase,
+			"spec_draft",
 		);
-		advancePhase(repoPath, runId, "review_proposal");
-		advancePhase(repoPath, runId, "proposal_review_approved");
-		assert.equal(
-			advancePhase(repoPath, runId, "revise_proposal").current_phase,
-			"proposal_clarify",
-		);
-		advancePhase(repoPath, runId, "review_proposal");
-		advancePhase(repoPath, runId, "proposal_review_approved");
+		// spec validation loop
 		advancePhase(repoPath, runId, "validate_spec");
 		assert.equal(
 			advancePhase(repoPath, runId, "revise_spec").current_phase,
@@ -268,6 +264,7 @@ test("specflow-run supports proposal, design, and apply loop transitions", () =>
 		advancePhase(repoPath, runId, "validate_spec");
 		advancePhase(repoPath, runId, "spec_validated");
 		advancePhase(repoPath, runId, "accept_spec");
+		// design review loop
 		advancePhase(repoPath, runId, "review_design");
 		assert.equal(
 			advancePhase(repoPath, runId, "revise_design").current_phase,
@@ -276,6 +273,7 @@ test("specflow-run supports proposal, design, and apply loop transitions", () =>
 		advancePhase(repoPath, runId, "review_design");
 		advancePhase(repoPath, runId, "design_review_approved");
 		advancePhase(repoPath, runId, "accept_design");
+		// apply review loop
 		advancePhase(repoPath, runId, "review_apply");
 		const applyLoop = advancePhase(repoPath, runId, "revise_apply");
 		assert.equal(applyLoop.current_phase, "apply_draft");

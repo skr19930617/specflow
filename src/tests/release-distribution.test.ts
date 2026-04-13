@@ -22,8 +22,8 @@ test("package metadata exposes release-install bins and packaged assets", () => 
 		"bin/specflow-prepare-change",
 	);
 	assert.equal(
-		pkg.bin["specflow-review-proposal"],
-		"bin/specflow-review-proposal",
+		pkg.bin["specflow-challenge-proposal"],
+		"bin/specflow-challenge-proposal",
 	);
 	assert.ok(pkg.files.includes("bin"));
 	assert.ok(pkg.files.includes("dist"));

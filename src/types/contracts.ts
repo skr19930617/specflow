@@ -174,6 +174,7 @@ export type SchemaId =
 	| "review-apply-result"
 	| "review-design-result"
 	| "review-proposal-result"
+	| "challenge-proposal-result"
 	| "run-state"
 	| "create-sub-issues-input"
 	| "create-sub-issues-result"
@@ -409,6 +410,24 @@ export interface ReviewResult extends JsonMap {
 	readonly ledger_recovery?: string;
 	readonly rereview_classification?: RereviewClassification | null;
 	readonly error?: string | null;
+}
+
+export interface ChallengeItem extends JsonMap {
+	readonly id: string;
+	readonly category: string;
+	readonly question: string;
+	readonly context: string;
+}
+
+export interface ChallengeResult extends JsonMap {
+	readonly status: string;
+	readonly action: string;
+	readonly change_id: string;
+	readonly challenges: readonly ChallengeItem[];
+	readonly summary: string;
+	readonly error?: string | null;
+	readonly parse_error?: boolean;
+	readonly raw_response?: string | null;
 }
 
 export interface DesignArtifactNextResult extends JsonMap {
