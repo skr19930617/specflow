@@ -50,9 +50,9 @@ export const commandContracts: readonly CommandContract[] = [
 				"Spec Acceptance",
 				"Before generating design artifacts, only advance the run when spec validation has reached spec_ready.",
 				[
-					'CURRENT_PHASE="$(specflow-run get-field "<CHANGE_ID>" current_phase 2>/dev/null || true)"',
+					'CURRENT_PHASE="$(specflow-run get-field "<RUN_ID>" current_phase 2>/dev/null || true)"',
 					'if [[ "$CURRENT_PHASE" == "spec_ready" ]]; then',
-					'  specflow-run advance "<CHANGE_ID>" accept_spec',
+					'  specflow-run advance "<RUN_ID>" accept_spec',
 					"fi",
 				].join("\n"),
 			),
@@ -67,9 +67,9 @@ export const commandContracts: readonly CommandContract[] = [
 				"Design Acceptance",
 				"Advance the run into apply only after design has reached design_ready.",
 				[
-					'CURRENT_PHASE="$(specflow-run get-field "<CHANGE_ID>" current_phase 2>/dev/null || true)"',
+					'CURRENT_PHASE="$(specflow-run get-field "<RUN_ID>" current_phase 2>/dev/null || true)"',
 					'if [[ "$CURRENT_PHASE" == "design_ready" ]]; then',
-					'  specflow-run advance "<CHANGE_ID>" accept_design',
+					'  specflow-run advance "<RUN_ID>" accept_design',
 					"fi",
 				].join("\n"),
 			),
@@ -86,8 +86,8 @@ export const commandContracts: readonly CommandContract[] = [
 				[
 					'FINAL_SUMMARY_PATH="$' +
 						'{ARCHIVED_FEATURE_DIR:-$FEATURE_DIR}/approval-summary.md"',
-					'specflow-run update-field "<CHANGE_ID>" last_summary_path "$FINAL_SUMMARY_PATH"',
-					'specflow-run advance "<CHANGE_ID>" accept_apply',
+					'specflow-run update-field "<RUN_ID>" last_summary_path "$FINAL_SUMMARY_PATH"',
+					'specflow-run advance "<RUN_ID>" accept_apply',
 				].join("\n"),
 			),
 		],
@@ -128,7 +128,7 @@ export const commandContracts: readonly CommandContract[] = [
 			hook(
 				"Design Revision Loop",
 				"Record the design self-transition before re-reviewing.",
-				'specflow-run advance "<CHANGE_ID>" revise_design',
+				'specflow-run advance "<RUN_ID>" revise_design',
 			),
 		],
 	),
@@ -144,7 +144,7 @@ export const commandContracts: readonly CommandContract[] = [
 			hook(
 				"Apply Revision Loop",
 				"Record the apply self-transition before re-reviewing.",
-				'specflow-run advance "<CHANGE_ID>" revise_apply',
+				'specflow-run advance "<RUN_ID>" revise_apply',
 			),
 		],
 	),
