@@ -131,12 +131,13 @@ export function createInstalledHome(root: string): string {
 		join(templateTarget, ".gitignore"),
 	);
 	copyFileSync(
-		resolve(packageRoot, "template/.mcp.json"),
-		join(templateTarget, ".mcp.json"),
-	);
-	copyFileSync(
 		resolve(packageRoot, "template/CLAUDE.md"),
 		join(templateTarget, "CLAUDE.md"),
+	);
+	mkdirSync(join(templateTarget, ".specflow"), { recursive: true });
+	copyFileSync(
+		resolve(packageRoot, "template/.specflow/config.env"),
+		join(templateTarget, ".specflow/config.env"),
 	);
 	return home;
 }

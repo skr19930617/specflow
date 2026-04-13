@@ -9,10 +9,6 @@ export const templateFileAliases: readonly TemplateFileAlias[] = [
 		packagedPath: "template/_gitignore",
 	},
 	{
-		logicalPath: "template/.mcp.json",
-		packagedPath: "template/_mcp.json",
-	},
-	{
 		logicalPath: "template/.specflow/config.env",
 		packagedPath: "template/_specflow/config.env",
 	},

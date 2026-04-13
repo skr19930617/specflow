@@ -76,15 +76,8 @@ test("manifest-driven installer deploys commands, links bins, and merges setting
 		assert.ok(
 			existsSync(join(tempHome, ".config/specflow/template/.gitignore")),
 		);
-		assert.ok(
-			existsSync(join(tempHome, ".config/specflow/template/.mcp.json")),
-		);
 		assert.equal(
 			existsSync(join(tempHome, ".config/specflow/template/_gitignore")),
-			false,
-		);
-		assert.equal(
-			existsSync(join(tempHome, ".config/specflow/template/_mcp.json")),
 			false,
 		);
 

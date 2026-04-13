@@ -117,10 +117,8 @@ test("build emits a dist package for installer assets", () => {
 	assert.ok(existsSync("dist/package/global/prompts/review_design_prompt.md"));
 	assert.ok(existsSync("dist/package/global/commands/specflow.md"));
 	assert.ok(existsSync("dist/package/template/.gitignore"));
-	assert.ok(existsSync("dist/package/template/.mcp.json"));
 	assert.ok(existsSync("dist/package/template/.specflow/config.env"));
 	assert.ok(existsSync("dist/package/template/_gitignore"));
-	assert.ok(existsSync("dist/package/template/_mcp.json"));
 	assert.ok(existsSync("dist/package/template/_specflow/config.env"));
 	assert.ok(existsSync("dist/package/template/CLAUDE.md"));
 	assert.equal(existsSync("template"), false);
@@ -156,9 +154,6 @@ test("project gitignore render includes specflow runtime state", () => {
 			"# Claude Code - local settings",
 			".claude/",
 			"",
-			"# MCP server config (local paths/tools)",
-			"/.mcp.json",
-			"",
 			"# Specflow local env",
 			".specflow/config.env",
 			".specflow/runs/",
@@ -187,9 +182,6 @@ test("project gitignore merge preserves custom content while appending missing e
 			"# Claude Code - local settings",
 			".claude/settings.json",
 			".claude/settings.local.json",
-			"",
-			"# MCP server config (local paths/tools)",
-			"/.mcp.json",
 			"",
 			"# Specflow local env",
 			".specflow/runs/",

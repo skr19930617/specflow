@@ -196,6 +196,29 @@ function verifyPrompts(globalDir: string, warnings: string[]): void {
 	log(`Verified ${count} prompt(s) in ${promptsDir}/`);
 }
 
+function installMissingTemplateFile(
+	templateDir: string,
+	targetRoot: string,
+	relativePath: string,
+	createdFiles: string[],
+	warnings: string[],
+): void {
+	const source = resolve(templateDir, relativePath);
+	const target = resolve(targetRoot, relativePath);
+	if (existsSync(target)) {
+		return;
+	}
+	if (!existsSync(source)) {
+		warnings.push(`template/${relativePath} not found, skipping`);
+		log(`Warning: template/${relativePath} not found, skipping`);
+		return;
+	}
+	mkdirSync(dirname(target), { recursive: true });
+	copyFileSync(source, target);
+	createdFiles.push(relativePath);
+	log(`Created ${relativePath}`);
+}
+
 function recordClaudeWrite(
 	existedBeforeWrite: boolean,
 	createdFiles: string[],
@@ -340,15 +363,20 @@ async function runUpdateMode(runtimeRoot: string): Promise<never> {
 	);
 	verifyPrompts(globalDir, warnings);
 
-	const templateMcp = resolve(templateDir, ".mcp.json");
-	if (existsSync(templateMcp)) {
-		copyFileSync(templateMcp, ".mcp.json");
-		updatedFiles.push(".mcp.json");
-		log("Updated .mcp.json");
-	} else {
-		warnings.push("template/.mcp.json not found, skipping");
-		log("Warning: template/.mcp.json not found, skipping");
-	}
+	installMissingTemplateFile(
+		templateDir,
+		updateRoot,
+		".specflow/config.env",
+		createdFiles,
+		warnings,
+	);
+	installMissingTemplateFile(
+		templateDir,
+		updateRoot,
+		".gitignore",
+		createdFiles,
+		warnings,
+	);
 
 	const profilePath = resolve(updateRoot, ".specflow/profile.json");
 	const templateClaude = resolve(templateDir, "CLAUDE.md");
@@ -560,21 +588,12 @@ Initialize a new specflow + OpenSpec project.
 			log(
 				`Warning: Failed to clone template repo: ${process.env.SPECFLOW_TEMPLATE_REPO}`,
 			);
-			log("Skipping .mcp.json and CLAUDE.md template copy.");
+			log("Skipping CLAUDE.md template copy.");
 		}
 	}
 
 	if (ensureProjectGitignore(root, templateDir, trackClaudeDir === "y")) {
 		updatedFiles.push(".gitignore");
-	}
-
-	const mcpTemplate = resolve(templateDir, ".mcp.json");
-	if (!existsSync(resolve(root, ".mcp.json")) && existsSync(mcpTemplate)) {
-		copyFileSync(mcpTemplate, resolve(root, ".mcp.json"));
-		createdFiles.push(".mcp.json");
-		log("Created .mcp.json");
-	} else if (existsSync(resolve(root, ".mcp.json"))) {
-		log(".mcp.json already exists, skipped");
 	}
 
 	const claudeTemplate = resolve(templateDir, "CLAUDE.md");

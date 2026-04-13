@@ -36,9 +36,7 @@
 			"Bash(specflow-fetch-issue *)",
 			"Bash(specflow-filter-diff *)",
 			"Bash(specflow-init *)",
-			"Bash(specflow-install *)",
-
-			"mcp__codex__codex"
+			"Bash(specflow-install *)"
 		]
 	}
 }

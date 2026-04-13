@@ -8,12 +8,6 @@ export const templateContracts: readonly TemplateAssetContract[] = [
 		sourcePath: "assets/template/CLAUDE.md",
 	},
 	{
-		id: "template-mcp-json",
-		type: AssetType.Template,
-		filePath: "template/.mcp.json",
-		sourcePath: "assets/template/.mcp.json",
-	},
-	{
 		id: "template-gitignore",
 		type: AssetType.Template,
 		filePath: "template/.gitignore",
