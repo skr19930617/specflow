@@ -1,0 +1,61 @@
+{
+  "feature_id": "openspec-ls-openspec-command-based-probe",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "scope",
+      "file": "bin/specflow-prepare-change",
+      "title": "File mode change unrelated to spec",
+      "detail": "The diff flips bin/specflow-prepare-change from 100644 to 100755 (executable bit). This is outside the spec's scope (Prerequisites probe normalization). Likely a benign/correct fix for a script that should be executable, but worth calling out or splitting into a separate commit if other bin scripts should match.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "testing",
+      "file": "src/tests/command-prereq-audit.test.ts",
+      "title": "Audit test depends on a pre-built dist/",
+      "detail": "The audit reads from `dist/package/global/commands/*.md`, so running `node --test` without first running the build would fail with 'no generated specflow command markdown found'. Consider documenting this dependency or wiring the build into the test script to avoid flaky local runs.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 0,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}
