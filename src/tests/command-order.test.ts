@@ -23,9 +23,9 @@ test("generated /specflow command preserves detailed proposal step order", () =>
 		"specflow-prepare-change [<CHANGE_ID>] <RAW_INPUT>",
 		"writes `openspec/changes/<CHANGE_ID>/proposal.md`",
 		'specflow-run start "<CHANGE_ID>"',
-		'specflow-run advance "<CHANGE_ID>" propose',
+		'specflow-run advance "<RUN_ID>" propose',
 		"## Step 4: Scope Check",
-		'specflow-run advance "<CHANGE_ID>" check_scope',
+		'specflow-run advance "<RUN_ID>" check_scope',
 		"## Step 5: Clarify",
 		"## Step 6: Proposal Challenge + Reclarify",
 		"specflow-challenge-proposal challenge <CHANGE_ID>",
@@ -33,9 +33,9 @@ test("generated /specflow command preserves detailed proposal step order", () =>
 		'openspec instructions specs --change "<CHANGE_ID>" --json',
 		"Capabilities",
 		"## Step 8: Spec Validate",
-		'specflow-run advance "<CHANGE_ID>" validate_spec',
+		'specflow-run advance "<RUN_ID>" validate_spec',
 		'openspec validate "<CHANGE_ID>" --type change --json',
-		'specflow-run advance "<CHANGE_ID>" spec_validated',
+		'specflow-run advance "<RUN_ID>" spec_validated',
 		"## Step 9: Design Handoff",
 	]);
 	assert.equal(content.includes("このまま続行"), false);
@@ -49,8 +49,8 @@ test("generated /specflow.design command starts from spec_ready and enters revie
 	assertOrderedFragments(content, [
 		"spec_ready",
 		"## Step 4: Design Review Gate",
-		'specflow-run advance "<CHANGE_ID>" review_design',
-		'specflow-run advance "<CHANGE_ID>" design_review_approved',
+		'specflow-run advance "<RUN_ID>" review_design',
+		'specflow-run advance "<RUN_ID>" design_review_approved',
 	]);
 	assert.equal(
 		content.includes('openspec validate "<CHANGE_ID>" --type change --json'),
@@ -68,8 +68,8 @@ test("generated /specflow.apply command gates approve behind apply_ready", () =>
 		"design_ready",
 		"## Step 1: Apply Draft and Implement",
 		"## Step 2: Apply Review Gate",
-		'specflow-run advance "<CHANGE_ID>" review_apply',
-		'specflow-run advance "<CHANGE_ID>" apply_review_approved',
+		'specflow-run advance "<RUN_ID>" review_apply',
+		'specflow-run advance "<RUN_ID>" apply_review_approved',
 		"Only from `apply_ready`, offer `/specflow.approve`.",
 	]);
 });
@@ -86,8 +86,8 @@ test("generated /specflow.approve command keeps archive before commit and condit
 		'openspec archive -y "<CHANGE_ID>"',
 		"## Commit",
 		"## Push & Pull Request",
-		'specflow-run update-field "<CHANGE_ID>" last_summary_path "$FINAL_SUMMARY_PATH"',
-		'specflow-run advance "<CHANGE_ID>" accept_apply',
+		'specflow-run update-field "<RUN_ID>" last_summary_path "$FINAL_SUMMARY_PATH"',
+		'specflow-run advance "<RUN_ID>" accept_apply',
 	]);
 	assert.equal(content.includes("git diff main...HEAD"), false);
 	assert.ok(content.includes("issue-linked run の場合"));
