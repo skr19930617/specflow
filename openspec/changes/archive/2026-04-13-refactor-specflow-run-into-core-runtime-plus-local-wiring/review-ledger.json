@@ -1,0 +1,46 @@
+{
+  "feature_id": "refactor-specflow-run-into-core-runtime-plus-local-wiring",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 1,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/tests/specflow-run.test.ts",
+      "title": "Split node:fs imports could be merged",
+      "detail": "The test file now imports `mkdirSync, writeFileSync` from 'node:fs' on one line and `rmSync` from 'node:fs' on a separate line. Combining into a single import would be tidier. Non-functional.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 1,
+      "open": 1,
+      "new": 1,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 1,
+      "open": 0,
+      "new": 0,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}

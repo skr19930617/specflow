@@ -1,0 +1,20 @@
+{
+	"_doc": "Snapshot of the exact stderr message text the CLI produced BEFORE the src/core refactor. Each entry is keyed by CoreRuntimeError.kind and holds the human-readable 'message' field. This fixture exists to catch inadvertent wording drift during the refactor and future edits. If a message legitimately changes, update both the core error producer and this fixture in the same commit.",
+	"invalid_run_id": "Error: invalid run_id '../evil'. Must not contain '/' or '..'",
+	"run_not_found": "Error: run 'ghost-1' not found. No state file at ghost-1/run.json",
+	"run_schema_mismatch": "Error: run state is missing required fields: project_id repo_name repo_path branch_name worktree_path agents source last_summary_path. This run was created with an older schema. Please delete it and re-create with 'specflow-run start'.",
+	"invalid_event": "Error: invalid transition. Event 'bogus' is not allowed in state 'start'. Allowed events: propose, explore_start, spec_bootstrap_start, suspend",
+	"run_suspended": "Error: Run is suspended — resume first. Only 'resume' is allowed.",
+	"run_not_suspended": "Error: Run is not suspended",
+	"run_already_exists": "Error: run 'synth-x' already exists",
+	"run_active_exists": "Error: Active run already exists (feat-one-1)",
+	"run_suspended_exists": "Error: Suspended run exists (feat-one-1) — resume or reject it first",
+	"prior_runs_require_retry": "Error: prior runs exist for this change. Use --retry to create a new run",
+	"retry_without_prior": "Error: --retry requires at least one prior run",
+	"retry_on_rejected": "Error: Rejected changes cannot be retried — create a new change",
+	"change_proposal_missing": "Error: no OpenSpec proposal found for 'missing-change'. Expected file: openspec/changes/missing-change/proposal.md",
+	"terminal_suspend": "Error: Cannot suspend a terminal run",
+	"already_suspended": "Error: Run is already suspended",
+	"field_not_found": "Error: field 'nope' not found in run state",
+	"field_not_updatable": "Error: field 'status' is not updatable. Allowed fields: last_summary_path"
+}
