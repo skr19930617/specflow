@@ -1,0 +1,51 @@
+{
+  "feature_id": "keep-file-backed-local-mode-as-reference-implementation",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "file": ".claude/commands/, openspec/ guide surfaces",
+      "title": "Slash-command guide docs not updated",
+      "detail": "The proposal explicitly lists 'Update the slash-command guide docs (under `.claude/commands/` and `openspec/` guide surfaces) to reinforce the same reference-implementation framing' as part of What Changes, and Impact reiterates this. The diff only touches README.md and docs/architecture.md — no slash-command guide files are updated. Either add the framing to those guide surfaces or revise the proposal/tasks scope to defer them explicitly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "quality",
+      "file": "docs/architecture.md",
+      "title": "CLI entrypoint mapping wording is self-contradictory",
+      "detail": "In the new contract-mapping table, the CLI entrypoints row says 'Local execution surface for the workflow core ... Not part of the core contract surface.' Calling it a 'workflow core contract surface implemented' column entry while simultaneously stating it is not part of the core contract surface is confusing. Consider rephrasing as 'Bundled-adapter surface only — exposes the core via specflow-run; not itself a core contract surface' for consistency with the Excluded section below.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 1
+      }
+    }
+  ]
+}

@@ -9,6 +9,16 @@
 
 GitHub issue URL またはインライン仕様記述を入力にして、Claude + Codex による proposal → clarify → spec → validate → design → implement → review のワークフローを Claude Code 内でインタラクティブに回すツール。
 
+## 位置づけ — Reference Implementation
+
+このリポジトリに同梱されている **slash-command + file-backed + git-backed のローカル実行モード**（`/specflow*` スラッシュコマンド、`specflow-*` CLI、`.specflow/runs/` の file-backed RunStore、`openspec/changes/` の git-backed ArtifactStore）は、workflow core contract の **canonical reference implementation（正式な参照実装）** である。
+
+- **Conformance target** — 他の runtime が core contract を実装する際の挙動の基準は、このローカルモードの挙動である。
+- **Replaceability** — DB-backed runtime や server-backed runtime など、workflow core contract に準拠する外部 runtime はこのローカルモードを置き換え可能。
+- **Contract mapping** — 各 bundled adapter（CLI entrypoints / file-backed RunStore / git-backed ArtifactStore）がどの core contract surface を実装しているかは [docs/architecture.md → Repository Scope](docs/architecture.md#repository-scope) と [Workflow Core Contract Surface (Inventory)](docs/architecture.md#workflow-core-contract-surface-inventory) を参照。
+
+> **Source of truth.** この README が、bundled local reference implementation の外部向けポジショニング（外部の読者・コントリビューター・runtime 実装者に対する "これは何か" の説明）の **source of truth** である。GitHub repo description や issue templates 等の隣接サーフェスで矛盾する記述があった場合は、README の記述に合わせて更新する。
+
 ## セットアップ
 
 ### 1. 前提ツール
@@ -431,6 +441,16 @@ npm run check
 # English
 
 An interactive tool that runs the full proposal → clarify → spec → validate → design → implement → review workflow inside Claude Code from either GitHub issue URLs or inline source text, using Claude + Codex.
+
+## Positioning — Reference Implementation
+
+The **slash-command + file-backed + git-backed local execution mode** bundled in this repository (the `/specflow*` slash commands, the `specflow-*` CLI, the file-backed RunStore under `.specflow/runs/`, and the git-backed ArtifactStore under `openspec/changes/`) is the **canonical reference implementation** of the workflow core contract.
+
+- **Conformance target** — any other runtime claiming to implement the workflow core contract is expected to behave the same as this local mode for the surfaces it covers.
+- **Replaceability** — external runtimes that conform to the workflow core contract (e.g., DB-backed, server-backed) can substitute this local mode without changes to the core.
+- **Contract mapping** — see [docs/architecture.md → Repository Scope](docs/architecture.md#repository-scope) and [Workflow Core Contract Surface (Inventory)](docs/architecture.md#workflow-core-contract-surface-inventory) for the per-adapter mapping (CLI entrypoints, file-backed RunStore, git-backed ArtifactStore) to the core contract surface each implements.
+
+> **Source of truth.** This README is the source of truth for the external-facing positioning of the bundled local reference implementation. If adjacent surfaces (GitHub repo description, issue templates, etc.) contain wording that conflicts, align them to the README.
 
 ## Quick Start
 
