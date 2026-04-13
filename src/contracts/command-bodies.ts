@@ -1,4 +1,5 @@
 import type { CommandBody } from "../types/contracts.js";
+import { buildOpenspecPrereq } from "./prerequisites.js";
 
 export const commandBodies: Record<string, CommandBody> = {
 	"specflow.apply": {
@@ -12,8 +13,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.apply` を再度実行\n     ```\n     → **STOP**.\n2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.",
+				content: `${buildOpenspecPrereq("specflow.apply")}\n2. Read \`openspec/config.yaml\`. Extract \`max_autofix_rounds\` if present. If unset or not a number in 1〜10, use default value 4. Store as \`MAX_AUTOFIX_ROUNDS\`.`,
 			},
 			{
 				title: "Step 0.5: Read Current Phase Context",
@@ -100,8 +100,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					'\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing: `"❌ openspec/ ディレクトリが見つかりません。"` → **STOP**.',
+				content: buildOpenspecPrereq("specflow.dashboard"),
 			},
 			{
 				title: "Step 1: Discover Features",
@@ -142,8 +141,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.decompose` を再度実行\n     ```\n     → **STOP**.\n2. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `specflow-init` を実行\n     2. `/specflow.decompose` を再度実行\n     ```\n     → **STOP**.",
+				content: buildOpenspecPrereq("specflow.decompose"),
 			},
 			{
 				title: "Step 1: Read Spec and Determine Mode",
@@ -199,8 +197,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					'\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.design` を再度実行\n     ```\n     → **STOP**.\n2. Determine the current change id from the branch name. Set `CHANGE_ID` accordingly.\n3. `/specflow.design` starts only from `spec_ready`.\n   ```bash\n   specflow-run get-field "<CHANGE_ID>" current_phase\n   ```\n   If the phase is `spec_ready`, the run hook advances to `design_draft`. If the phase is already `design_draft`, `design_review`, or `design_ready`, continue from the existing design state. Otherwise **STOP**.',
+				content: `${buildOpenspecPrereq("specflow.design")}\n2. Determine the current change id from the branch name. Set \`CHANGE_ID\` accordingly.\n3. \`/specflow.design\` starts only from \`spec_ready\`.\n   \`\`\`bash\n   specflow-run get-field "<CHANGE_ID>" current_phase\n   \`\`\`\n   If the phase is \`spec_ready\`, the run hook advances to \`design_draft\`. If the phase is already \`design_draft\`, \`design_review\`, or \`design_ready\`, continue from the existing design state. Otherwise **STOP**.`,
 			},
 			{
 				title: "Step 1: Check Status",
@@ -240,8 +237,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     OpenSpec が初期化されていません。\n\n     次のステップで初期化してください:\n     1. `specflow-init` を実行\n     2. `/specflow.explore` を再度実行\n     ```\n     → **STOP**.",
+				content: buildOpenspecPrereq("specflow.explore"),
 			},
 			{
 				title: "Step 1: Context Check",
@@ -281,8 +277,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.fix_apply` を再度実行\n     ```\n     → **STOP**.",
+				content: buildOpenspecPrereq("specflow.fix_apply"),
 			},
 			{
 				title: "Setup",
@@ -337,8 +332,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.fix_design` を再度実行\n     ```\n     → **STOP**.\n2. Read `openspec/config.yaml`. Extract any relevant settings. If parse fails, display error and **STOP**.",
+				content: `${buildOpenspecPrereq("specflow.fix_design")}\n2. Read \`openspec/config.yaml\`. Extract any relevant settings. If parse fails, display error and **STOP**.`,
 			},
 			{
 				title: "Setup",
@@ -469,8 +463,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\nBefore starting, verify the project is initialized:\n\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ OpenSpec が初期化されていません。\n\n     次のステップで初期化してください:\n     1. `specflow-init` を実行\n     2. `/specflow` を再度実行\n     ```\n     → **STOP**.",
+				content: `\nBefore starting, verify the project is initialized:\n${buildOpenspecPrereq("specflow")}`,
 			},
 			{
 				title: "Step 1: Setup — 入力取得と分類",
@@ -593,8 +586,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.review_apply` を再度実行\n     ```\n     → **STOP**.\n2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.",
+				content: `${buildOpenspecPrereq("specflow.review_apply")}\n2. Read \`openspec/config.yaml\`. Extract \`max_autofix_rounds\` if present. If unset or not a number in 1〜10, use default value 4. Store as \`MAX_AUTOFIX_ROUNDS\`.`,
 			},
 			{
 				title: "Setup",
@@ -655,8 +647,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.review_design` を再度実行\n     ```\n     → **STOP**.\n2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.",
+				content: `${buildOpenspecPrereq("specflow.review_design")}\n2. Read \`openspec/config.yaml\`. Extract \`max_autofix_rounds\` if present. If unset or not a number in 1〜10, use default value 4. Store as \`MAX_AUTOFIX_ROUNDS\`.`,
 			},
 			{
 				title: "Setup",
@@ -759,8 +750,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Prerequisites",
-				content:
-					"\n1. Run `ls openspec/` via Bash to confirm OpenSpec is initialized.\n   - If missing:\n     ```\n     ❌ `openspec/` ディレクトリが見つかりません。\n\n     次のステップで初期化してください:\n     1. `openspec/config.yaml` を作成\n     2. `/specflow.spec` を再度実行\n     ```\n     → **STOP**.",
+				content: buildOpenspecPrereq("specflow.spec"),
 			},
 			{
 				title: "Step 1: コードベース解析",

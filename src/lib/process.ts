@@ -37,12 +37,16 @@ export function tryExec(
 	env: NodeJS.ProcessEnv = process.env,
 	stdin?: string,
 ): CommandResult {
+	// When `input` is provided but stdio[0] is "ignore", Node silently drops
+	// the input and the child receives no stdin. Switch stdio[0] to "pipe"
+	// whenever a stdin string is supplied so the prompt is actually delivered.
+	const stdinMode = stdin === undefined ? "ignore" : "pipe";
 	const result = spawnSync(command, [...args], {
 		cwd,
 		env,
 		input: stdin,
 		encoding: "utf8",
-		stdio: ["ignore", "pipe", "pipe"],
+		stdio: [stdinMode, "pipe", "pipe"],
 	});
 	return {
 		stdout: result.stdout ?? "",
