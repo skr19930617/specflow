@@ -1,0 +1,62 @@
+{
+  "feature_id": "feat-agent-session-manager-for-persistent-agent-sessions",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "feasibility",
+      "title": "Claude/Codex adapters assume long-running child process with stdin/stdout, but current callMainAgent uses spawnSync with -p flag",
+      "detail": "The design (D3, D4) describes Claude and Codex adapters as long-running child processes with stdin/stdout communication, similar to Copilot. However, `claude -p` and `codex exec` are currently invoked via synchronous `spawnSync` with a prompt argument — they are not interactive stdin/stdout processes. The `--session-id` flag resumes context but doesn't imply a persistent process. The adapters need to either: (a) spawn per-send with `--session-id` to resume context (not a long-running process), or (b) use an interactive mode if one exists. Clarify in the design whether Claude/Codex adapters are truly long-running child processes or per-send spawns that use session-id for context continuity. This affects the `isAlive` and `send` implementation strategy significantly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "SendQueue error propagation differs between design and spec",
+      "detail": "The spec scenario 'A failing send does not block the queue' says msgB SHALL reject when msgA fails (because the session is dead). But the design's SendQueue implementation chains `then(fn, fn)` — meaning a rejection from msgA causes msgB's `fn` to execute (not reject). The queue will attempt to send msgB even on a dead session. The manager wrapping layer needs to check handle liveness before delegating to the adapter in the queued function, or the queue itself needs a 'poisoned' state. Add a note in task 5.3 to implement dead-handle detection in the queued send path.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "risk",
+      "title": "Atomic write for sessions.json not mentioned in tasks",
+      "detail": "Design risk R3 calls out that sessions.json write is not crash-atomic and recommends write-to-temp-then-rename. This mitigation should be explicit in task 3.1 to ensure it's not forgotten during implementation. Add 'use atomic write (temp file + rename)' to task 3.1.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "low": 1
+      }
+    }
+  ]
+}
