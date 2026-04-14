@@ -1,0 +1,61 @@
+{
+  "feature_id": "feat-deterministic-phase-router-for-server-orchestration",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/phase-router/derive-action.ts",
+      "title": "Defensive throws after narrowing could be unreachable",
+      "detail": "The `switch (contract.next_action)` cases for `await_user` and `terminal` are unreachable after the preceding terminal/gated guards consumed those states. The throws are harmless and defensive, but a comment noting they are belt-and-suspenders (for when flags lie) would aid future readers. No functional change needed.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/phase-router/router.ts",
+      "title": "readRun does not validate history entry shape",
+      "detail": "`readRun` checks `Array.isArray(run.history)` but does not validate each entry has `to`/`timestamp` strings. `currentEntryAt` accesses `entry.to` and `entry.timestamp` without runtime checks. If a malformed history entry slips through, the router would silently skip or return undefined rather than throwing `RunReadError`. Consider validating entry shape in `readRun`, or narrowing in `currentEntryAt`. Not a blocker since this module operates behind trusted stores.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 0,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}
