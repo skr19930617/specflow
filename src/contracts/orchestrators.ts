@@ -85,6 +85,14 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
 		references: ["prompt:challenge_proposal_prompt"],
 	},
 	{
+		id: "specflow-generate-task-graph",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-generate-task-graph",
+		entryModule: "dist/bin/specflow-generate-task-graph.js",
+		stdoutSchemaId: "generate-task-graph-result",
+		references: [],
+	},
+	{
 		id: "specflow-review-design",
 		type: AssetType.Orchestrator,
 		filePath: "bin/specflow-review-design",

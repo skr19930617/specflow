@@ -1,0 +1,89 @@
+{
+  "feature_id": "move-task-generation-from-openspec-passthrough-to-specflow-owned-task-planner",
+  "phase": "design",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "consistency",
+      "title": "oneOf variant breaks MissingRequiredArtifactError and resolveRequirement",
+      "detail": "The design adds a `{ domain: \"change\"; oneOf: readonly SingletonChangeArtifactType[] }` variant to `ArtifactRequirement`. However, `MissingRequiredArtifactError` (line 206-222) accesses `requirement.type` which does not exist on the `oneOf` variant, and `resolveRequirement()` (line 85-108) switches on `requirement.type`/`requirement.domain` without handling the `oneOf` case. Both functions need to be updated to handle the new variant. Tasks 7.1–7.2 should explicitly include updating `MissingRequiredArtifactError` to format the `oneOf` variant correctly, and updating `resolveRequirement()` to resolve `oneOf` requirements by checking each type in order.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "No task for design skill integration",
+      "detail": "The proposal lists `/specflow.design` skill as an impact area: 'tasks generation flow switches from OpenSpec passthrough to specflow task-planner invocation.' The spec also states 'New changes always generate task graph' at the end of the design phase. However, the tasks have no step for updating the design skill/command to call `generateTaskGraph()` + `renderTasksMd()` instead of the OpenSpec tasks template. Without this integration task, the task-planner module will be built but never invoked. Add a task (after bundle 8) to wire the design phase command/skill to call the new task-planner pipeline and disable the OpenSpec tasks passthrough.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "No task for apply phase write-back integration",
+      "detail": "The spec requires the apply phase to read task-graph for next window selection and write back status (`pending → in_progress → done`). Tasks 5–6 implement the pure functions (`selectNextWindow`, `updateBundleStatus`), but no task wires these into the actual apply phase runtime (e.g., `src/core/run-commands.ts` or the apply skill). Add a task to integrate window selection and status write-back into the apply phase, including the legacy fallback path.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F04",
+      "severity": "low",
+      "category": "granularity",
+      "title": "Task 7.1 places oneOf in wrong file",
+      "detail": "Task 7.1 says 'Add `oneOf` variant to `ArtifactRequirement` type in `src/lib/artifact-types.ts`'. This is correct for the type definition. But it should also note that a `oneOf()` helper function (analogous to the existing `req()` function in `artifact-phase-gates.ts` line 27-31) needs to be created. The `req()` helper is defined in the gates file, not in artifact-types.ts, so the helper should go in the same file. Consider clarifying this in task 7.1 or 7.2.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2,
+        "low": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 0,
+      "new": 0,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}

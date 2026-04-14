@@ -1,8 +1,5 @@
-# artifact-ownership-model Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change decide-artifact-ownership-and-storage-abstraction. Update Purpose after archive.
-## Requirements
 ### Requirement: The canonical artifact model enumerates two storage domains
 
 The system SHALL define a canonical artifact model with two storage domains:
@@ -84,90 +81,6 @@ The `task-graph` artifact SHALL be created by the `task-planner` module and read
 
 - **WHEN** two modules write the same artifact type
 - **THEN** the ownership table SHALL explicitly document both as shared-write with justification
-
-### Requirement: ChangeArtifactStore interface defines change-domain operations
-
-The system SHALL define a `ChangeArtifactStore` interface with the following operations:
-- `read(changeId, artifactType, qualifier?)`: returns artifact content or a typed not-found error
-- `write(changeId, artifactType, content, qualifier?)`: writes artifact content atomically
-- `exists(changeId, artifactType, qualifier?)`: returns boolean
-- `list(changeId, artifactType)`: returns all qualifiers for a qualified artifact type, or confirms singleton existence
-- `listChanges()`: returns all change identifiers known to the store
-- `changeExists(changeId)`: returns boolean indicating whether the change container (directory or equivalent) exists
-
-For `review-ledger` artifacts, `write` SHALL create a backup of the existing content before overwriting.
-
-Core modules SHALL depend on this interface, never on filesystem paths or I/O primitives directly. This includes bin-layer commands (`specflow-review-proposal`, `specflow-review-design`, `specflow-review-apply`, `specflow-prepare-change`, `specflow-analyze`).
-
-#### Scenario: Read returns content for existing artifact
-
-- **WHEN** `read(my-change, proposal)` is called and the proposal exists
-- **THEN** it SHALL return the proposal content as a UTF-8 string
-
-#### Scenario: Read returns typed error for missing artifact
-
-- **WHEN** `read(my-change, design)` is called and no design exists
-- **THEN** it SHALL return a typed not-found error identifying `(my-change, design)`
-
-#### Scenario: Write is atomic
-
-- **WHEN** `write(my-change, proposal, content)` is called
-- **THEN** the content SHALL be written atomically — no partial reads are possible during the write
-
-#### Scenario: Write creates backup for review-ledger artifacts
-
-- **WHEN** `write(my-change, review-ledger, content, design)` is called and a design ledger already exists
-- **THEN** the existing content SHALL be backed up before the new content is written
-
-#### Scenario: List returns qualifiers for spec-delta
-
-- **WHEN** `list(my-change, spec-delta)` is called and two spec deltas exist
-- **THEN** it SHALL return the spec name qualifiers for both
-
-#### Scenario: listChanges returns all known change identifiers
-
-- **WHEN** `listChanges()` is called and two changes exist
-- **THEN** it SHALL return an array containing both change identifiers
-
-#### Scenario: listChanges returns empty when no changes exist
-
-- **WHEN** `listChanges()` is called and no changes exist
-- **THEN** it SHALL return an empty array
-
-#### Scenario: changeExists returns true for an existing change container
-
-- **WHEN** `changeExists(my-change)` is called and the change directory exists
-- **THEN** it SHALL return `true`
-
-#### Scenario: changeExists returns false for a non-existent change
-
-- **WHEN** `changeExists(unknown-change)` is called and no such change exists
-- **THEN** it SHALL return `false`
-
-#### Scenario: changeExists is independent of artifact existence
-
-- **WHEN** `changeExists(my-change)` is called and the change directory exists but contains no artifacts
-- **THEN** it SHALL return `true` (container existence is sufficient)
-
-### Requirement: RunArtifactStore interface defines run-domain operations
-
-The system SHALL define a `RunArtifactStore` interface with the following operations:
-- `read(runId, artifactType)`: returns artifact content or a typed not-found error
-- `write(runId, artifactType, content)`: writes artifact content atomically
-- `exists(runId, artifactType)`: returns boolean
-- `list(changeId?)`: returns all runIds, optionally filtered by changeId
-
-Run-domain writes SHALL be atomic but do not require backup-before-overwrite.
-
-#### Scenario: Read returns run state for existing run
-
-- **WHEN** `read(my-run-1, run-state)` is called and the run exists
-- **THEN** it SHALL return the run state JSON content
-
-#### Scenario: List returns all runs for a change
-
-- **WHEN** `list(my-change)` is called and two runs exist for `my-change`
-- **THEN** it SHALL return both runIds
 
 ### Requirement: LocalFs adapters implement store interfaces using the existing directory layout
 
@@ -285,4 +198,3 @@ Existing changes and runs created before this change SHALL remain valid without 
 
 - **WHEN** a change created before this change is loaded
 - **THEN** it SHALL pass gate matrix validation for its current phase without migration
-

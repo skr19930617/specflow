@@ -25,6 +25,8 @@ function resolvePath(projectRoot: string, ref: ChangeArtifactRef): string {
 			return resolve(changeDir, "design.md");
 		case ChangeArtifactType.Tasks:
 			return resolve(changeDir, "tasks.md");
+		case ChangeArtifactType.TaskGraph:
+			return resolve(changeDir, "task-graph.json");
 		case ChangeArtifactType.CurrentPhase:
 			return resolve(changeDir, "current-phase.md");
 		case ChangeArtifactType.ApprovalSummary:

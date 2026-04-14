@@ -7,6 +7,7 @@ export const ChangeArtifactType = {
 	Proposal: "proposal",
 	Design: "design",
 	Tasks: "tasks",
+	TaskGraph: "task-graph",
 	SpecDelta: "spec-delta",
 	ReviewLedger: "review-ledger",
 	CurrentPhase: "current-phase",
@@ -47,6 +48,7 @@ export type SingletonChangeArtifactType =
 	| typeof ChangeArtifactType.Proposal
 	| typeof ChangeArtifactType.Design
 	| typeof ChangeArtifactType.Tasks
+	| typeof ChangeArtifactType.TaskGraph
 	| typeof ChangeArtifactType.CurrentPhase
 	| typeof ChangeArtifactType.ApprovalSummary;
 
@@ -104,6 +106,10 @@ export type ArtifactRequirement =
 	| {
 			readonly domain: "run";
 			readonly type: typeof RunArtifactType.RunState;
+	  }
+	| {
+			readonly domain: "change";
+			readonly oneOf: readonly SingletonChangeArtifactType[];
 	  };
 
 // --- Type Guards ---
@@ -210,10 +216,14 @@ export class MissingRequiredArtifactError extends Error {
 		requirement: ArtifactRequirement,
 		context: { changeId?: string; runId?: string },
 	) {
-		const desc =
-			requirement.domain === "change"
-				? `(${context.changeId ?? "?"}, ${requirement.type}${"qualifier" in requirement ? `, ${requirement.qualifier}` : ""})`
-				: `(${context.runId ?? "?"}, ${requirement.type})`;
+		let desc: string;
+		if (requirement.domain === "change" && "oneOf" in requirement) {
+			desc = `(${context.changeId ?? "?"}, oneOf[${requirement.oneOf.join(", ")}])`;
+		} else if (requirement.domain === "change") {
+			desc = `(${context.changeId ?? "?"}, ${requirement.type}${"qualifier" in requirement ? `, ${requirement.qualifier}` : ""})`;
+		} else {
+			desc = `(${context.runId ?? "?"}, ${requirement.type})`;
+		}
 		super(`Missing required artifact for phase transition: ${desc}`);
 		this.name = "MissingRequiredArtifactError";
 		this.requirement = requirement;

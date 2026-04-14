@@ -178,6 +178,7 @@ export type SchemaId =
 	| "run-state"
 	| "create-sub-issues-input"
 	| "create-sub-issues-result"
+	| "generate-task-graph-result"
 	| "profile";
 
 export type ReviewSeverity = "high" | "medium" | "low" | string;

@@ -1,0 +1,137 @@
+{
+  "feature_id": "move-task-generation-from-openspec-passthrough-to-specflow-owned-task-planner",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 7,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/contracts/orchestrators.ts",
+      "title": "Missing stdoutSchemaId for new orchestrator",
+      "detail": "The new specflow-generate-task-graph orchestrator contract has no stdoutSchemaId defined, while other orchestrators (e.g., specflow-challenge-proposal) define one. The CLI tool (specflow-generate-task-graph.ts) outputs structured JSON to stdout, so a schema reference would ensure contract discipline. If no stdout schema is needed for this orchestrator, add a comment explaining why.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/lib/artifact-phase-gates.ts",
+      "title": "resolveRequirement oneOf requires changeStore but callers may not pass it",
+      "detail": "The checkGateRequirements function handles oneOf requirements in a special branch (line 144) that passes changeStore to resolveRequirement. However, for non-oneOf change requirements (line 152), resolveRequirement is called without changeStore. This means resolveRequirement's new optional changeStore parameter works correctly for the oneOf path, but the asymmetry is fragile — if a future caller uses resolveRequirement directly with a oneOf requirement and forgets changeStore, it silently returns null. Consider documenting this contract or making changeStore required when requirement contains oneOf.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/contracts/command-bodies.ts",
+      "title": "Redundant step 3 in apply command body",
+      "detail": "After the if/else block that handles task-graph vs legacy mode (both of which already say 'Execute tasks phase-by-phase'), step 3 repeats 'Execute tasks phase-by-phase.' This is redundant and could confuse the LLM agent executing the command. The phase-by-phase execution instruction is already embedded in both branches of step 2.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F04",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/task-planner/generate.ts",
+      "title": "JSON.parse result cast to TaskGraph without freeze",
+      "detail": "After validateTaskGraph succeeds, the parsed object is cast as TaskGraph (line 97). The types declare all fields as readonly, but at runtime the object is mutable since JSON.parse returns a plain object. This is consistent with other parts of the codebase, but worth noting since the spec emphasizes immutability for task graphs.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F05",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/lib/artifact-phase-gates.ts",
+      "title": "req() helper accepts 'task-graph' but it is never used via req()",
+      "detail": "The req() function signature was expanded to accept 'task-graph' as a valid type, but task-graph is only ever used via oneOf(). The type expansion in req() is harmless but unused — could be left as-is for future flexibility or removed for precision.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F06",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/bin/specflow-generate-task-graph.ts",
+      "title": "Duplicated system prompt between generate.ts and CLI bin",
+      "detail": "The task planner system prompt is defined in both src/lib/task-planner/generate.ts (SYSTEM_PROMPT constant, lines 35-68) and src/bin/specflow-generate-task-graph.ts (buildPrompt function, lines 44-83). The CLI bin does not use generateTaskGraph() from the library; instead it reimplements the retry loop and prompt construction. This means the two prompts can drift. Consider having the CLI bin call generateTaskGraph() with an LlmClient adapter wrapping callReviewAgent, or extracting the prompt into a shared constant. Low severity since the bin is the primary path and the library generate.ts is used only in tests currently.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F07",
+      "severity": "low",
+      "category": "completeness",
+      "file": "src/lib/schemas.ts",
+      "title": "generateTaskGraphResultValidator does not validate status enum values",
+      "detail": "The validator checks that status is a string but does not restrict it to known values ('success' | 'error'). An unknown status like 'pending' would pass validation. The conditional branches check record.status === 'success' and 'error' for their respective fields, but a third status value would silently pass with only status and change_id validated. Consider adding an enum check or documenting that unknown statuses are intentionally allowed for forward compatibility.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 5,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "low": 3
+      }
+    },
+    {
+      "round": 2,
+      "total": 7,
+      "open": 2,
+      "new": 2,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "low": 2
+      }
+    }
+  ]
+}
