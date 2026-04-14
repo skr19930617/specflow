@@ -1,0 +1,90 @@
+{
+  "feature_id": "feat-agent-session-manager-for-persistent-agent-sessions",
+  "phase": "design",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "feasibility",
+      "title": "Claude/Codex adapters assume long-running child process with stdin/stdout, but current callMainAgent uses spawnSync with -p flag",
+      "detail": "The design (D3, D4) describes Claude and Codex adapters as long-running child processes with stdin/stdout communication, similar to Copilot. However, `claude -p` and `codex exec` are currently invoked via synchronous `spawnSync` with a prompt argument — they are not interactive stdin/stdout processes. The `--session-id` flag resumes context but doesn't imply a persistent process. The adapters need to either: (a) spawn per-send with `--session-id` to resume context (not a long-running process), or (b) use an interactive mode if one exists. Clarify in the design whether Claude/Codex adapters are truly long-running child processes or per-send spawns that use session-id for context continuity. This affects the `isAlive` and `send` implementation strategy significantly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "SendQueue error propagation differs between design and spec",
+      "detail": "The spec scenario 'A failing send does not block the queue' says msgB SHALL reject when msgA fails (because the session is dead). But the design's SendQueue implementation chains `then(fn, fn)` — meaning a rejection from msgA causes msgB's `fn` to execute (not reject). The queue will attempt to send msgB even on a dead session. The manager wrapping layer needs to check handle liveness before delegating to the adapter in the queued function, or the queue itself needs a 'poisoned' state. Add a note in task 5.3 to implement dead-handle detection in the queued send path.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "risk",
+      "title": "Atomic write for sessions.json not mentioned in tasks",
+      "detail": "Design risk R3 calls out that sessions.json write is not crash-atomic and recommends write-to-temp-then-rename. This mitigation should be explicit in task 3.1 to ensure it's not forgotten during implementation. Add 'use atomic write (temp file + rename)' to task 3.1.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "openspec/changes/feat-agent-session-manager-for-persistent-agent-sessions/specs/agent-session-manager/spec.md",
+      "title": "SessionMetadata.pid is required but meaningless for Claude/Codex per-send adapters",
+      "detail": "Design D7 defines `SessionMetadata` with a required `pid: number` field and cleanup logic that checks PID liveness ('any entry whose PID is not running is cleaned up — kill if zombie, then remove entry'). However, D3/D4 clarify that Claude and Codex adapters use per-send spawns with no persistent process — there is no meaningful PID to store. Storing a dummy PID (e.g., 0 or -1) is dangerous: PID 0 maps to the init process on Unix, and killing it or checking its liveness would produce incorrect results. The spec already distinguishes between PID-based cleanup (Copilot scenario) and metadata-based cleanup (Claude/Codex scenario: 'remove or invalidate those session records'). Fix: (1) Make `pid` optional in `SessionMetadata` (`pid?: number`), (2) In task 3.2 orphan cleanup, branch on provider type — for Copilot entries with a PID, check PID liveness and kill; for Claude/Codex entries without a PID, simply remove stale metadata entries. Update task 3.1 and 3.2 to reflect this distinction.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "low": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 1,
+      "new": 1,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1
+      }
+    }
+  ]
+}
