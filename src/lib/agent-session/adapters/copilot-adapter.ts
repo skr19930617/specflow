@@ -4,9 +4,9 @@
 // conversation context in memory.
 
 import { type ChildProcess, spawn } from "node:child_process";
+import { resolveCommand } from "../../process.js";
 import type { SessionErrorKind } from "../errors.js";
 import type { AgentConfig, AgentMessage, AgentResponse } from "../types.js";
-import { resolveCommand } from "../../process.js";
 import type { ProviderAdapter, ProviderHandle } from "./types.js";
 
 /** Extended handle that tracks the live child process. */

@@ -3,9 +3,9 @@
 // exit, and parses stdout. No long-running process is maintained.
 
 import { spawnSync } from "node:child_process";
+import { resolveCommand } from "../../process.js";
 import type { SessionErrorKind } from "../errors.js";
 import type { AgentConfig, AgentMessage, AgentResponse } from "../types.js";
-import { resolveCommand } from "../../process.js";
 import type { ProviderAdapter, ProviderHandle } from "./types.js";
 
 /** Track handle-level liveness (not process liveness). */

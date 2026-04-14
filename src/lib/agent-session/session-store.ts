@@ -4,8 +4,8 @@
 
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { MainAgentName } from "../review-runtime.js";
 import { atomicWriteText, ensureDir } from "../fs.js";
+import type { MainAgentName } from "../review-runtime.js";
 
 /** Persisted metadata for one session. */
 export interface SessionMetadata {

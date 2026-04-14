@@ -11,9 +11,9 @@ import {
 	type AgentMessage,
 	type AgentResponse,
 	type AgentSessionManager,
-	type SessionHandle,
 	agentConfigsEqual,
 	createSessionHandle,
+	type SessionHandle,
 } from "./types.js";
 
 /** Internal entry tracking a single live session. */
@@ -49,10 +49,7 @@ export class DefaultAgentSessionManager implements AgentSessionManager {
 		this.initialized = true;
 	}
 
-	async create(
-		changeId: string,
-		config: AgentConfig,
-	): Promise<SessionHandle> {
+	async create(changeId: string, config: AgentConfig): Promise<SessionHandle> {
 		if (!this.initialized) {
 			await this.init();
 		}

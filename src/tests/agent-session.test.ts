@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
-
-import { SendQueue } from "../lib/agent-session/send-queue.js";
+import type {
+	ProviderAdapter,
+	ProviderHandle,
+} from "../lib/agent-session/adapters/types.js";
 import {
 	ConfigMismatchError,
 	SessionError,
 } from "../lib/agent-session/errors.js";
-import { SessionMetadataStore } from "../lib/agent-session/session-store.js";
+import { SendQueue } from "../lib/agent-session/send-queue.js";
 import { DefaultAgentSessionManager } from "../lib/agent-session/session-manager.js";
+import { SessionMetadataStore } from "../lib/agent-session/session-store.js";
 import type {
 	AgentConfig,
 	AgentMessage,
@@ -18,10 +21,6 @@ import type {
 	SessionHandle,
 } from "../lib/agent-session/types.js";
 import { createSessionHandle } from "../lib/agent-session/types.js";
-import type {
-	ProviderAdapter,
-	ProviderHandle,
-} from "../lib/agent-session/adapters/types.js";
 
 // ============================================================================
 // SendQueue tests
@@ -114,7 +113,10 @@ test("SendQueue: poisoned queue rejects immediately without executing fn", async
 // ============================================================================
 
 function makeTempDir(): string {
-	const dir = join(tmpdir(), `agent-session-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	const dir = join(
+		tmpdir(),
+		`agent-session-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	mkdirSync(dir, { recursive: true });
 	return dir;
 }
@@ -246,13 +248,11 @@ function createMockAdapter(
 		get sendFn() {
 			return sendFn;
 		},
-		set sendFn(
-			fn: (
-				handle: ProviderHandle,
-				message: AgentMessage,
-				timeoutMs: number,
-			) => Promise<AgentResponse>,
-		) {
+		set sendFn(fn: (
+			handle: ProviderHandle,
+			message: AgentMessage,
+			timeoutMs: number,
+		) => Promise<AgentResponse>,) {
 			sendFn = fn;
 		},
 		startCalls,
