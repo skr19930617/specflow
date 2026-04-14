@@ -18,11 +18,12 @@ import {
 	UnknownArtifactTypeError,
 } from "../lib/artifact-types.js";
 
-test("changeArtifactTypes enumerates all 7 types", () => {
-	assert.equal(changeArtifactTypes.length, 7);
+test("changeArtifactTypes enumerates all 8 types", () => {
+	assert.equal(changeArtifactTypes.length, 8);
 	assert.ok(changeArtifactTypes.includes("proposal"));
 	assert.ok(changeArtifactTypes.includes("design"));
 	assert.ok(changeArtifactTypes.includes("tasks"));
+	assert.ok(changeArtifactTypes.includes("task-graph"));
 	assert.ok(changeArtifactTypes.includes("spec-delta"));
 	assert.ok(changeArtifactTypes.includes("review-ledger"));
 	assert.ok(changeArtifactTypes.includes("current-phase"));

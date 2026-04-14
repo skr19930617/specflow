@@ -1025,6 +1025,26 @@ function challengeResultValidator(
 	}
 }
 
+function generateTaskGraphResultValidator(
+	value: unknown,
+	path: string,
+	errors: ValidationErrors,
+): void {
+	const record = expectRecord(value, path, errors);
+	if (!record) {
+		return;
+	}
+	stringValidator(record.status, `${path}.status`, errors);
+	stringValidator(record.change_id, `${path}.change_id`, errors);
+	if (record.status === "success") {
+		numberValidator(record.bundles, `${path}.bundles`, errors);
+		numberValidator(record.tasks_total, `${path}.tasks_total`, errors);
+	}
+	if (record.status === "error") {
+		stringValidator(record.error, `${path}.error`, errors);
+	}
+}
+
 export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"issue-metadata": issueMetadataValidator,
 	"source-metadata": sourceMetadataValidator,
@@ -1041,6 +1061,7 @@ export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"run-state": runStateValidator,
 	"create-sub-issues-input": createSubIssuesInputValidator,
 	"create-sub-issues-result": createSubIssuesResultValidator,
+	"generate-task-graph-result": generateTaskGraphResultValidator,
 	profile: profileValidator,
 };
 

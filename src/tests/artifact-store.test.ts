@@ -232,6 +232,28 @@ test("ChangeArtifactStore: changeExists returns true for empty change directory"
 	}
 });
 
+test("ChangeArtifactStore: read/write/exists for singleton task-graph", () => {
+	const root = makeTempRoot();
+	try {
+		const store = createLocalFsChangeArtifactStore(root);
+		const ref = changeRef("my-change", ChangeArtifactType.TaskGraph);
+
+		assert.equal(store.exists(ref), false);
+		assert.throws(() => store.read(ref), ArtifactNotFoundError);
+
+		const content = '{"version":"1.0","bundles":[]}\n';
+		store.write(ref, content);
+		assert.equal(store.exists(ref), true);
+		assert.equal(store.read(ref), content);
+
+		// Verify filesystem path
+		const expected = join(root, "openspec/changes/my-change/task-graph.json");
+		assert.equal(readFileSync(expected, "utf8"), content);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
 test("RunArtifactStore: read/write/exists for run-state", () => {
 	const root = makeTempRoot();
 	try {

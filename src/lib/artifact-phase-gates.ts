@@ -13,6 +13,7 @@ import {
 	changeRef,
 	type RunArtifactRef,
 	runRef,
+	type SingletonChangeArtifactType,
 } from "./artifact-types.js";
 
 export interface GateEntry {
@@ -28,6 +29,10 @@ function req(
 	type: "proposal" | "design" | "tasks" | "current-phase" | "approval-summary",
 ): ArtifactRequirement {
 	return { domain: "change", type };
+}
+
+function oneOf(...types: SingletonChangeArtifactType[]): ArtifactRequirement {
+	return { domain: "change", oneOf: types };
 }
 
 // Gate matrix derived from current implicit checks across bins.
@@ -55,7 +60,7 @@ const gateMatrix = new Map<string, GateEntry>([
 	[
 		gateKey("design_draft", "review_design"),
 		{
-			required: [req("proposal"), req("design"), req("tasks")],
+			required: [req("proposal"), req("design"), oneOf("task-graph", "tasks")],
 			produced: [],
 		},
 	],
@@ -64,7 +69,7 @@ const gateMatrix = new Map<string, GateEntry>([
 	[
 		gateKey("apply_draft", "review_apply"),
 		{
-			required: [req("proposal"), req("design"), req("tasks")],
+			required: [req("proposal"), req("design"), oneOf("task-graph", "tasks")],
 			produced: [],
 		},
 	],
@@ -82,12 +87,36 @@ export interface GateContext {
 	readonly runId: string;
 }
 
+/**
+ * Resolve an artifact requirement to a concrete ref.
+ * When the requirement contains `oneOf`, `changeStore` is required to check
+ * which candidate artifact exists. If `changeStore` is not provided for a
+ * `oneOf` requirement, this function returns `null` (unsatisfied).
+ */
 export function resolveRequirement(
 	requirement: ArtifactRequirement,
 	context: GateContext,
+	changeStore?: ChangeArtifactStore | null,
 ): ChangeArtifactRef | RunArtifactRef | null {
 	if (requirement.domain === "change") {
 		if (!context.changeId) {
+			return null;
+		}
+		// oneOf: resolve by checking existence of each candidate in order.
+		// changeStore is required for oneOf — callers must supply it.
+		if ("oneOf" in requirement) {
+			if (!changeStore) {
+				throw new Error(
+					`resolveRequirement: changeStore is required for oneOf requirements (candidates: ${requirement.oneOf.join(", ")})`,
+				);
+			}
+			for (const type of requirement.oneOf) {
+				const ref = changeRef(context.changeId, type);
+				if (changeStore.exists(ref)) {
+					return ref;
+				}
+			}
+			// None found — return null to signal unsatisfied requirement
 			return null;
 		}
 		if (requirement.type === ChangeArtifactType.ReviewLedger) {
@@ -119,7 +148,17 @@ export function checkGateRequirements(
 		return null;
 	}
 	for (const requirement of gate.required) {
-		const ref = resolveRequirement(requirement, context);
+		// oneOf requirements: resolveRequirement returns null if none of the
+		// candidates exist — that means the requirement is unsatisfied.
+		if (requirement.domain === "change" && "oneOf" in requirement) {
+			const ref = resolveRequirement(requirement, context, changeStore);
+			if (!ref) {
+				return requirement;
+			}
+			continue;
+		}
+
+		const ref = resolveRequirement(requirement, context, changeStore);
 		if (!ref) {
 			continue;
 		}

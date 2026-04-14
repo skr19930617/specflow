@@ -1,0 +1,93 @@
+{
+  "feature_id": "move-task-generation-from-openspec-passthrough-to-specflow-owned-task-planner",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 5,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/contracts/orchestrators.ts",
+      "title": "Missing stdoutSchemaId for new orchestrator",
+      "detail": "The new specflow-generate-task-graph orchestrator contract has no stdoutSchemaId defined, while other orchestrators (e.g., specflow-challenge-proposal) define one. The CLI tool (specflow-generate-task-graph.ts) outputs structured JSON to stdout, so a schema reference would ensure contract discipline. If no stdout schema is needed for this orchestrator, add a comment explaining why.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/lib/artifact-phase-gates.ts",
+      "title": "resolveRequirement oneOf requires changeStore but callers may not pass it",
+      "detail": "The checkGateRequirements function handles oneOf requirements in a special branch (line 144) that passes changeStore to resolveRequirement. However, for non-oneOf change requirements (line 152), resolveRequirement is called without changeStore. This means resolveRequirement's new optional changeStore parameter works correctly for the oneOf path, but the asymmetry is fragile — if a future caller uses resolveRequirement directly with a oneOf requirement and forgets changeStore, it silently returns null. Consider documenting this contract or making changeStore required when requirement contains oneOf.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/contracts/command-bodies.ts",
+      "title": "Redundant step 3 in apply command body",
+      "detail": "After the if/else block that handles task-graph vs legacy mode (both of which already say 'Execute tasks phase-by-phase'), step 3 repeats 'Execute tasks phase-by-phase.' This is redundant and could confuse the LLM agent executing the command. The phase-by-phase execution instruction is already embedded in both branches of step 2.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/task-planner/generate.ts",
+      "title": "JSON.parse result cast to TaskGraph without freeze",
+      "detail": "After validateTaskGraph succeeds, the parsed object is cast as TaskGraph (line 97). The types declare all fields as readonly, but at runtime the object is mutable since JSON.parse returns a plain object. This is consistent with other parts of the codebase, but worth noting since the spec emphasizes immutability for task graphs.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F05",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/lib/artifact-phase-gates.ts",
+      "title": "req() helper accepts 'task-graph' but it is never used via req()",
+      "detail": "The req() function signature was expanded to accept 'task-graph' as a valid type, but task-graph is only ever used via oneOf(). The type expansion in req() is harmless but unused — could be left as-is for future flexibility or removed for precision.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 5,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "low": 3
+      }
+    }
+  ]
+}
