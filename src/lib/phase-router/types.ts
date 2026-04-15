@@ -1,10 +1,22 @@
 // PhaseRouter public types.
 //
-// PhaseContract and the surface event schema are owned by separate changes
-// (#129 and #100 respectively). Until those land, this module defines the
-// minimal shape that the router consumes. When #129/#100 merge, the
-// follow-up change will replace these declarations with imports from the
-// canonical locations without breaking the router surface.
+// PhaseContract is owned by a separate change (#129). Until that lands,
+// this module defines the minimal shape that the router consumes.
+//
+// Surface event types are now imported from the canonical contract module
+// (src/contracts/surface-events.ts), which satisfies #100.
+
+import type {
+	ActorIdentity,
+	CorrelationContext,
+	EventType,
+	SurfaceEventEnvelope,
+	SurfaceIdentity,
+} from "../../contracts/surface-events.js";
+
+// Re-export canonical types so existing consumers that import from
+// phase-router/types still work.
+export type { SurfaceEventEnvelope as SurfaceEvent } from "../../contracts/surface-events.js";
 
 /** The four kinds of action the router can direct the orchestrator to take. */
 export type PhaseNextAction =
@@ -29,6 +41,10 @@ export interface PhaseContract {
 	readonly advance_event?: string;
 	/** Surface event kind — required iff gated === true. */
 	readonly gated_event_kind?: string;
+	/** Concrete event type for the gated envelope — required iff gated === true. */
+	readonly gated_event_type?: EventType;
+	/** Phase the workflow transitions to upon approval — used in envelope payload. */
+	readonly next_phase?: string;
 	/** Terminal reason — required iff terminal === true. */
 	readonly terminal_reason?: string;
 }
@@ -55,14 +71,19 @@ export type PhaseAction =
 	| { readonly kind: "terminal"; readonly reason: string };
 
 /**
- * A surface event emitted by the router at gated decisions.
- * Schema is kept compatible with #100's Surface event contract.
+ * Orchestrator-provided context for constructing full SurfaceEventEnvelopes.
+ *
+ * This is internal runtime plumbing for threading orchestrator state into
+ * the router. It is deliberately NOT exported from the phase-router barrel
+ * (index.ts) because it is not part of the distributable contract surface
+ * consumed by external runtimes — that surface lives in
+ * src/contracts/surface-events.ts. Orchestrator code that needs this type
+ * should import it directly from this module.
  */
-export interface SurfaceEvent {
-	readonly run_id: string;
-	readonly phase: string;
-	readonly event_kind: string;
-	readonly emitted_at: string;
+export interface SurfaceEventContext {
+	readonly actor: ActorIdentity;
+	readonly surface: SurfaceIdentity;
+	readonly correlation: CorrelationContext;
 }
 
 /**
@@ -70,5 +91,5 @@ export interface SurfaceEvent {
  * production event bus and in-memory recorders used by tests.
  */
 export interface SurfaceEventSink {
-	emit(event: SurfaceEvent): void;
+	emit(event: SurfaceEventEnvelope): void;
 }

@@ -1,0 +1,139 @@
+{
+  "feature_id": "define-surface-event-contract-for-external-runtimes",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 7,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/lib/phase-router/router.ts",
+      "title": "Hardcoded event_kind and event_type in envelope construction",
+      "detail": "Lines 116-117 hardcode `event_kind: \"approval\"` and `event_type: \"accept_spec\"` for every gated phase emission. The router should derive the concrete event_kind and event_type from the PhaseContract or action metadata, not hardcode them. When a design-review or apply-review phase is gated, it will incorrectly emit an `accept_spec` event instead of the correct type. Fix: map the contract phase (or action.event_kind) to the appropriate EventKind and EventType values.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/phase-router/router.ts",
+      "title": "phase_to is always empty string",
+      "detail": "Line 128 hardcodes `phase_to: \"\"` in the ApprovalPayload. The spec defines `phase_to` as 'the phase the workflow transitions to upon approval'. The router has access to the contract and could derive the next phase (e.g., from the contract's `next` field or the action's advance target). An empty string provides no useful information to external consumers.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "assets/global/schemas/surface-events/envelope.schema.json",
+      "title": "JSON Schema uses draft-07, tasks.md specifies draft-2020-12",
+      "detail": "Task 2.5 says 'Validate all schema files parse as valid JSON Schema draft-2020-12', but envelope.schema.json (line 2) declares `$schema: http://json-schema.org/draft-07/schema#`. Either update the schemas to use draft-2020-12 or document the intentional deviation.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/phase-router.test.ts",
+      "title": "Tests do not verify event_type or payload fields",
+      "detail": "The updated phase-router tests check `correlation.run_id`, `schema_version`, and `direction`, but never assert `event_type`, `event_kind`, or the `payload` object. Given that these are the primary new fields on the envelope, test coverage should verify their values — especially to catch F1 if/when different gated phases emit different event types.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F05",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/phase-router/router.ts",
+      "title": "run.change_name access without type evidence",
+      "detail": "Line 110 accesses `run.change_name` with a nullish coalesce to `\"\"`, but `RunState` may not declare a `change_name` field. If the field is optional/undocumented on `RunState`, add it to the type definition or use a safer access pattern. Currently this compiles due to the `as RunState` cast in `readRun`.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F06",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/lib/phase-router/index.ts",
+      "title": "SurfaceEventContext exported from public barrel despite being 'internal'",
+      "detail": "The design doc D5 and the JSDoc in types.ts both describe SurfaceEventContext as 'internal runtime plumbing... NOT part of the distributable contract surface'. However, it is exported from the public barrel file (phase-router/index.ts line 23). This is likely intentional for orchestrator use but contradicts the stated intent. Consider clarifying the doc or removing the public export.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F07",
+      "severity": "low",
+      "category": "correctness",
+      "file": "src/contracts/surface-events.ts",
+      "title": "EVENT_TYPE_TO_KIND maps request_changes and block to 'approval'",
+      "detail": "Lines 203-204 map request_changes → 'approval' and block → 'approval'. Semantically, 'request_changes' and 'block' are rejection/negative outcomes rather than approvals. If the abstract EventKind categories are intentionally coarse (approval = 'review outcome'), this is fine but worth a JSDoc note on the mapping to avoid confusion for external runtime consumers who might filter on event_kind === 'approval' expecting only positive outcomes.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 6,
+      "open": 6,
+      "new": 6,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 3,
+        "low": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 7,
+      "open": 1,
+      "new": 1,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "low": 1
+      }
+    }
+  ]
+}

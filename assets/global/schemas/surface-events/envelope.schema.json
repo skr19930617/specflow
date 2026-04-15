@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "envelope.schema.json",
+  "title": "SurfaceEventEnvelope",
+  "description": "Bidirectional, transport-agnostic event envelope for specflow surface events. Version 1.0.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Envelope schema version. Consumers branch on this field for version handling."
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the event instance."
+    },
+    "event_kind": {
+      "type": "string",
+      "enum": [
+        "approval",
+        "reject",
+        "clarify",
+        "resume"
+      ],
+      "description": "Abstract event category."
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "accept_spec",
+        "accept_design",
+        "accept_apply",
+        "reject",
+        "clarify_request",
+        "clarify_response",
+        "resume",
+        "design_review_approved",
+        "apply_review_approved",
+        "request_changes",
+        "block"
+      ],
+      "description": "Concrete event type."
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "inbound",
+        "outbound"
+      ],
+      "description": "Event flow direction relative to specflow."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of event creation."
+    },
+    "correlation": {
+      "$ref": "correlation.schema.json"
+    },
+    "actor": {
+      "$ref": "actor-identity.schema.json"
+    },
+    "surface": {
+      "$ref": "surface-identity.schema.json"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-type-specific payload. See individual event type schemas for structure."
+    }
+  },
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_kind",
+    "event_type",
+    "direction",
+    "timestamp",
+    "correlation",
+    "actor",
+    "surface",
+    "payload"
+  ],
+  "additionalProperties": false
+}

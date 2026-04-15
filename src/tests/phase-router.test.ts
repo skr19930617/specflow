@@ -22,6 +22,7 @@ import {
 	type SurfaceEvent,
 	type SurfaceEventSink,
 } from "../lib/phase-router/index.js";
+import type { SurfaceEventContext } from "../lib/phase-router/types.js";
 import { workflowStates } from "../lib/workflow-machine.js";
 import type { RunHistoryEntry, RunState } from "../types/contracts.js";
 
@@ -212,6 +213,8 @@ const FIXTURE_CONTRACTS: Record<string, PhaseContract> = {
 		gated: true,
 		terminal: false,
 		gated_event_kind: "approval_requested",
+		gated_event_type: "accept_spec",
+		next_phase: "design_draft",
 	},
 	terminal_phase: {
 		phase: "terminal_phase",
@@ -341,14 +344,67 @@ test("PhaseRouter.nextAction emits the gated event before returning await_user",
 	sink.markReturn("await_user");
 
 	assert.equal(action.kind, "await_user");
-	assert.deepEqual(sink.callOrder, [
-		"emit:approval_requested",
-		"return:await_user",
-	]);
+	assert.deepEqual(sink.callOrder, ["emit:approval", "return:await_user"]);
 	assert.equal(sink.events.length, 1);
-	assert.equal(sink.events[0]?.run_id, "r-gated");
-	assert.equal(sink.events[0]?.phase, "gated_phase");
-	assert.equal(sink.events[0]?.event_kind, "approval_requested");
+
+	const evt = sink.events[0]!;
+	assert.equal(evt.correlation.run_id, "r-gated");
+	assert.equal(evt.schema_version, "1.0");
+	assert.equal(evt.direction, "outbound");
+	assert.equal(evt.event_kind, "approval");
+	assert.equal(evt.event_type, "accept_spec");
+	assert.deepEqual(evt.payload, {
+		phase_from: "gated_phase",
+		phase_to: "design_draft",
+	});
+});
+
+// --- 6.4b Different gated phases produce different event_type values ------
+
+test("PhaseRouter.nextAction derives event_kind and event_type from the contract", () => {
+	const { store, setRun } = createInMemoryStore();
+	setRun(
+		"r-design-gated",
+		makeRun({
+			runId: "r-design-gated",
+			currentPhase: "design_review_gate",
+			history: [
+				{
+					from: "start",
+					to: "design_review_gate",
+					event: "enter",
+					timestamp: "2026-04-13T00:00:00Z",
+				},
+			],
+		}),
+	);
+	const sink = createRecordingSink();
+	const router = new PhaseRouter({
+		store,
+		eventSink: sink,
+		contracts: createRegistry({
+			design_review_gate: {
+				phase: "design_review_gate",
+				next_action: "await_user",
+				gated: true,
+				terminal: false,
+				gated_event_kind: "design_approval",
+				gated_event_type: "accept_design",
+				next_phase: "apply_draft",
+			},
+		}),
+	});
+
+	router.nextAction("r-design-gated");
+	assert.equal(sink.events.length, 1);
+
+	const evt = sink.events[0]!;
+	assert.equal(evt.event_kind, "approval");
+	assert.equal(evt.event_type, "accept_design");
+	assert.deepEqual(evt.payload, {
+		phase_from: "design_review_gate",
+		phase_to: "apply_draft",
+	});
 });
 
 // --- 6.5 Dedup within same entry -----------------------------------------
@@ -442,9 +498,9 @@ test("PhaseRouter.nextAction re-emits when the run re-enters the same gated phas
 		2,
 		"expected a second emission after re-entry",
 	);
-	// Both emissions carry the run's current gated phase.
-	assert.equal(sink.events[0]?.phase, "gated_phase");
-	assert.equal(sink.events[1]?.phase, "gated_phase");
+	// Both emissions carry the run's correlation.
+	assert.equal(sink.events[0]?.correlation.run_id, "r-reenter");
+	assert.equal(sink.events[1]?.correlation.run_id, "r-reenter");
 });
 
 // --- 6.7 Caller does not need to emit ------------------------------------
@@ -683,6 +739,43 @@ test("PhaseRouter.nextAction does not emit when the contract is malformed", () =
 	});
 
 	assert.throws(() => router.nextAction("r-bad"), MalformedContractError);
+	assert.equal(sink.events.length, 0);
+});
+
+test("PhaseRouter.nextAction throws MalformedContractError when gated_event_type is missing", () => {
+	const { store, setRun } = createInMemoryStore();
+	setRun(
+		"r-bad2",
+		makeRun({
+			runId: "r-bad2",
+			currentPhase: "bad_phase2",
+			history: [
+				{
+					from: "start",
+					to: "bad_phase2",
+					event: "enter",
+					timestamp: "2026-04-13T00:00:00Z",
+				},
+			],
+		}),
+	);
+	const sink = createRecordingSink();
+	const router = new PhaseRouter({
+		store,
+		eventSink: sink,
+		contracts: createRegistry({
+			bad_phase2: {
+				phase: "bad_phase2",
+				next_action: "await_user",
+				gated: true,
+				terminal: false,
+				gated_event_kind: "approval_requested",
+				// gated_event_type missing
+			},
+		}),
+	});
+
+	assert.throws(() => router.nextAction("r-bad2"), MalformedContractError);
 	assert.equal(sink.events.length, 0);
 });
 

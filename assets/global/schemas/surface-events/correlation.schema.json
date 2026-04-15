@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "correlation.schema.json",
+  "title": "CorrelationContext",
+  "description": "Traceability context linking the event to a workflow run.",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Run identifier in <change_id>-<N> format."
+    },
+    "change_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Change identifier."
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonically increasing within a run — optional, caller-assigned."
+    },
+    "caused_by": {
+      "type": "string",
+      "description": "event_id of the event that triggered this one (request-response)."
+    }
+  },
+  "required": [
+    "run_id",
+    "change_id"
+  ],
+  "additionalProperties": false
+}

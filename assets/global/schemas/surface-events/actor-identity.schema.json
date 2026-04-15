@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "actor-identity.schema.json",
+  "title": "ActorIdentity",
+  "description": "Identity of the actor that initiated or received the event, per actor-surface-model taxonomy.",
+  "type": "object",
+  "properties": {
+    "actor": {
+      "type": "string",
+      "enum": [
+        "human",
+        "ai-agent",
+        "automation"
+      ],
+      "description": "Actor kind from the capability matrix."
+    },
+    "actor_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier for the specific actor instance."
+    },
+    "delegated_by": {
+      "type": "string",
+      "const": "human",
+      "description": "Present only on delegated approval events."
+    },
+    "delegated_by_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable id of the delegating human — present iff delegated_by is set."
+    }
+  },
+  "required": [
+    "actor",
+    "actor_id"
+  ],
+  "additionalProperties": false
+}

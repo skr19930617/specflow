@@ -1,0 +1,251 @@
+{
+  "version": "1.0",
+  "change_id": "define-surface-event-contract-for-external-runtimes",
+  "bundles": [
+    {
+      "id": "canonical-event-types",
+      "title": "Define canonical surface event TypeScript types",
+      "goal": "Create src/contracts/surface-events.ts with actor/surface identity types and the full SurfaceEventEnvelope discriminated union.",
+      "depends_on": [],
+      "inputs": [
+        "src/contracts/workflow.ts",
+        "src/core/types.ts",
+        "src/lib/phase-router/types.ts"
+      ],
+      "outputs": [
+        "src/contracts/surface-events.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define ActorKind string literal union and ActorIdentity interface (D2)",
+          "status": "pending"
+        },
+        {
+          "id": "2",
+          "title": "Define SurfaceKind string literal union and SurfaceIdentity interface (D2)",
+          "status": "pending"
+        },
+        {
+          "id": "3",
+          "title": "Define EventDirection ('inbound' | 'outbound') string literal union (D4)",
+          "status": "pending"
+        },
+        {
+          "id": "4",
+          "title": "Define EventKind and EventType string literal unions for the discriminant fields (D4)",
+          "status": "pending"
+        },
+        {
+          "id": "5",
+          "title": "Define CorrelationContext interface with optional sequence field (D7)",
+          "status": "pending"
+        },
+        {
+          "id": "6",
+          "title": "Define SurfaceEventEnvelope interface with schema_version '1.0', all required fields, and readonly modifiers (D1, D6)",
+          "status": "pending"
+        },
+        {
+          "id": "7",
+          "title": "Define concrete event type interfaces as discriminated union members of SurfaceEventEnvelope",
+          "status": "pending"
+        },
+        {
+          "id": "8",
+          "title": "Export all public types from the module",
+          "status": "pending"
+        },
+        {
+          "id": "9",
+          "title": "Verify the module compiles with tsc and passes lint",
+          "status": "pending"
+        }
+      ],
+      "owner_capabilities": [
+        "actor-surface-model",
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "json-schema-definitions",
+      "title": "Create JSON Schema files for surface events",
+      "goal": "Author JSON Schema files under assets/global/schemas/surface-events/ that mirror each concrete event type for language-agnostic consumers.",
+      "depends_on": [
+        "canonical-event-types"
+      ],
+      "inputs": [
+        "src/contracts/surface-events.ts"
+      ],
+      "outputs": [
+        "assets/global/schemas/surface-events/"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create assets/global/schemas/surface-events/ directory",
+          "status": "pending"
+        },
+        {
+          "id": "2",
+          "title": "Author envelope.schema.json defining the base SurfaceEventEnvelope with schema_version, discriminant fields, and correlation",
+          "status": "pending"
+        },
+        {
+          "id": "3",
+          "title": "Author individual .schema.json files for each concrete event type (one per event_type discriminant)",
+          "status": "pending"
+        },
+        {
+          "id": "4",
+          "title": "Author actor-identity.schema.json and surface-identity.schema.json for the identity sub-objects",
+          "status": "pending"
+        },
+        {
+          "id": "5",
+          "title": "Validate all schema files parse as valid JSON Schema draft-2020-12",
+          "status": "pending"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution",
+        "actor-surface-model"
+      ]
+    },
+    {
+      "id": "distribution-wiring",
+      "title": "Wire schema distribution via install contract",
+      "goal": "Add an InstallCopyContract entry in src/contracts/install.ts so the distribution bundle copies global/schemas/ to the user config directory.",
+      "depends_on": [
+        "json-schema-definitions"
+      ],
+      "inputs": [
+        "src/contracts/install.ts",
+        "assets/global/schemas/surface-events/"
+      ],
+      "outputs": [
+        "src/contracts/install.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add InstallCopyContract entry for global/schemas → $HOME/.config/specflow/global/schemas in installCopies array",
+          "status": "pending"
+        },
+        {
+          "id": "2",
+          "title": "Verify the contracts bundle exports the updated installCopies and compiles cleanly",
+          "status": "pending"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "phase-router-migration",
+      "title": "Replace phase-router placeholder SurfaceEvent with canonical import",
+      "goal": "Remove the placeholder SurfaceEvent and SurfaceEventSink from phase-router/types.ts and replace with imports from the canonical contract module.",
+      "depends_on": [
+        "canonical-event-types"
+      ],
+      "inputs": [
+        "src/lib/phase-router/types.ts",
+        "src/lib/phase-router/",
+        "src/contracts/surface-events.ts"
+      ],
+      "outputs": [
+        "src/lib/phase-router/types.ts",
+        "src/lib/phase-router/"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Import SurfaceEventEnvelope from src/contracts/surface-events.ts into phase-router/types.ts",
+          "status": "pending"
+        },
+        {
+          "id": "2",
+          "title": "Remove the placeholder SurfaceEvent interface and replace the type alias with re-export from canonical module",
+          "status": "pending"
+        },
+        {
+          "id": "3",
+          "title": "Update SurfaceEventSink to accept SurfaceEventEnvelope (or re-export canonical SurfaceEventSink if defined)",
+          "status": "pending"
+        },
+        {
+          "id": "4",
+          "title": "Update phase-router emit call sites to construct full SurfaceEventEnvelope with actor, surface, and correlation fields from orchestrator context (D5)",
+          "status": "pending"
+        },
+        {
+          "id": "5",
+          "title": "Update existing phase-router test fixtures to use the expanded envelope shape",
+          "status": "pending"
+        },
+        {
+          "id": "6",
+          "title": "Run phase-router unit tests and verify all pass",
+          "status": "pending"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-router"
+      ]
+    },
+    {
+      "id": "schema-drift-test",
+      "title": "Add build-time test for TypeScript/JSON Schema consistency",
+      "goal": "Create a test that parses JSON Schema files and validates them against sample TypeScript objects to detect drift between the two representations.",
+      "depends_on": [
+        "canonical-event-types",
+        "json-schema-definitions"
+      ],
+      "inputs": [
+        "src/contracts/surface-events.ts",
+        "assets/global/schemas/surface-events/"
+      ],
+      "outputs": [
+        "src/__tests__/surface-event-schema-drift.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create test file that loads each JSON Schema from assets/global/schemas/surface-events/",
+          "status": "pending"
+        },
+        {
+          "id": "2",
+          "title": "Construct sample SurfaceEventEnvelope objects (one per concrete event type) using the TypeScript types",
+          "status": "pending"
+        },
+        {
+          "id": "3",
+          "title": "Validate each sample object against its corresponding JSON Schema using a schema validator (e.g., ajv)",
+          "status": "pending"
+        },
+        {
+          "id": "4",
+          "title": "Add negative test cases: objects with missing required fields must fail validation",
+          "status": "pending"
+        },
+        {
+          "id": "5",
+          "title": "Verify test passes in CI (build + test)",
+          "status": "pending"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-15T01:48:51.061Z",
+  "generated_from": "design.md"
+}
