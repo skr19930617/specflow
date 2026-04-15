@@ -4,6 +4,7 @@
 	"private": true,
 	"type": "module",
 	"bin": {
+		"specflow-advance-bundle": "bin/specflow-advance-bundle",
 		"specflow-analyze": "bin/specflow-analyze",
 		"specflow-create-sub-issues": "bin/specflow-create-sub-issues",
 		"specflow-design-artifacts": "bin/specflow-design-artifacts",

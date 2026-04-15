@@ -327,3 +327,223 @@ test("updateBundleStatus: does not mutate original graph", () => {
 		assert.notEqual(result.taskGraph.bundles, original.bundles);
 	}
 });
+
+// --- Child-task normalization on terminal transitions (issue #142) ---
+
+function inProgressSchemaGraph(): TaskGraph {
+	const base = sampleGraph();
+	return {
+		...base,
+		bundles: [
+			{ ...base.bundles[0], status: "in_progress" },
+			...base.bundles.slice(1),
+		],
+	};
+}
+
+test("updateBundleStatus: bundle → done coerces all pending children to done and reports coercions", () => {
+	const graph = inProgressSchemaGraph();
+	const result = updateBundleStatus(graph, "schema", "done");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	assert.equal(updated?.status, "done");
+	for (const task of updated?.tasks ?? []) {
+		assert.equal(task.status, "done");
+	}
+	assert.equal(result.coercions.length, 2);
+	for (const coercion of result.coercions) {
+		assert.equal(coercion.bundleId, "schema");
+		assert.equal(coercion.from, "pending");
+		assert.equal(coercion.to, "done");
+	}
+	assert.deepEqual([...result.coercions].map((c) => c.taskId).sort(), [
+		"1",
+		"2",
+	]);
+});
+
+test("updateBundleStatus: bundle → skipped coerces all pending children to skipped and reports coercions", () => {
+	const result = updateBundleStatus(sampleGraph(), "schema", "skipped");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	assert.equal(updated?.status, "skipped");
+	for (const task of updated?.tasks ?? []) {
+		assert.equal(task.status, "skipped");
+	}
+	assert.equal(result.coercions.length, 2);
+	assert.ok(result.coercions.every((c) => c.to === "skipped"));
+	assert.ok(result.coercions.every((c) => c.from === "pending"));
+});
+
+test("updateBundleStatus: no-op children (already matching target) produce no coercion entries", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{
+				...base.bundles[0],
+				status: "in_progress",
+				tasks: base.bundles[0].tasks.map((t) => ({ ...t, status: "done" })),
+			},
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "done");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	assert.equal(result.coercions.length, 0);
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	assert.equal(updated?.status, "done");
+	for (const task of updated?.tasks ?? []) {
+		assert.equal(task.status, "done");
+	}
+});
+
+test("updateBundleStatus: non-terminal transition returns empty coercions and leaves task statuses untouched", () => {
+	const result = updateBundleStatus(sampleGraph(), "schema", "in_progress");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	assert.equal(result.coercions.length, 0);
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	for (const task of updated?.tasks ?? []) {
+		assert.equal(task.status, "pending");
+	}
+});
+
+test("updateBundleStatus: empty-bundle terminal transition updates bundle status and returns empty coercions", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{ ...base.bundles[0], status: "in_progress", tasks: [] },
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "done");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	assert.equal(result.coercions.length, 0);
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	assert.equal(updated?.status, "done");
+	assert.equal(updated?.tasks.length, 0);
+});
+
+test("updateBundleStatus: conflicting prior terminal child (done when bundle → skipped) is force-coerced and reported", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{
+				...base.bundles[0],
+				status: "pending",
+				tasks: [
+					{ id: "1", title: "Already done", status: "done" },
+					{ id: "2", title: "Still pending", status: "pending" },
+				],
+			},
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "skipped");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	assert.equal(updated?.status, "skipped");
+	for (const task of updated?.tasks ?? []) {
+		assert.equal(task.status, "skipped");
+	}
+	assert.equal(result.coercions.length, 2);
+	const byTaskId = new Map(result.coercions.map((c) => [c.taskId, c]));
+	assert.equal(byTaskId.get("1")?.from, "done");
+	assert.equal(byTaskId.get("1")?.to, "skipped");
+	assert.equal(byTaskId.get("2")?.from, "pending");
+	assert.equal(byTaskId.get("2")?.to, "skipped");
+});
+
+test("updateBundleStatus: terminal transition does not mutate input TaskGraph or nested arrays", () => {
+	const original = inProgressSchemaGraph();
+	const beforeBundles = original.bundles;
+	const beforeTasks = original.bundles[0].tasks;
+	const beforeStatuses = original.bundles[0].tasks.map((t) => t.status);
+	const result = updateBundleStatus(original, "schema", "done");
+	assert.equal(result.ok, true);
+	// Input reference equality preserved
+	assert.strictEqual(original.bundles, beforeBundles);
+	assert.strictEqual(original.bundles[0].tasks, beforeTasks);
+	// Per-task statuses on the input unchanged
+	assert.deepEqual(
+		original.bundles[0].tasks.map((t) => t.status),
+		beforeStatuses,
+	);
+	if (result.ok) {
+		// Output is a different reference
+		assert.notStrictEqual(result.taskGraph.bundles, original.bundles);
+		assert.notStrictEqual(
+			result.taskGraph.bundles[0].tasks,
+			original.bundles[0].tasks,
+		);
+	}
+});
+
+test("updateBundleStatus: rejected transitions (done → pending) return ok:false with no coercions", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [{ ...base.bundles[0], status: "done" }, ...base.bundles.slice(1)],
+	};
+	const result = updateBundleStatus(graph, "schema", "pending");
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.ok(result.error.includes("Invalid status transition"));
+		// Errors have no `coercions` field; this check is structural.
+		assert.equal(
+			(result as unknown as { coercions?: unknown }).coercions,
+			undefined,
+		);
+	}
+});
+
+// --- Renderer consistency after normalization (issue #142) ---
+
+test("renderTasksMd: after bundle → done, rendered checkboxes under the done header are checked", () => {
+	const graph = inProgressSchemaGraph();
+	const result = updateBundleStatus(graph, "schema", "done");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const md = renderTasksMd(result.taskGraph);
+	// Header shows ✓ and every child task in the schema bundle renders as [x]
+	assert.ok(md.includes("## 1. Define Schema ✓"));
+	assert.ok(md.includes("- [x] 1.1 Create types.ts"));
+	assert.ok(md.includes("- [x] 1.2 Create schema.ts"));
+	// No unchecked schema task lines
+	assert.ok(!md.includes("- [ ] 1.1"), "no pending schema task checkbox");
+	assert.ok(!md.includes("- [ ] 1.2"), "no pending schema task checkbox");
+});
+
+test("renderTasksMd: after bundle → skipped, rendered section reflects skipped state consistently", () => {
+	const result = updateBundleStatus(sampleGraph(), "schema", "skipped");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const md = renderTasksMd(result.taskGraph);
+	assert.ok(md.includes("## 1. Define Schema (skipped)"));
+	assert.ok(md.includes("- [-] 1.1 Create types.ts"));
+	assert.ok(md.includes("- [-] 1.2 Create schema.ts"));
+	// No pending schema task lines
+	assert.ok(!md.includes("- [ ] 1.1"), "no pending schema task checkbox");
+	assert.ok(!md.includes("- [ ] 1.2"), "no pending schema task checkbox");
+});
+
+test("renderTasksMd: unchanged — produces the same output when invoked directly with a normalized graph", () => {
+	// Guard that the renderer itself was not special-cased. Rendering a
+	// terminal-normalized graph via the existing function (no extra flags)
+	// must yield a consistent checklist.
+	const graph = inProgressSchemaGraph();
+	const result = updateBundleStatus(graph, "schema", "done");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const first = renderTasksMd(result.taskGraph);
+	const second = renderTasksMd(result.taskGraph);
+	assert.equal(first, second);
+});

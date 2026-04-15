@@ -1,0 +1,64 @@
+{
+  "feature_id": "normalize-task-statuses-and-re-render-tasks-md-when-bundles-complete",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "testing",
+      "file": "src/tests/advance-bundle.test.ts",
+      "title": "Atomicity test exercises atomicWriteText directly, not the CLI wiring",
+      "detail": "The 'atomic write pattern' test calls atomicWriteText() directly rather than asserting that the production CLI (specflow-advance-bundle.ts) invokes the atomic primitive through createLocalFsChangeArtifactStore.write. The production chain is sound (store.write → atomicWriteText, verified manually), but this seam is not directly covered by an integration test. Optional: add an end-to-end test that runs specflow-advance-bundle against a tmpdir and asserts no .tmp sidecars remain.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "error_handling",
+      "file": "src/bin/specflow-advance-bundle.ts",
+      "title": "CLI usage/parse errors do not emit advance-bundle-result JSON",
+      "detail": "Errors before reaching advanceBundleStatus (missing args, bad NEW_STATUS, missing/invalid task-graph.json) call die() which writes a plain string to stderr and exits 1. Apply-phase errors emit a schema-compliant 'status: \"error\"' JSON to stdout. Programmatic callers parsing stdout get inconsistent shapes between pre-call and post-call failures. Consider unifying CLI errors under the same JSON envelope so consumers can always JSON.parse stdout. Not a spec violation — the schema only constrains success/error from the orchestration call itself.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/tests/advance-bundle.test.ts",
+      "title": "Defensive renameSync type check is dead weight",
+      "detail": "Line 222 `assert.equal(typeof renameSync, \"function\")` defensively checks that node:fs still exports renameSync. This adds noise without value (Node would fail to load the module if it weren't there). Optional cleanup; harmless if kept.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 3
+      }
+    }
+  ]
+}
