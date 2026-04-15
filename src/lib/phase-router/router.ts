@@ -117,8 +117,10 @@ export class PhaseRouter {
 							typeof run.change_name === "string" ? run.change_name : "",
 					},
 				};
-				// gated_event_type is validated by deriveAction; safe to assert here.
-				const eventType = contract.gated_event_type!;
+				// gated_event_type is validated by deriveAction before we reach here.
+				const eventType = contract.gated_event_type as NonNullable<
+					typeof contract.gated_event_type
+				>;
 				const eventKind = EVENT_TYPE_TO_KIND[eventType];
 				const event: SurfaceEventEnvelope = {
 					schema_version: "1.0",

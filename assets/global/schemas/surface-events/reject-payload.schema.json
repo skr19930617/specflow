@@ -1,22 +1,20 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "reject-payload.schema.json",
-  "title": "RejectPayload",
-  "description": "Payload for the reject event.",
-  "type": "object",
-  "properties": {
-    "phase_from": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Workflow phase where rejection occurred."
-    },
-    "reason": {
-      "type": "string",
-      "description": "Human-readable rejection reason."
-    }
-  },
-  "required": [
-    "phase_from"
-  ],
-  "additionalProperties": false
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "reject-payload.schema.json",
+	"title": "RejectPayload",
+	"description": "Payload for the reject event.",
+	"type": "object",
+	"properties": {
+		"phase_from": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Workflow phase where rejection occurred."
+		},
+		"reason": {
+			"type": "string",
+			"description": "Human-readable rejection reason."
+		}
+	},
+	"required": ["phase_from"],
+	"additionalProperties": false
 }

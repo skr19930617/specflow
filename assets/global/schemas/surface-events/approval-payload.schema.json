@@ -1,24 +1,21 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "approval-payload.schema.json",
-  "title": "ApprovalPayload",
-  "description": "Payload for approval events: accept_spec, accept_design, accept_apply.",
-  "type": "object",
-  "properties": {
-    "phase_from": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Workflow phase the approval transitions from."
-    },
-    "phase_to": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Workflow phase the approval transitions to."
-    }
-  },
-  "required": [
-    "phase_from",
-    "phase_to"
-  ],
-  "additionalProperties": false
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "approval-payload.schema.json",
+	"title": "ApprovalPayload",
+	"description": "Payload for approval events: accept_spec, accept_design, accept_apply.",
+	"type": "object",
+	"properties": {
+		"phase_from": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Workflow phase the approval transitions from."
+		},
+		"phase_to": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Workflow phase the approval transitions to."
+		}
+	},
+	"required": ["phase_from", "phase_to"],
+	"additionalProperties": false
 }

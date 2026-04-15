@@ -1,18 +1,16 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "resume-payload.schema.json",
-  "title": "ResumePayload",
-  "description": "Payload for the resume event.",
-  "type": "object",
-  "properties": {
-    "phase_from": {
-      "type": "string",
-      "minLength": 1,
-      "description": "The phase the run was suspended in."
-    }
-  },
-  "required": [
-    "phase_from"
-  ],
-  "additionalProperties": false
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "resume-payload.schema.json",
+	"title": "ResumePayload",
+	"description": "Payload for the resume event.",
+	"type": "object",
+	"properties": {
+		"phase_from": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The phase the run was suspended in."
+		}
+	},
+	"required": ["phase_from"],
+	"additionalProperties": false
 }

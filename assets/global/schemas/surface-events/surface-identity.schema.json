@@ -1,27 +1,20 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "surface-identity.schema.json",
-  "title": "SurfaceIdentity",
-  "description": "Identity of the surface through which the event flows, per actor-surface-model taxonomy.",
-  "type": "object",
-  "properties": {
-    "surface": {
-      "type": "string",
-      "enum": [
-        "local-cli",
-        "remote-api",
-        "agent-native",
-        "batch"
-      ],
-      "description": "Surface type from the surface taxonomy."
-    },
-    "surface_id": {
-      "type": "string",
-      "description": "Optional instance identifier (e.g., session id)."
-    }
-  },
-  "required": [
-    "surface"
-  ],
-  "additionalProperties": false
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "surface-identity.schema.json",
+	"title": "SurfaceIdentity",
+	"description": "Identity of the surface through which the event flows, per actor-surface-model taxonomy.",
+	"type": "object",
+	"properties": {
+		"surface": {
+			"type": "string",
+			"enum": ["local-cli", "remote-api", "agent-native", "batch"],
+			"description": "Surface type from the surface taxonomy."
+		},
+		"surface_id": {
+			"type": "string",
+			"description": "Optional instance identifier (e.g., session id)."
+		}
+	},
+	"required": ["surface"],
+	"additionalProperties": false
 }
