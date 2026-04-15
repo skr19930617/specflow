@@ -1,0 +1,120 @@
+{
+  "feature_id": "define-surface-event-contract-for-external-runtimes",
+  "phase": "design",
+  "current_round": 2,
+  "status": "has_open_high",
+  "max_finding_id": 6,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "feasibility",
+      "title": "ajv dependency missing for Task 5",
+      "detail": "Task 5 requires validating TypeScript objects against JSON Schema using a schema validator (e.g., ajv), but the project has no JSON Schema validator dependency. package.json only has xstate as a runtime dependency and biome/c8/prettier/typescript as devDependencies. Task 5 needs a subtask to add ajv (or alternative) as a devDependency before the validation tests can be written. Without this, the drift-detection test cannot be implemented as designed.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Task 4.4 underspecifies orchestrator context threading",
+      "detail": "Task 4.4 says 'construct full SurfaceEventEnvelope with actor, surface, and correlation fields from orchestrator context (D5)' but the phase-router currently receives no orchestrator context carrying actor/surface identity. The router's emit call sites construct a minimal 4-field object. This task needs to specify: (a) what interface change is needed to thread context into the router (function signature change or store augmentation), and (b) where event_id generation happens (uuid? nanoid? already a dependency?). Without this, the implementer will have to make design decisions that should be captured here.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Spec requires 'block' event but slash-command mapping table has no explicit block trigger",
+      "detail": "The spec defines a 'block' event type under review outcomes, and the slash-command mapping table maps /specflow.review_design and /specflow.review_apply to 'design_review_approved or request_changes'. The 'block' event type is missing from the mapping table rows. This is a spec-level gap, but the design and tasks should note it — the TypeScript types and JSON Schema must still include 'block' as a concrete event type. Task 1.7 should explicitly list all 11 concrete event types to avoid the implementer missing 'block'.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "low",
+      "category": "granularity",
+      "title": "Task 1.7 is too coarse for 11 concrete payload interfaces",
+      "detail": "Task 1.7 ('Define concrete event type interfaces as discriminated union members') covers all 11 concrete event types and their payload schemas in a single subtask. Consider splitting into approval payloads, reject payload, clarify payloads, resume payload, and review outcome payloads — matching the spec's grouping — to reduce implementation ambiguity and make progress trackable.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F05",
+      "severity": "high",
+      "category": "consistency",
+      "file": "openspec/changes/define-surface-event-contract-for-external-runtimes/tasks.md",
+      "title": "Task 1.7c uses wrong event type names",
+      "detail": "Task 1.7c defines clarify payload interfaces as 'request_clarification' and 'provide_clarification', but the spec defines these concrete event types as 'clarify_request' and 'clarify_response'. This naming mismatch will cause the TypeScript types to diverge from the spec, breaking the JSON Schema alignment and the slash-command mapping table. Fix: rename to 'clarify_request' and 'clarify_response' in task 1.7c.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F06",
+      "severity": "low",
+      "category": "completeness",
+      "file": "openspec/changes/define-surface-event-contract-for-external-runtimes/tasks.md",
+      "title": "Task 4.4a places SurfaceEventContext in the wrong module",
+      "detail": "Task 4.4a says 'Define a SurfaceEventContext interface ... in the canonical contract module'. SurfaceEventContext is a runtime concern (threading orchestrator state into the router) rather than a contract surface consumed by external runtimes. Placing it in src/contracts/surface-events.ts conflates contract types with internal runtime plumbing. Consider defining it in src/lib/phase-router/types.ts alongside the router's own types, or in a separate internal types file. This is low severity because the implementation works either way, but it deviates from the project's convention of keeping src/contracts/ for distributable declarations only.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2,
+        "low": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 6,
+      "open": 3,
+      "new": 2,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "high": 1,
+        "low": 1
+      }
+    }
+  ]
+}

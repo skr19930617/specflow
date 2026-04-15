@@ -3,6 +3,11 @@
 // RunArtifactStore — the only side effect across the entire PhaseRouter
 // surface is gated surface event emission (synchronous, deduped).
 
+import { randomUUID } from "node:crypto";
+import {
+	EVENT_TYPE_TO_KIND,
+	type SurfaceEventEnvelope,
+} from "../../contracts/surface-events.js";
 import type { RunHistoryEntry, RunState } from "../../types/contracts.js";
 import type { RunArtifactStore } from "../artifact-store.js";
 import { runRef } from "../artifact-types.js";
@@ -16,9 +21,16 @@ import type {
 	PhaseAction,
 	PhaseContract,
 	PhaseContractRegistry,
-	SurfaceEvent,
+	SurfaceEventContext,
 	SurfaceEventSink,
 } from "./types.js";
+
+/** Default context used when no orchestrator context is provided (tests). */
+const DEFAULT_CONTEXT: SurfaceEventContext = {
+	actor: { actor: "automation", actor_id: "system:phase-router" },
+	surface: { surface: "local-cli" },
+	correlation: { run_id: "", change_id: "" },
+};
 
 export interface PhaseRouterDeps {
 	readonly store: RunArtifactStore;
@@ -26,6 +38,8 @@ export interface PhaseRouterDeps {
 	readonly contracts: PhaseContractRegistry;
 	/** Injectable clock for deterministic emitted_at in tests. */
 	readonly now?: () => Date;
+	/** Injectable UUID generator for deterministic event_id in tests. */
+	readonly uuid?: () => string;
 }
 
 /**
@@ -47,6 +61,7 @@ export class PhaseRouter {
 	private readonly eventSink: SurfaceEventSink;
 	private readonly contracts: PhaseContractRegistry;
 	private readonly now: () => Date;
+	private readonly uuid: () => string;
 	private readonly dedup: Map<string, DedupEntry> = new Map();
 
 	constructor(deps: PhaseRouterDeps) {
@@ -54,6 +69,7 @@ export class PhaseRouter {
 		this.eventSink = deps.eventSink;
 		this.contracts = deps.contracts;
 		this.now = deps.now ?? (() => new Date());
+		this.uuid = deps.uuid ?? randomUUID;
 	}
 
 	/**
@@ -76,8 +92,11 @@ export class PhaseRouter {
 	 * Read-only with respect to RunArtifactStore: advance actions do NOT
 	 * cause the router to write to the store — the orchestrator is
 	 * responsible for store.advance.
+	 *
+	 * @param context - Orchestrator-provided actor/surface/correlation context.
+	 *   Falls back to a minimal default for backward-compatible test usage.
 	 */
-	nextAction(runId: string): PhaseAction {
+	nextAction(runId: string, context?: SurfaceEventContext): PhaseAction {
 		const run = this.readRun(runId);
 		const contract = this.resolveContract(run);
 		this.assertConsistent(runId, run, contract);
@@ -86,11 +105,40 @@ export class PhaseRouter {
 		if (action.kind === "await_user") {
 			const entryAt = this.currentEntryAt(run);
 			if (!this.hasEmitted(runId, entryAt, action.event_kind)) {
-				const event: SurfaceEvent = {
-					run_id: runId,
-					phase: contract.phase,
-					event_kind: action.event_kind,
-					emitted_at: this.now().toISOString(),
+				const ctx = context ?? {
+					...DEFAULT_CONTEXT,
+					correlation: {
+						...DEFAULT_CONTEXT.correlation,
+						run_id: runId,
+						// change_name is string | null on RunState but may be absent on
+						// legacy run.json files that predate the field — nullish coalesce
+						// safely handles both null and runtime-undefined.
+						change_id:
+							typeof run.change_name === "string" ? run.change_name : "",
+					},
+				};
+				// gated_event_type is validated by deriveAction before we reach here.
+				const eventType = contract.gated_event_type as NonNullable<
+					typeof contract.gated_event_type
+				>;
+				const eventKind = EVENT_TYPE_TO_KIND[eventType];
+				const event: SurfaceEventEnvelope = {
+					schema_version: "1.0",
+					event_id: this.uuid(),
+					event_kind: eventKind,
+					event_type: eventType,
+					direction: "outbound",
+					timestamp: this.now().toISOString(),
+					correlation: {
+						...ctx.correlation,
+						run_id: runId,
+					},
+					actor: ctx.actor,
+					surface: ctx.surface,
+					payload: {
+						phase_from: contract.phase,
+						phase_to: contract.next_phase ?? "",
+					},
 				};
 				this.eventSink.emit(event);
 				this.recordEmitted(runId, entryAt, action.event_kind);

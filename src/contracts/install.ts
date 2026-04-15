@@ -47,6 +47,13 @@ const installCopies: readonly InstallCopyContract[] = [
 		targetPath: "$HOME/.config/specflow/global/commands",
 		sourceKind: "directory",
 	},
+	{
+		id: "copy-global-schemas",
+		type: AssetType.InstallerAsset,
+		sourcePath: "global/schemas",
+		targetPath: "$HOME/.config/specflow/global/schemas",
+		sourceKind: "directory",
+	},
 ];
 
 const installLinks: readonly InstallLinkContract[] = orchestratorContracts.map(

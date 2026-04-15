@@ -1,0 +1,47 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "review-outcome-payload.schema.json",
+	"title": "ReviewOutcomePayload",
+	"description": "Payload for review outcome events: design_review_approved, apply_review_approved, request_changes, block.",
+	"type": "object",
+	"properties": {
+		"phase_from": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The review phase."
+		},
+		"reviewer_actor": {
+			"$ref": "actor-identity.schema.json",
+			"description": "Actor identity of the reviewer."
+		},
+		"summary": {
+			"type": "string",
+			"description": "Review summary text."
+		},
+		"issues": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "string",
+						"minLength": 1
+					},
+					"severity": {
+						"type": "string",
+						"minLength": 1
+					},
+					"detail": {
+						"type": "string",
+						"minLength": 1
+					}
+				},
+				"required": ["id", "severity", "detail"],
+				"additionalProperties": false
+			},
+			"description": "Array of review issues (for request_changes and block)."
+		}
+	},
+	"required": ["phase_from", "reviewer_actor"],
+	"additionalProperties": false
+}

@@ -1,0 +1,20 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "clarify-request-payload.schema.json",
+	"title": "ClarifyRequestPayload",
+	"description": "Payload for outbound clarify_request events.",
+	"type": "object",
+	"properties": {
+		"question": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The clarification question text."
+		},
+		"context": {
+			"type": "string",
+			"description": "Additional context for the question."
+		}
+	},
+	"required": ["question"],
+	"additionalProperties": false
+}

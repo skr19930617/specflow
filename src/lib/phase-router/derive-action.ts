@@ -112,6 +112,13 @@ export function deriveAction(contract: PhaseContract): PhaseAction {
 				"required when gated=true",
 			);
 		}
+		if (typeof contract.gated_event_type !== "string") {
+			throw new MalformedContractError(
+				contract.phase,
+				"gated_event_type",
+				"required when gated=true",
+			);
+		}
 		return { kind: "await_user", event_kind: contract.gated_event_kind };
 	}
 

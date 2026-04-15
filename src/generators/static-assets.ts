@@ -6,4 +6,8 @@ export function renderStaticAssets(): void {
 		fromRepo("assets/global/claude-settings.json"),
 		fromDistribution("global/claude-settings.json"),
 	);
+	copyPath(
+		fromRepo("assets/global/schemas"),
+		fromDistribution("global/schemas"),
+	);
 }
