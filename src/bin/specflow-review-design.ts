@@ -4,6 +4,7 @@ import {
 	changeRef,
 	ReviewLedgerKind,
 } from "../lib/artifact-types.js";
+import { validatePlanningHeadings } from "../lib/design-planning-validation.js";
 import { tryGit } from "../lib/git.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
@@ -215,6 +216,49 @@ function artifactHash(
 	return contentHash(changeStore.read(ref));
 }
 
+function buildTaskPlannableFindings(
+	changeStore: ChangeArtifactStore,
+	changeId: string,
+	startId: number,
+): ReviewFinding[] {
+	const designRef = changeRef(changeId, ChangeArtifactType.Design);
+	if (!changeStore.exists(designRef)) {
+		return [];
+	}
+	const designContent = changeStore.read(designRef);
+	const result = validatePlanningHeadings(designContent);
+	if (result.valid) {
+		return [];
+	}
+	const findings: ReviewFinding[] = [];
+	let nextId = startId;
+	for (const heading of result.missing) {
+		findings.push({
+			id: `TP${nextId}`,
+			title: `Missing planning section: ${heading}`,
+			file: "design.md",
+			category: "task-plannable",
+			severity: "high",
+			status: "new",
+			detail: `The mandatory planning section "${heading}" is missing from design.md. Add it as a ## heading with non-empty content (use "N/A" with justification if not applicable).`,
+		} satisfies ReviewFinding);
+		nextId += 1;
+	}
+	for (const heading of result.empty) {
+		findings.push({
+			id: `TP${nextId}`,
+			title: `Empty planning section: ${heading}`,
+			file: "design.md",
+			category: "task-plannable",
+			severity: "high",
+			status: "new",
+			detail: `The planning section "${heading}" exists but has no content. Add meaningful content or "N/A" with justification.`,
+		} satisfies ReviewFinding);
+		nextId += 1;
+	}
+	return findings;
+}
+
 function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
@@ -352,13 +396,19 @@ function runReviewPipeline(
 					: [],
 			};
 		} else {
-			ledger = matchFindings(
-				ledger,
-				Array.isArray(reviewJson.findings)
-					? (reviewJson.findings as ReviewFinding[])
-					: [],
-				round,
+			const llmFindings = Array.isArray(reviewJson.findings)
+				? (reviewJson.findings as ReviewFinding[])
+				: [];
+			const maxLlmId = llmFindings.reduce((max, f) => {
+				const num = Number(String(f.id ?? "").replace(/\D/g, ""));
+				return Number.isNaN(num) ? max : Math.max(max, num);
+			}, 0);
+			const tpFindings = buildTaskPlannableFindings(
+				changeStore,
+				changeId,
+				maxLlmId + 1,
 			);
+			ledger = matchFindings(ledger, [...llmFindings, ...tpFindings], round);
 		}
 		ledger = computeSummary(ledger, round);
 		ledger = computeStatus(ledger);

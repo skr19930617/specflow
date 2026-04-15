@@ -29,6 +29,7 @@ function createCodexEnv(root: string, responses: unknown[]) {
 			SPECFLOW_TEST_CODEX_RESPONSES: responsesPath,
 			SPECFLOW_TEST_CODEX_STATE: statePath,
 			SPECFLOW_MAIN_AGENT: "codex",
+			SPECFLOW_REVIEW_AGENT: "codex",
 		},
 		stubDir,
 	);
@@ -571,6 +572,162 @@ test("specflow-review-design works with claude as review agent", () => {
 		};
 		assert.equal(json.status, "success");
 		assert.equal(json.review.summary, "design ok via claude");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-design injects task-plannable findings for design missing planning sections", () => {
+	const tempRoot = makeTempDir("review-design-tp-missing-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addDesignArtifacts(repoPath, changeId);
+		// Overwrite design.md with no planning sections
+		writeFileSync(
+			join(repoPath, "openspec/changes", changeId, "design.md"),
+			"# Design\n\nSome content without planning sections.\n",
+			"utf8",
+		);
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "looks fine",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-design",
+			["review", changeId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			ledger: { counts: { new: number } };
+			handoff: { actionable_count: number };
+		};
+		assert.equal(json.status, "success");
+		// 7 missing planning sections → 7 task-plannable findings
+		assert.ok(
+			json.ledger.counts.new >= 7,
+			`Expected at least 7 new findings for missing planning sections, got ${json.ledger.counts.new}`,
+		);
+		assert.ok(
+			json.handoff.actionable_count >= 7,
+			`Expected at least 7 actionable findings, got ${json.handoff.actionable_count}`,
+		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-design does not inject task-plannable findings for design with all planning sections", () => {
+	const tempRoot = makeTempDir("review-design-tp-present-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addDesignArtifacts(repoPath, changeId);
+		// Default addDesignArtifacts now includes planning sections
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [],
+					summary: "all good",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-design",
+			["review", changeId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			ledger: { counts: { new: number } };
+			handoff: { actionable_count: number; state: string };
+		};
+		assert.equal(json.status, "success");
+		assert.equal(json.ledger.counts.new, 0);
+		assert.equal(json.handoff.actionable_count, 0);
+		assert.equal(json.handoff.state, "review_no_findings");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-design does not inject task-plannable findings in rereview mode", () => {
+	const tempRoot = makeTempDir("review-design-tp-rereview-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addDesignArtifacts(repoPath, changeId);
+		// Overwrite design.md with no planning sections
+		const changeDir = join(repoPath, "openspec/changes", changeId);
+		writeFileSync(
+			join(changeDir, "design.md"),
+			"# Design\n\nNo planning sections here.\n",
+			"utf8",
+		);
+		// Create a pre-existing ledger (simulating prior review)
+		writeFileSync(
+			join(changeDir, "review-ledger-design.json"),
+			JSON.stringify(
+				{
+					feature_id: changeId,
+					phase: "design",
+					current_round: 1,
+					status: "has_open_high",
+					max_finding_id: 1,
+					findings: [
+						{
+							id: "P1",
+							title: "Some issue",
+							severity: "high",
+							category: "completeness",
+							status: "open",
+							origin_round: 1,
+						},
+					],
+					round_summaries: [],
+				},
+				null,
+				2,
+			),
+			"utf8",
+		);
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					resolved_previous_findings: [{ id: "P1" }],
+					still_open_previous_findings: [],
+					new_findings: [],
+					summary: "fixed",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-design",
+			["fix-review", changeId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			ledger: { counts: { new: number; resolved: number } };
+		};
+		assert.equal(json.status, "success");
+		// In rereview mode, no task-plannable findings are injected
+		assert.equal(json.ledger.counts.new, 0);
+		assert.equal(json.ledger.counts.resolved, 1);
 	} finally {
 		removeTempDir(tempRoot);
 	}

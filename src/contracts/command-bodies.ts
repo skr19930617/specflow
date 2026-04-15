@@ -1,5 +1,26 @@
+import {
+	PLANNING_HEADING_DESCRIPTIONS,
+	PLANNING_HEADINGS,
+} from "../lib/design-planning-headings.js";
 import type { CommandBody } from "../types/contracts.js";
 import { buildOpenspecPrereq } from "./prerequisites.js";
+
+/**
+ * Build the design artifact special-handling instruction block.
+ * Extracted from the inline string to improve diff readability.
+ */
+function buildDesignArtifactInstruction(): string {
+	const headingList = PLANNING_HEADINGS.map(
+		(heading) =>
+			`   - ${heading} — ${PLANNING_HEADING_DESCRIPTIONS[heading].toLowerCase()}`,
+	).join("\n");
+	return [
+		"**Special handling for `design` artifact:**",
+		'   When `ARTIFACT_JSON.artifactId` is `"design"`, the generated `design.md` MUST include the following 7 mandatory planning sections as `##` headings, in addition to the sections described in `ARTIFACT_JSON.instruction`:',
+		headingList,
+		'   Each section MUST have non-empty content. Use "N/A" with a brief justification for sections that do not apply.',
+	].join("\n");
+}
 
 export const commandBodies: Record<string, CommandBody> = {
 	"specflow.apply": {
@@ -206,8 +227,21 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Step 2: Generate Artifacts in Dependency Order",
-				content:
-					'\nUse the orchestrator to discover the next ready artifact, then generate its content.\n\n### Artifact Loop\n\nRepeat the following until all `applyRequires` artifacts are complete:\n\n1. Run the orchestrator:\n   ```bash\n   specflow-design-artifacts next <CHANGE_ID>\n   ```\n\n2. Capture stdout as `ARTIFACT_JSON`. Parse as JSON.\n\n3. Handle result by `ARTIFACT_JSON.status`:\n\n   **`"complete"`** — All required artifacts are done. Exit the loop and proceed to Step 3.\n\n   **`"ready"`** — An artifact is ready for generation:\n   - `ARTIFACT_JSON.artifactId`: the artifact to create\n   - `ARTIFACT_JSON.outputPath`: where to write the file\n   - `ARTIFACT_JSON.template`: structure template\n   - `ARTIFACT_JSON.instruction`: generation instructions\n   - `ARTIFACT_JSON.dependencies`: list of `{id, path, done}` dependency artifacts\n\n   **Special handling for `tasks` artifact:**\n   When `ARTIFACT_JSON.artifactId` is `"tasks"`, do NOT use the OpenSpec template/instruction.\n   Instead, generate the task graph using specflow-owned task-planner:\n   ```bash\n   specflow-generate-task-graph <CHANGE_ID>\n   ```\n   This command reads `design.md`, generates `task-graph.json` (machine-readable) and `tasks.md` (human-readable) from it.\n   If the command succeeds, report: `Created tasks (via task-planner)` and continue the loop.\n   If it fails, display the error and ask the user how to proceed.\n\n   **For all other artifacts:**\n   a. Read each dependency artifact file listed in `ARTIFACT_JSON.dependencies` for context.\n   b. Create the artifact file at `ARTIFACT_JSON.outputPath` using `template` as the structure.\n   c. Apply `instruction` as constraints when writing the artifact content. Do **NOT** copy `instruction` verbatim into the file.\n   d. Report progress: `Created <artifactId>`\n   e. Continue the loop (call `next` again to get the next artifact).\n\n   **`"blocked"`** — No artifacts are ready and none are complete:\n   - `ARTIFACT_JSON.blocked`: array of blocked artifact IDs\n   - Report which artifacts are blocked and ask the user how to proceed.\n   - If the user cannot resolve, **STOP**.\n\n   **`"error"`** — The orchestrator encountered an error:\n   - Display `ARTIFACT_JSON.error` and **STOP**.',
+				content: [
+					"\nUse the orchestrator to discover the next ready artifact, then generate its content.",
+					"\n### Artifact Loop",
+					"\nRepeat the following until all `applyRequires` artifacts are complete:",
+					"\n1. Run the orchestrator:\n   ```bash\n   specflow-design-artifacts next <CHANGE_ID>\n   ```",
+					"\n2. Capture stdout as `ARTIFACT_JSON`. Parse as JSON.",
+					"\n3. Handle result by `ARTIFACT_JSON.status`:",
+					'\n   **`"complete"`** — All required artifacts are done. Exit the loop and proceed to Step 3.',
+					'\n   **`"ready"`** — An artifact is ready for generation:\n   - `ARTIFACT_JSON.artifactId`: the artifact to create\n   - `ARTIFACT_JSON.outputPath`: where to write the file\n   - `ARTIFACT_JSON.template`: structure template\n   - `ARTIFACT_JSON.instruction`: generation instructions\n   - `ARTIFACT_JSON.dependencies`: list of `{id, path, done}` dependency artifacts',
+					`\n   ${buildDesignArtifactInstruction()}`,
+					'\n   **Special handling for `tasks` artifact:**\n   When `ARTIFACT_JSON.artifactId` is `"tasks"`, do NOT use the OpenSpec template/instruction.\n   Instead, generate the task graph using specflow-owned task-planner:\n   ```bash\n   specflow-generate-task-graph <CHANGE_ID>\n   ```\n   This command reads `design.md`, generates `task-graph.json` (machine-readable) and `tasks.md` (human-readable) from it.\n   If the command succeeds, report: `Created tasks (via task-planner)` and continue the loop.\n   If it fails, display the error and ask the user how to proceed.',
+					"\n   **For all other artifacts:**\n   a. Read each dependency artifact file listed in `ARTIFACT_JSON.dependencies` for context.\n   b. Create the artifact file at `ARTIFACT_JSON.outputPath` using `template` as the structure.\n   c. Apply `instruction` as constraints when writing the artifact content. Do **NOT** copy `instruction` verbatim into the file.\n   d. Report progress: `Created <artifactId>`\n   e. Continue the loop (call `next` again to get the next artifact).",
+					'\n   **`"blocked"`** — No artifacts are ready and none are complete:\n   - `ARTIFACT_JSON.blocked`: array of blocked artifact IDs\n   - Report which artifacts are blocked and ask the user how to proceed.\n   - If the user cannot resolve, **STOP**.',
+					'\n   **`"error"`** — The orchestrator encountered an error:\n   - Display `ARTIFACT_JSON.error` and **STOP**.',
+				].join("\n"),
 			},
 			{
 				title: "Step 3: Verify Completion",

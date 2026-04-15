@@ -287,6 +287,7 @@ export interface ReviewFinding extends JsonMap {
 	readonly category?: string;
 	readonly severity?: ReviewSeverity;
 	readonly status?: ReviewFindingStatus;
+	readonly detail?: string;
 	readonly relation?: string;
 	readonly supersedes?: string | null;
 	readonly notes?: string;

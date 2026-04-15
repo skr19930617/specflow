@@ -100,7 +100,35 @@ export function addImplementationDiff(repoPath: string): void {
 export function addDesignArtifacts(repoPath: string, changeId: string): void {
 	const changeDir = join(repoPath, "openspec/changes", changeId);
 	mkdirSync(join(changeDir, "specs", "core"), { recursive: true });
-	writeFileSync(join(changeDir, "design.md"), "# Design\n", "utf8");
+	writeFileSync(
+		join(changeDir, "design.md"),
+		[
+			"# Design",
+			"",
+			"## Concerns",
+			"Test concerns.",
+			"",
+			"## State / Lifecycle",
+			"Test state.",
+			"",
+			"## Contracts / Interfaces",
+			"Test contracts.",
+			"",
+			"## Persistence / Ownership",
+			"Test ownership.",
+			"",
+			"## Integration Points",
+			"Test integration.",
+			"",
+			"## Ordering / Dependency Notes",
+			"Test ordering.",
+			"",
+			"## Completion Conditions",
+			"Test completion.",
+			"",
+		].join("\n"),
+		"utf8",
+	);
 	writeFileSync(join(changeDir, "tasks.md"), "- [ ] Task\n", "utf8");
 	writeFileSync(join(changeDir, "specs/core/spec.md"), "# Spec\n", "utf8");
 }
