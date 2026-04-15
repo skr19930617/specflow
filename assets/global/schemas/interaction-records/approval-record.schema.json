@@ -1,0 +1,74 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "approval-record.schema.json",
+	"title": "ApprovalRecord",
+	"description": "Persistence record for a gated approval interaction lifecycle.",
+	"type": "object",
+	"properties": {
+		"record_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Unique identifier for this record."
+		},
+		"record_kind": {
+			"type": "string",
+			"const": "approval",
+			"description": "Discriminator for the record type."
+		},
+		"run_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The run this record belongs to."
+		},
+		"phase_from": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Workflow phase that triggered the approval request."
+		},
+		"phase_to": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Target workflow phase upon approval."
+		},
+		"status": {
+			"type": "string",
+			"enum": ["pending", "approved", "rejected"],
+			"description": "Current status of the approval."
+		},
+		"requested_at": {
+			"type": "string",
+			"format": "date-time",
+			"description": "ISO 8601 timestamp when approval was requested."
+		},
+		"decided_at": {
+			"type": ["string", "null"],
+			"format": "date-time",
+			"description": "ISO 8601 timestamp when the decision was made. Null when pending."
+		},
+		"decision_actor": {
+			"oneOf": [
+				{ "$ref": "../surface-events/actor-identity.schema.json" },
+				{ "type": "null" }
+			],
+			"description": "Actor identity of who made the decision. Null when pending."
+		},
+		"event_ids": {
+			"type": "array",
+			"items": { "type": "string" },
+			"description": "Event IDs of surface events associated with this record."
+		}
+	},
+	"required": [
+		"record_id",
+		"record_kind",
+		"run_id",
+		"phase_from",
+		"phase_to",
+		"status",
+		"requested_at",
+		"decided_at",
+		"decision_actor",
+		"event_ids"
+	],
+	"additionalProperties": false
+}

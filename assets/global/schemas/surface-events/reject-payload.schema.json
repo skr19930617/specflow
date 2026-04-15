@@ -13,6 +13,11 @@
 		"reason": {
 			"type": "string",
 			"description": "Human-readable rejection reason."
+		},
+		"record_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Reference to the pending ApprovalRecord, if one exists."
 		}
 	},
 	"required": ["phase_from"],

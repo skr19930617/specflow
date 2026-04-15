@@ -1,0 +1,183 @@
+{
+  "feature_id": "define-approval-and-clarify-persistence-semantics",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 10,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/core/advance.ts",
+      "title": "No ClarifyRecord handling in advance.ts",
+      "detail": "The spec requires ClarifyRecord creation when a clarify question is issued and auto-resolution when a clarify_response is received (spec: 'Clarify record is created when a clarify question is issued', 'Clarify record is auto-resolved when response is received'). The advance.ts implementation only handles ApprovalRecord creation/update — there is zero clarify record logic. Add handling for clarify_request (create pending ClarifyRecord) and clarify_response (resolve existing ClarifyRecord) events.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/core/advance.ts",
+      "title": "event_ids never populated on record update",
+      "detail": "The spec states 'the event_id of the approval event SHALL be appended to event_ids' on decision, and similarly for clarify. The implementation copies existing event_ids with `event_ids: [...pending.event_ids]` but never appends any new event_id. Since AdvanceInput does not carry an event_id, either (a) AdvanceInput needs an optional event_id field, or (b) the core runtime needs to generate one. As-is, event_ids will always remain empty, violating the N:1 event-to-record cardinality requirement.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/core/advance.ts",
+      "title": "Actor provenance missing from history entries",
+      "detail": "The workflow-run-state spec requires each history entry to include `actor` (kind) and `actor_id` fields: 'Each history entry SHALL include actor provenance'. The RunHistoryEntry type and the history construction in advance.ts do not include these fields. Either extend AdvanceInput to carry actor identity and thread it into history, or document this as explicitly deferred.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/core/advance.ts",
+      "title": "decision_actor hardcoded to null on approval/rejection",
+      "detail": "The spec states 'decision_actor set to the acting actor identity' when a decision is made. Lines 155 and 171 hardcode `decision_actor: null` with comment 'Actor identity is not available in core runtime'. This means the ApprovalRecord will never record who made the decision, even when the information could be threaded through AdvanceInput. If actor identity threading is intentionally deferred, the spec scenario 'Approval record is updated when decision is made' is violated.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F05",
+      "severity": "medium",
+      "category": "scope",
+      "file": "openspec/changes/archive/",
+      "title": "Whitespace-only reformatting of 10+ archived JSON files",
+      "detail": "The diff includes 10+ archive review-ledger/task-graph JSON files with purely cosmetic changes (2-space indent → tab indent). These changes are unrelated to the approval-clarify-persistence feature and inflate the diff. Either revert them or split into a separate formatting commit.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F06",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/advance-records.test.ts",
+      "title": "No test for record write failure causing transition failure",
+      "detail": "The spec states 'if the record write fails, the transition SHALL also fail'. While advance-records.test.ts exists (untracked), verify it includes a test where records.write() throws and confirm the transition returns an error rather than proceeding. The current advance.ts code does not wrap records.write() in try/catch — an unhandled throw would propagate but produce an unstructured error rather than a CoreRuntimeError.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F07",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/core/advance.ts",
+      "title": "nextRecordSequence relies on list().length which is fragile",
+      "detail": "nextRecordSequence computes sequence as `records.list(runId).length + 1`. If a record is ever deleted (the store interface supports delete), sequence numbers will collide. Consider using a monotonic counter or max-sequence scan instead of list length. Low severity because delete is unlikely during normal flow, but the spec does define a delete operation.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F08",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/advance-records.test.ts",
+      "title": "No integration tests for ClarifyRecord creation or resolution in advance flow",
+      "detail": "advance-records.test.ts thoroughly tests ApprovalRecord creation, approval, rejection, record_ref in history, backward compat, and write failure — but has zero tests for ClarifyRecord flows. The clarify_request → pending ClarifyRecord and clarify_response → resolved ClarifyRecord paths in advance.ts (lines 219-258) are untested at the integration level. Add tests that: (1) issue a clarify_request event and verify a pending ClarifyRecord is created with correct phase/question, (2) issue a clarify_response event and verify the pending ClarifyRecord is resolved with the answer, (3) verify record_ref appears in history for clarify transitions.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F09",
+      "severity": "low",
+      "category": "correctness",
+      "file": "src/core/advance.ts",
+      "title": "nextRecordSequence parsing is fragile when runId contains hyphens",
+      "detail": "nextRecordSequence splits record_id on '-' and takes the last segment as the sequence number. Given the format '<kind>-<runId>-<sequence>' and a runId like 'my-feature-1', the record_id 'approval-my-feature-1-1' splits to ['approval','my','feature','1','1']. The last segment '1' happens to be correct, but if the runId itself ends with a number (e.g., 'run-42'), record_id 'approval-run-42-3' would parse '3' correctly. The approach works by accident because the sequence is always the final segment, but it would be more robust to use lastIndexOf('-') instead of split. Low severity since the current format guarantees the sequence is last.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F10",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/core/advance.ts",
+      "title": "Record write failure does not prevent state write — atomicity gap",
+      "detail": "If a record write succeeds but the subsequent writeRunState (line 291) fails, the record has been persisted but the run state hasn't been updated, leaving an orphaned record. Conversely, the try-catch on lines 157-266 correctly prevents state writes when record writes fail. This is a minor concern since writeRunState failures would throw and propagate, and orphaned records are relatively benign. However, the proposal states 'event emission and record creation that atomic' — full atomicity would require transactional writes or compensation. Low severity as filesystem writes rarely fail partially and the current behavior is acceptable.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 7,
+      "open": 7,
+      "new": 7,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 4,
+        "low": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 10,
+      "open": 3,
+      "new": 3,
+      "resolved": 7,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 2
+      }
+    }
+  ]
+}

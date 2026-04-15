@@ -226,6 +226,12 @@ export interface RunHistoryEntry extends JsonMap {
 	readonly to: string;
 	readonly event: string;
 	readonly timestamp: string;
+	/** Actor kind for provenance tracking. */
+	readonly actor?: string;
+	/** Actor identifier for provenance tracking. */
+	readonly actor_id?: string;
+	/** Reference to an interaction record created or updated by this transition. */
+	readonly record_ref?: string;
 }
 
 export interface RunAgents extends JsonMap {

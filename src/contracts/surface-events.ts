@@ -86,24 +86,32 @@ export interface CorrelationContext {
 export interface ApprovalPayload {
 	readonly phase_from: string;
 	readonly phase_to: string;
+	/** Reference to the associated ApprovalRecord. */
+	readonly record_id: string;
 }
 
 /** Payload for the reject event. */
 export interface RejectPayload {
 	readonly phase_from: string;
 	readonly reason?: string;
+	/** Reference to the pending ApprovalRecord, if one exists. */
+	readonly record_id?: string;
 }
 
 /** Payload for outbound clarify_request. */
 export interface ClarifyRequestPayload {
 	readonly question: string;
 	readonly context?: string;
+	/** Reference to the associated ClarifyRecord. */
+	readonly record_id: string;
 }
 
 /** Payload for inbound clarify_response. */
 export interface ClarifyResponsePayload {
 	readonly answer: string;
 	readonly question_event_id: string;
+	/** Reference to the associated ClarifyRecord. */
+	readonly record_id: string;
 }
 
 /** Payload for the resume event. */

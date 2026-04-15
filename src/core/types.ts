@@ -5,6 +5,7 @@
 // MUST NOT throw for known failure modes, MUST NOT call process.exit /
 // stdout / stderr, and MUST NOT touch the filesystem or git directly.
 
+import type { ActorIdentity } from "../contracts/surface-events.js";
 import type { RunKind, RunState, SourceMetadata } from "../types/contracts.js";
 
 // --- Result type -----------------------------------------------------------
@@ -47,7 +48,8 @@ export type CoreRuntimeErrorKind =
 	| "terminal_suspend"
 	| "already_suspended"
 	| "field_not_found"
-	| "field_not_updatable";
+	| "field_not_updatable"
+	| "record_write_failed";
 
 export interface CoreRuntimeError {
 	readonly kind: CoreRuntimeErrorKind;
@@ -78,6 +80,16 @@ export interface StartSyntheticInput {
 export interface AdvanceInput {
 	readonly runId: string;
 	readonly event: string;
+	/** Optional actor identity for provenance tracking. */
+	readonly actor?: ActorIdentity;
+	/** Optional event_id to associate with interaction records. */
+	readonly eventId?: string;
+	/** Optional clarify data for creating/resolving ClarifyRecords. */
+	readonly clarify?: {
+		readonly question?: string;
+		readonly questionContext?: string;
+		readonly answer?: string;
+	};
 }
 
 export interface SuspendInput {

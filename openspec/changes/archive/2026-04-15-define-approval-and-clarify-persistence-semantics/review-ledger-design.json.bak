@@ -1,0 +1,88 @@
+{
+  "feature_id": "define-approval-and-clarify-persistence-semantics",
+  "phase": "design",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 5,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "consistency",
+      "title": "ApprovalRecord fields in task 1.1 diverge from spec",
+      "detail": "Task 1.1 lists fields `actor`, `timestamp`, `decision` but the spec defines `status` ('pending'|'approved'|'rejected'), `requested_at`, `decided_at`, `decision_actor`, `event_ids`, `phase_from`, `phase_to`. The task field list must match the spec exactly to avoid rework. Replace task 1.1 fields with: record_id, record_kind, run_id, phase_from, phase_to, status, requested_at, decided_at, decision_actor, event_ids.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "consistency",
+      "title": "ClarifyRecord fields in task 1.2 diverge from spec",
+      "detail": "Task 1.2 lists `actor`, `timestamp`, `status: 'pending'|'answered'`, `context?` but the spec defines `status: 'pending'|'resolved'`, `asked_at`, `answered_at`, `question_context` (not `context`), and `event_ids`. The status value 'answered' must be 'resolved'. Replace task 1.2 fields with: record_id, record_kind, run_id, phase, question, question_context?, answer?, status ('pending'|'resolved'), asked_at, answered_at?, event_ids.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "high",
+      "category": "consistency",
+      "title": "InteractionRecordStore interface in task 2.1 mismatches spec",
+      "detail": "Task 2.1 defines `write(record)` but spec defines `write(runId, record)` with runId as a separate parameter. Task 2.1 includes `exists()` which is not in the spec, and omits `delete(runId, recordId)` which IS in the spec. Fix: change write signature to `write(runId, record)`, remove `exists`, add `delete(runId, recordId)`.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Tasks 3.3-3.4 cover record creation but not record update",
+      "detail": "The spec requires updating existing records when decisions/responses arrive (e.g., update ApprovalRecord status from 'pending' to 'approved' with decided_at and decision_actor; update ClarifyRecord with answer and answered_at). Tasks 3.3 and 3.4 only mention 'create'. Add explicit subtasks or clarify that these tasks also cover reading existing records and writing updates on decision/response transitions, including appending event_ids.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F05",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Reject payload record_id not covered in task 5",
+      "detail": "The surface-event-contract spec defines that reject payload optionally includes `record_id` when a pending ApprovalRecord exists. Task 5 does not include a subtask for adding optional record_id to the reject payload or its JSON schema. Add a subtask for this.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 5,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 2
+      }
+    }
+  ]
+}
