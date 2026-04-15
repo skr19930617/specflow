@@ -2,7 +2,7 @@
 
 import type { RunArtifactStore } from "../lib/artifact-store.js";
 import { deriveAllowedEvents } from "../lib/workflow-machine.js";
-import type { RunState, RunStatus } from "../types/contracts.js";
+import type { CoreRunState, RunState, RunStatus } from "../types/contracts.js";
 import { loadRunState, nowIso, writeRunState } from "./_helpers.js";
 import type { CoreRuntimeError, Result, SuspendInput } from "./types.js";
 import { err, ok } from "./types.js";
@@ -11,11 +11,11 @@ export interface SuspendDeps {
 	readonly runs: RunArtifactStore;
 }
 
-export function suspendRun(
+export function suspendRun<T extends CoreRunState = RunState>(
 	input: SuspendInput,
 	deps: SuspendDeps,
-): Result<RunState, CoreRuntimeError> {
-	const loaded = loadRunState(deps.runs, input.runId);
+): Result<T, CoreRuntimeError> {
+	const loaded = loadRunState<T>(deps.runs, input.runId);
 	if (!loaded.ok) return loaded;
 	const runState = loaded.value;
 
@@ -32,7 +32,7 @@ export function suspendRun(
 		});
 	}
 
-	const updated: RunState = {
+	const updated: T = {
 		...runState,
 		status: "suspended" as RunStatus,
 		updated_at: nowIso(),
@@ -48,6 +48,6 @@ export function suspendRun(
 		],
 	};
 
-	writeRunState(deps.runs, input.runId, updated);
+	writeRunState<T>(deps.runs, input.runId, updated);
 	return ok(updated);
 }

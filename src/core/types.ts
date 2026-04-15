@@ -6,7 +6,12 @@
 // stdout / stderr, and MUST NOT touch the filesystem or git directly.
 
 import type { ActorIdentity } from "../contracts/surface-events.js";
-import type { RunKind, RunState, SourceMetadata } from "../types/contracts.js";
+import type {
+	CoreRunState,
+	RunKind,
+	RunState,
+	SourceMetadata,
+} from "../types/contracts.js";
 
 // --- Result type -----------------------------------------------------------
 
@@ -117,4 +122,4 @@ export interface GetFieldInput {
 
 // --- Re-exports used by command signatures ---------------------------------
 
-export type { RunKind, RunState };
+export type { CoreRunState, RunKind, RunState };
