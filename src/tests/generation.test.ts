@@ -1,12 +1,23 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
+import { commandBodies } from "../contracts/command-bodies.js";
 import { contracts } from "../contracts/install.js";
 import {
 	mergeProjectGitignore,
 	renderProjectGitignore,
 } from "../lib/project-gitignore.js";
 import type { InstallPlan, Manifest } from "../types/contracts.js";
+
+/**
+ * Flatten all section contents of a commandBodies entry into a single string.
+ * Used by source-level assertions that must stay independent of dist freshness.
+ */
+function commandBodyText(key: string): string {
+	const body = commandBodies[key];
+	assert.ok(body, `commandBodies['${key}'] is missing`);
+	return body.sections.map((section) => section.content).join("\n");
+}
 
 test("generated manifest and install plan reflect contracts", () => {
 	const manifest = JSON.parse(
@@ -195,4 +206,169 @@ test("main branch no longer carries the in-tree legacy runtime", () => {
 	const retiredWrapper = ["legacy", "wrapper.ts"].join("-");
 	assert.equal(existsSync(archivedTree), false);
 	assert.equal(existsSync(`src/bin/${retiredWrapper}`), false);
+});
+
+test("specflow.apply command body source encodes the specflow-advance-bundle contract", () => {
+	// Source-level assertions against `src/contracts/command-bodies.ts`. These
+	// are independent of the build pipeline and protect against cases where
+	// `dist/` is stale or absent (e.g., a clean checkout or test runner that
+	// skips the build step).
+	const apply = commandBodyText("specflow.apply");
+
+	assert.ok(
+		apply.includes("Pre-apply path detection"),
+		"command body should introduce the three-way path detection",
+	);
+	assert.ok(
+		apply.includes("legacy fallback"),
+		"command body should name the legacy fallback path",
+	);
+	assert.ok(
+		apply.includes("CLI-mandatory path"),
+		"command body should name the CLI-mandatory path",
+	);
+	assert.ok(
+		apply.includes(
+			"specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>",
+		),
+		"command body should contain the literal CLI invocation with placeholders",
+	);
+	for (const transition of [
+		"pending → in_progress",
+		"in_progress → done",
+		"pending → skipped",
+		"pending → done",
+	]) {
+		assert.ok(
+			apply.includes(transition),
+			`command body should enumerate the transition: ${transition}`,
+		);
+	}
+	assert.ok(
+		apply.includes("Fail-fast on CLI error"),
+		"command body should document fail-fast behavior on CLI error",
+	);
+	assert.ok(
+		apply.includes("contract violation per `task-planner`"),
+		"command body should link the prohibition to the task-planner contract",
+	);
+});
+
+test("specflow.fix_apply command body source carries the specflow-advance-bundle safety-net", () => {
+	// Source-level assertion — independent of the build pipeline.
+	const fixApply = commandBodyText("specflow.fix_apply");
+	assert.ok(
+		fixApply.includes("specflow-advance-bundle"),
+		"command body Important Rules should reference specflow-advance-bundle",
+	);
+	assert.ok(
+		fixApply.includes("contract violation per `task-planner`"),
+		"command body Important Rules should classify inline edits as a contract violation",
+	);
+});
+
+test("generated specflow.apply.md encodes the specflow-advance-bundle contract", () => {
+	// Defensive guard: this test depends on a fresh `npm run build` having
+	// produced the dist file. Fail fast with a clear message if it is missing,
+	// so a stale-build case surfaces loudly instead of silently passing against
+	// outdated content. The companion source-level test above exercises the
+	// same contract directly against `command-bodies.ts` as a belt-and-suspenders
+	// guarantee that the contract is enforced regardless of dist state.
+	const applyPath = "dist/package/global/commands/specflow.apply.md";
+	assert.ok(
+		existsSync(applyPath),
+		`${applyPath} is missing; run \`npm run build\` before the test suite`,
+	);
+	const apply = readFileSync(applyPath, "utf8");
+
+	// Positive: three-way detection rule documented.
+	assert.ok(
+		apply.includes("Pre-apply path detection"),
+		"apply.md should introduce the three-way path detection",
+	);
+	assert.ok(
+		apply.includes("legacy fallback"),
+		"apply.md should name the legacy fallback path",
+	);
+	assert.ok(
+		apply.includes("CLI-mandatory path"),
+		"apply.md should name the CLI-mandatory path",
+	);
+
+	// Positive: CLI is named with its full positional signature.
+	assert.ok(
+		apply.includes(
+			"specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>",
+		),
+		"apply.md should contain the literal CLI invocation with placeholders",
+	);
+
+	// Positive: all four logical transitions are enumerated.
+	for (const transition of [
+		"pending → in_progress",
+		"in_progress → done",
+		"pending → skipped",
+		"pending → done",
+	]) {
+		assert.ok(
+			apply.includes(transition),
+			`apply.md should enumerate the transition: ${transition}`,
+		);
+	}
+
+	// Positive: fail-fast language.
+	assert.ok(
+		apply.includes("Fail-fast on CLI error"),
+		"apply.md should document fail-fast behavior on CLI error",
+	);
+	assert.ok(
+		apply.includes("remain in `apply_draft`"),
+		"apply.md should state the run stays in apply_draft on CLI error",
+	);
+
+	// Positive: prohibition of inline mutation, linked to task-planner contract.
+	assert.ok(
+		apply.includes("Inline `node -e"),
+		"apply.md should explicitly prohibit inline node -e scripts",
+	);
+	assert.ok(
+		apply.includes("contract violation per `task-planner`"),
+		"apply.md should link the prohibition to the task-planner contract",
+	);
+
+	// Negative: no embedded example inline mutation snippet.
+	for (const forbidden of [
+		"bundle.status =",
+		"fs.writeFileSync",
+		"fs.readFileSync",
+		"tasks[*].status =",
+	]) {
+		assert.ok(
+			!apply.includes(forbidden),
+			`apply.md must not contain an inline mutation snippet: ${forbidden}`,
+		);
+	}
+
+	// Negative: no jq expression that rewrites a status field.
+	assert.ok(
+		!/\bjq\s+['"][^'"]*\.status/.test(apply),
+		"apply.md must not contain a jq expression that rewrites a status field",
+	);
+});
+
+test("generated specflow.fix_apply.md carries the specflow-advance-bundle safety-net", () => {
+	const fixApplyPath = "dist/package/global/commands/specflow.fix_apply.md";
+	assert.ok(
+		existsSync(fixApplyPath),
+		`${fixApplyPath} is missing; run \`npm run build\` before the test suite`,
+	);
+	const fixApply = readFileSync(fixApplyPath, "utf8");
+	assert.ok(
+		fixApply.includes("specflow-advance-bundle"),
+		"fix_apply.md Important Rules should reference specflow-advance-bundle",
+	);
+	assert.ok(
+		fixApply.includes("contract violation per `task-planner`"),
+		"fix_apply.md Important Rules should classify inline edits as a contract violation",
+	);
 });

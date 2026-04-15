@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "change_id": "tasks",
+  "bundles": [
+    {
+      "id": "contract-and-docs",
+      "title": "Rewrite apply Step 1 contract and regenerate dist",
+      "goal": "Update command-bodies.ts to mandate specflow-advance-bundle for apply-class mutations and regenerate the dist markdown guides.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "src/contracts/command-bodies.ts",
+        "openspec/changes/tasks/specs/slash-command-guides/spec.md",
+        "openspec/changes/tasks/specs/task-planner/spec.md",
+        "openspec/changes/tasks/specs/utility-cli-suite/spec.md"
+      ],
+      "outputs": [
+        "src/contracts/command-bodies.ts",
+        "dist/package/global/commands/specflow.apply.md",
+        "dist/package/global/commands/specflow.fix_apply.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite specflow.apply Step 1 body in src/contracts/command-bodies.ts with three-way detection rule (absent → legacy fallback, present+valid → CLI-mandatory, present+malformed → fail-fast)",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Embed literal `specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>` invocation instruction covering all four transitions (pending→in_progress, in_progress→done, pending→skipped, pending→done)",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add explicit fail-fast language: on non-zero CLI exit surface JSON envelope, stay in apply_draft, no retry, no skip-and-continue, name recovery paths (regenerate task-graph / manual correction / /specflow.fix_apply)",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add explicit prohibition of inline `node -e` / `jq` / manual edits to task-graph.json and tasks.md within the CLI-mandatory path",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Append one safety-net line to specflow.fix_apply → 'Important Rules' pointing fix loop at specflow-advance-bundle for any task-graph/tasks.md mutation",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run the build pipeline (dist/build.js) to regenerate dist/package/global/commands/specflow.apply.md and specflow.fix_apply.md",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Verify regenerated dist files reflect all required language and commit them per repo convention",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "task-planner",
+        "utility-cli-suite",
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "regression-test",
+      "title": "Add generation regression test for apply guide contract",
+      "goal": "Extend src/tests/generation.test.ts to lock in positive and negative assertions against the regenerated dist guides so drift cannot silently regress the contract.",
+      "depends_on": [
+        "contract-and-docs"
+      ],
+      "inputs": [
+        "dist/package/global/commands/specflow.apply.md",
+        "dist/package/global/commands/specflow.fix_apply.md",
+        "src/tests/generation.test.ts"
+      ],
+      "outputs": [
+        "src/tests/generation.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add positive assertions against dist/package/global/commands/specflow.apply.md: contains literal `specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>`, fail-fast language, three-way detection rule phrases, and explicit prohibition of `node -e`",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add negative assertions against dist/package/global/commands/specflow.apply.md: no example `node -e` snippet mutating bundle.status or tasks[*].status, no `jq` expression rewriting status in task-graph.json",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add positive assertion against dist/package/global/commands/specflow.fix_apply.md: 'Important Rules' safety-net line mentions specflow-advance-bundle",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run `node --test src/tests/generation.test.ts` and the full test suite; confirm new + existing tests pass",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run `openspec validate tasks --type change --json` and confirm valid:true",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution",
+        "slash-command-guides"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-15T07:42:49.802Z",
+  "generated_from": "design.md"
+}

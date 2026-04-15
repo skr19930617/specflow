@@ -48,8 +48,28 @@ export const commandBodies: Record<string, CommandBody> = {
 			},
 			{
 				title: "Step 1: Apply Draft and Implement",
-				content:
-					'\n1. Confirm the run is in `apply_draft`.\n2. Check if `openspec/changes/<CHANGE_ID>/task-graph.json` exists (via Read tool).\n   - **If task-graph.json exists** (new mode): Load it as the source of truth. Use the bundle structure to determine execution order and eligible bundles. Execute bundles whose `depends_on` outputs are available and whose `status` is `"pending"`. After completing each bundle\'s tasks, update the bundle status in `task-graph.json` (`pending → in_progress → done`) and re-render `tasks.md` from the updated task graph.\n   - **If task-graph.json does not exist** (legacy fallback): Load `openspec/changes/<CHANGE_ID>/tasks.md` and `openspec/changes/<CHANGE_ID>/design.md` directly. Execute tasks phase-by-phase. Mark completed tasks in `tasks.md`.\n3. Validate implementation against `openspec/changes/<CHANGE_ID>/proposal.md`.\n\nReport: `Step 1 complete — implementation completed in apply_draft`',
+				content: [
+					"",
+					"1. Confirm the run is in `apply_draft`.",
+					"2. **Pre-apply path detection.** Check `openspec/changes/<CHANGE_ID>/task-graph.json` via Read tool.",
+					"   - **Absent** → legacy fallback (see step 3a).",
+					"   - **Present** → CLI-mandatory path (see step 3b). `specflow-advance-bundle` is the sole mutation entry point and validates the task graph on every invocation, so a malformed `task-graph.json` surfaces as a CLI error in step 3b (fail-fast; the apply stops in `apply_draft` and does NOT silently fall back to the legacy path).",
+					"3a. **Legacy fallback (task-graph.json absent).** Load `openspec/changes/<CHANGE_ID>/tasks.md` and `openspec/changes/<CHANGE_ID>/design.md` directly. Execute tasks phase-by-phase. Mark completed tasks in `tasks.md`.",
+					"3b. **CLI-mandatory path (task-graph.json present).** Load `task-graph.json` as the source of truth. Use the bundle structure to determine execution order and eligible bundles (bundles whose `depends_on` outputs are available and whose `status` is `pending`).",
+					"   - **Every bundle status transition MUST be performed via `specflow-advance-bundle`.** This applies to all four logical transitions: `pending → in_progress`, `in_progress → done`, `pending → skipped`, `pending → done`. Invoke:",
+					"     ```bash",
+					"     specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>",
+					"     ```",
+					"     The CLI re-renders `tasks.md` and normalizes child-task statuses on terminal transitions automatically.",
+					"   - **Do NOT edit `task-graph.json` or `tasks.md` by any other means in this path.** Inline `node -e '…'` scripts, `jq` / `sed` / `awk` expressions, shell here-docs, and direct Edit/Write tool invocations against `task-graph.json` or `tasks.md` are prohibited — they bypass schema validation, child-task normalization, atomic persistence, and the coercion audit log, and are a contract violation per `task-planner`.",
+					"   - **Fail-fast on CLI error.** If `specflow-advance-bundle` exits non-zero (malformed `task-graph.json`, unknown bundle id, invalid status transition, filesystem error, etc.), STOP the apply immediately. Surface the CLI's stdout JSON error envelope verbatim to the user. Do NOT advance any subsequent bundle, do NOT retry the same invocation, do NOT skip-and-continue. The run SHALL remain in `apply_draft`. Recovery paths for the user:",
+					"     - Regenerate `task-graph.json` (for example via `specflow-generate-task-graph <CHANGE_ID>`) when the schema error indicates a stale or corrupted graph.",
+					"     - Run `/specflow.fix_apply` when the error reflects an implementation problem surfaced by a prior review.",
+					"     - Manual repair of the graph is permitted only OUTSIDE apply-class workflows; inside this Step 1 path, manual edits remain a contract violation.",
+					"4. Validate implementation against `openspec/changes/<CHANGE_ID>/proposal.md`.",
+					"",
+					"Report: `Step 1 complete — implementation completed in apply_draft`",
+				].join("\n"),
 			},
 			{
 				title: "Step 2: Apply Review Gate",
@@ -351,7 +371,7 @@ export const commandBodies: Record<string, CommandBody> = {
 			{
 				title: "Important Rules",
 				content:
-					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (fix application, diff filtering, review agent invocation, ledger detection/update, finding matching, current-phase generation) is handled by the `specflow-review-apply fix-review` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.",
+					"\n- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.\n- All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.\n- If any tool call fails, report the error and ask the user how to proceed.\n- ALL control flow logic (fix application, diff filtering, review agent invocation, ledger detection/update, finding matching, current-phase generation) is handled by the `specflow-review-apply fix-review` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.\n- If the fix loop needs to update `task-graph.json` or `tasks.md`, use `specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>`; inline `node -e` / `jq` / manual edits to those files are a contract violation per `task-planner`.",
 			},
 		],
 	},
