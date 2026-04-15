@@ -6,7 +6,7 @@
 import type { RunArtifactStore } from "../lib/artifact-store.js";
 import { runRef } from "../lib/artifact-types.js";
 import { readRunState } from "../lib/run-store-ops.js";
-import type { RunState } from "../types/contracts.js";
+import type { CoreRunState, RunState } from "../types/contracts.js";
 import type { CoreRuntimeError } from "./types.js";
 import { err } from "./types.js";
 
@@ -42,12 +42,24 @@ export function checkRunId(
 
 /**
  * Load the run state for a runId or return a typed `run_not_found` error.
+ *
+ * The generic parameter `T` defaults to `RunState`, preserving the observable
+ * surface for every existing caller. External runtimes (or future callers
+ * that only handle `CoreRunState`) may instantiate `loadRunState<CoreRunState>`
+ * to receive a narrower view. The on-disk payload read from the store is
+ * always the full local-adapter `RunState`; the cast is a type-level
+ * narrowing, not a runtime change.
+ *
+ * NOTE: `REQUIRED_RUN_STATE_FIELDS` still contains local-adapter keys. This
+ * is flagged as a follow-up in `openspec/changes/.../design.md` (Open
+ * Questions) and will be relocated to the adapter layer in a separate
+ * change under Epic #127.
  */
-export function loadRunState(
+export function loadRunState<T extends CoreRunState = RunState>(
 	store: RunArtifactStore,
 	runId: string,
 ):
-	| { readonly ok: true; readonly value: RunState }
+	| { readonly ok: true; readonly value: T }
 	| { readonly ok: false; readonly error: CoreRuntimeError } {
 	if (!store.exists(runRef(runId))) {
 		return err({
@@ -66,16 +78,22 @@ export function loadRunState(
 			details: { missing_fields: missing },
 		});
 	}
-	return { ok: true, value: state };
+	// Double cast is required because TypeScript cannot prove `RunState` is
+	// assignable to an arbitrary `T extends CoreRunState`. At runtime `T` is
+	// always a structural subset of the persisted `RunState`, so this is a
+	// type-level narrowing only — not a type-safety hole.
+	return { ok: true, value: state as unknown as T };
 }
 
 /**
- * Persist run state through the injected RunArtifactStore.
+ * Persist run state through the injected RunArtifactStore. Generic over
+ * `T extends CoreRunState` so call sites holding a narrower type keep their
+ * precision; default `T = RunState` keeps all existing callers unchanged.
  */
-export function writeRunState(
+export function writeRunState<T extends CoreRunState = RunState>(
 	store: RunArtifactStore,
 	runId: string,
-	state: RunState,
+	state: T,
 ): void {
 	store.write(runRef(runId), `${JSON.stringify(state, null, 2)}\n`);
 }

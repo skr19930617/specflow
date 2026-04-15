@@ -1,0 +1,62 @@
+{
+  "feature_id": "refactor-split-runstate-into-corerunstate-and-localadapterrunstate",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/core/_helpers.ts",
+      "title": "Double cast `as unknown as T`",
+      "detail": "The cast `state as unknown as T` in `loadRunState` works but is slightly awkward. Since `T extends CoreRunState = RunState` and the on-disk payload is always a full `RunState`, a simple `state as T` would fail to typecheck because TypeScript cannot prove `RunState` is assignable to an arbitrary `T extends CoreRunState`. The double cast is therefore justified, but consider adding a one-line comment explaining that `T` is always a structural subset of the persisted `RunState` at runtime, so readers do not suspect a type-safety hole.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "completeness",
+      "file": "src/core/_helpers.ts",
+      "title": "REQUIRED_RUN_STATE_FIELDS still includes local-adapter keys",
+      "detail": "The JSDoc acknowledges this as a deferred follow-up and points to the design.md Open Questions. This is consistent with the proposal's explicit out-of-scope statement (no helper narrowing, no schema split). No change required in this PR; tracked for the follow-up under Epic #127.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 1,
+      "new": 0,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "low": 1
+      }
+    }
+  ]
+}

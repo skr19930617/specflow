@@ -1,0 +1,227 @@
+{
+  "version": "1.0",
+  "change_id": "refactor-split-runstate-into-corerunstate-and-localadapterrunstate",
+  "bundles": [
+    {
+      "id": "types-partition",
+      "title": "Declare CoreRunState and LocalRunState partition",
+      "goal": "Split RunState into CoreRunState and LocalRunState in src/types/contracts.ts with an intersection alias preserving the RunState name.",
+      "depends_on": [],
+      "inputs": [
+        "src/types/contracts.ts"
+      ],
+      "outputs": [
+        "src/types/contracts.ts#CoreRunState",
+        "src/types/contracts.ts#LocalRunState",
+        "src/types/contracts.ts#RunState"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Enumerate current RunState fields and classify each as core vs local per design D1",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add CoreRunState interface with 12 runtime-agnostic fields (phase, status, history, agents, events, source, identity, timestamps, lineage, run_kind)",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add LocalRunState interface with 6 local-adapter fields (project_id, repo_name, repo_path, branch_name, worktree_path, last_summary_path)",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Redeclare RunState as CoreRunState & LocalRunState intersection alias",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add warning comment near declarations: 'Adding a new field? Put it in CoreRunState or LocalRunState, not RunState.'",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run bun run typecheck to confirm no consumer breaks",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "drift-guard",
+      "title": "Add compile-time partition drift guard",
+      "goal": "Create src/tests/run-state-partition.test.ts with AssertEqual assertions enforcing disjointness and exhaustive coverage of RunState.",
+      "depends_on": [
+        "types-partition"
+      ],
+      "inputs": [
+        "src/types/contracts.ts#CoreRunState",
+        "src/types/contracts.ts#LocalRunState",
+        "src/types/contracts.ts#RunState"
+      ],
+      "outputs": [
+        "src/tests/run-state-partition.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create src/tests/run-state-partition.test.ts with AssertEqual helper type",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add disjointness assertion: keyof CoreRunState & keyof LocalRunState === never",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add exhaustiveness assertion: keyof CoreRunState | keyof LocalRunState === keyof RunState",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add a no-op describe.skip/it.skip runtime export so the harness does not flag the file as unused",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Verify bun run typecheck passes; verify deliberate perturbation (duplicate key) causes typecheck failure",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "core-narrowing",
+      "title": "Narrow core mutator signatures with generic bound",
+      "goal": "Re-type advanceRun, suspendRun, resumeRun, and internal loadRunState/writeRunState helpers with <T extends CoreRunState = RunState>.",
+      "depends_on": [
+        "types-partition"
+      ],
+      "inputs": [
+        "src/types/contracts.ts#CoreRunState",
+        "src/core/advance.ts",
+        "src/core/suspend.ts",
+        "src/core/resume.ts",
+        "src/core/_helpers.ts"
+      ],
+      "outputs": [
+        "src/core/advance.ts",
+        "src/core/suspend.ts",
+        "src/core/resume.ts",
+        "src/core/_helpers.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Narrow loadRunState and writeRunState in src/core/_helpers.ts with <T extends CoreRunState = RunState>",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Run bun run typecheck after _helpers.ts change to catch inference regressions",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Narrow advanceRun in src/core/advance.ts to return Result<T, CoreRuntimeError> with <T extends CoreRunState = RunState>",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run bun run typecheck after advance.ts change",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Narrow suspendRun in src/core/suspend.ts with the same generic bound",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run bun run typecheck after suspend.ts change",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Narrow resumeRun in src/core/resume.ts with the same generic bound",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Run bun run typecheck after resume.ts change",
+          "status": "done"
+        },
+        {
+          "id": "9",
+          "title": "Confirm startChangeRun, startSyntheticRun, readRunStatus, getRunField, updateRunField remain on RunState per D3/D4",
+          "status": "done"
+        },
+        {
+          "id": "10",
+          "title": "Run full bun run test to confirm no behavioral regressions",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "docs-update",
+      "title": "Update architecture docs to reference the new split",
+      "goal": "Remove 'field-level split deferred' caveats from docs/architecture.md and reference CoreRunState/LocalRunState.",
+      "depends_on": [
+        "types-partition"
+      ],
+      "inputs": [
+        "docs/architecture.md"
+      ],
+      "outputs": [
+        "docs/architecture.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update 'Run-state JSON structure' inventory row: replace 'Not yet supported' caveat with description of type-level split and reference to follow-up schema-split change",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update core-adjacent modules subsection: remove 'the field-level split is deferred to a separate follow-up proposal' and reference CoreRunState/LocalRunState",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Update persistence concerns subsection: replace mixed-fields enumeration with description of the split",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add reference to src/tests/run-state-partition.test.ts drift guard so its purpose is visible outside the test file",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Grep docs/architecture.md to confirm no remaining 'field-level split deferred' phrases",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-15T06:32:49.029Z",
+  "generated_from": "design.md"
+}

@@ -242,26 +242,64 @@ export interface RunAgents extends JsonMap {
 
 export type RunStatus = "active" | "suspended" | "terminal";
 
-export interface RunState extends JsonMap {
+// `RunState` is partitioned into two disjoint, exhaustive halves:
+//   - `CoreRunState` — fields every runtime (local, DB, server) must persist.
+//   - `LocalRunState` — fields owned by the local filesystem adapter only.
+//
+// Adding a new field? Put it in `CoreRunState` or `LocalRunState`, not `RunState`.
+// The compile-time drift guard at `src/tests/run-state-partition.test.ts` fails
+// the TypeScript build if the two halves stop being disjoint or stop
+// exhaustively covering `RunState`.
+//
+// See `docs/architecture.md` for the contract rationale and
+// `openspec/specs/workflow-run-state/spec.md` for the normative requirements.
+
+/**
+ * Runtime-agnostic run-state fields. Every external runtime that persists
+ * specflow run state (local FS, DB-backed, server orchestrator) SHALL store
+ * these fields.
+ */
+export interface CoreRunState {
 	readonly run_id: string;
 	readonly change_name: string | null;
 	readonly current_phase: string;
 	readonly status: RunStatus | string;
 	readonly allowed_events: readonly string[];
 	readonly source: SourceMetadata | null;
-	readonly project_id: string;
-	readonly repo_name: string;
-	readonly repo_path: string;
-	readonly branch_name: string;
-	readonly worktree_path: string;
 	readonly agents: RunAgents;
-	readonly last_summary_path: string | null;
 	readonly created_at: string;
 	readonly updated_at: string;
 	readonly history: readonly RunHistoryEntry[];
 	readonly run_kind?: RunKind;
 	readonly previous_run_id?: string | null;
 }
+
+/**
+ * Local filesystem adapter-only run-state fields. External runtimes supply
+ * their own equivalents (e.g., DB primary keys instead of `project_id`; no
+ * filesystem paths).
+ */
+export interface LocalRunState {
+	readonly project_id: string;
+	readonly repo_name: string;
+	readonly repo_path: string;
+	readonly branch_name: string;
+	readonly worktree_path: string;
+	readonly last_summary_path: string | null;
+}
+
+/**
+ * Full run-state payload as persisted by the local filesystem adapter.
+ * Preserved as `CoreRunState & LocalRunState` so every existing consumer
+ * keeps compiling unchanged. Kept as a strict literal-key intersection (no
+ * `JsonMap` index signature) so the compile-time drift guard at
+ * `src/tests/run-state-partition.test.ts` can verify that
+ * `keyof CoreRunState | keyof LocalRunState === keyof RunState`. Callers
+ * that previously relied on `RunState extends JsonMap` structurally do not
+ * exist today; the one dynamic-field reader (`src/core/get-field.ts`)
+ * casts to `JsonMap` explicitly.
+ */
+export type RunState = CoreRunState & LocalRunState;
 
 export interface DiffExcludedEntry extends JsonMap {
 	readonly file: string;

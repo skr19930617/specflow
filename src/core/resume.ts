@@ -2,7 +2,7 @@
 
 import type { RunArtifactStore } from "../lib/artifact-store.js";
 import { deriveAllowedEvents } from "../lib/workflow-machine.js";
-import type { RunState, RunStatus } from "../types/contracts.js";
+import type { CoreRunState, RunState, RunStatus } from "../types/contracts.js";
 import { loadRunState, nowIso, writeRunState } from "./_helpers.js";
 import type { CoreRuntimeError, Result, ResumeInput } from "./types.js";
 import { err, ok } from "./types.js";
@@ -11,11 +11,11 @@ export interface ResumeDeps {
 	readonly runs: RunArtifactStore;
 }
 
-export function resumeRun(
+export function resumeRun<T extends CoreRunState = RunState>(
 	input: ResumeInput,
 	deps: ResumeDeps,
-): Result<RunState, CoreRuntimeError> {
-	const loaded = loadRunState(deps.runs, input.runId);
+): Result<T, CoreRuntimeError> {
+	const loaded = loadRunState<T>(deps.runs, input.runId);
 	if (!loaded.ok) return loaded;
 	const runState = loaded.value;
 
@@ -26,7 +26,7 @@ export function resumeRun(
 		});
 	}
 
-	const updated: RunState = {
+	const updated: T = {
 		...runState,
 		status: "active" as RunStatus,
 		updated_at: nowIso(),
@@ -42,6 +42,6 @@ export function resumeRun(
 		],
 	};
 
-	writeRunState(deps.runs, input.runId, updated);
+	writeRunState<T>(deps.runs, input.runId, updated);
 	return ok(updated);
 }

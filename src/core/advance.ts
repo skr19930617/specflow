@@ -8,6 +8,7 @@ import {
 	isTerminalPhase,
 } from "../lib/workflow-machine.js";
 import type {
+	CoreRunState,
 	RunHistoryEntry,
 	RunState,
 	RunStatus,
@@ -114,11 +115,11 @@ function findPendingClarify(
 	return null;
 }
 
-export function advanceRun(
+export function advanceRun<T extends CoreRunState = RunState>(
 	input: AdvanceInput,
 	deps: AdvanceDeps,
-): Result<RunState, CoreRuntimeError> {
-	const loaded = loadRunState(deps.runs, input.runId);
+): Result<T, CoreRuntimeError> {
+	const loaded = loadRunState<T>(deps.runs, input.runId);
 	if (!loaded.ok) return loaded;
 	const runState = loaded.value;
 
@@ -279,7 +280,7 @@ export function advanceRun(
 		...(recordRef !== undefined ? { record_ref: recordRef } : {}),
 	};
 
-	const updated: RunState = {
+	const updated: T = {
 		...runState,
 		current_phase: transition.to,
 		status: newStatus,
@@ -289,7 +290,7 @@ export function advanceRun(
 	};
 
 	try {
-		writeRunState(deps.runs, input.runId, updated);
+		writeRunState<T>(deps.runs, input.runId, updated);
 	} catch (cause) {
 		// Compensate: if a record was written but state write fails, delete the orphaned record.
 		if (recordRef && deps.records) {
