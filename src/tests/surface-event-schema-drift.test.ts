@@ -86,6 +86,7 @@ function makeEnvelope<T extends string>(
 const APPROVAL_PAYLOAD: ApprovalPayload = {
 	phase_from: "spec_ready",
 	phase_to: "design_draft",
+	record_id: "approval-my-feature-1-1",
 };
 
 const REJECT_PAYLOAD: RejectPayload = {
@@ -96,11 +97,13 @@ const REJECT_PAYLOAD: RejectPayload = {
 const CLARIFY_REQ_PAYLOAD: ClarifyRequestPayload = {
 	question: "What auth method?",
 	context: "The proposal mentions auth but not which method",
+	record_id: "clarify-my-feature-1-1",
 };
 
 const CLARIFY_RESP_PAYLOAD: ClarifyResponsePayload = {
 	answer: "Use OAuth2",
 	question_event_id: "evt-000",
+	record_id: "clarify-my-feature-1-1",
 };
 
 const RESUME_PAYLOAD: ResumePayload = {

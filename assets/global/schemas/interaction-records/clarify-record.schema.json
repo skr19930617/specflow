@@ -1,0 +1,75 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "clarify-record.schema.json",
+	"title": "ClarifyRecord",
+	"description": "Persistence record for a single clarify question-response pair.",
+	"type": "object",
+	"properties": {
+		"record_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Unique identifier for this record."
+		},
+		"record_kind": {
+			"type": "string",
+			"const": "clarify",
+			"description": "Discriminator for the record type."
+		},
+		"run_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The run this record belongs to."
+		},
+		"phase": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Workflow phase where clarification occurred."
+		},
+		"question": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The clarification question text."
+		},
+		"question_context": {
+			"type": "string",
+			"description": "Additional context for the question."
+		},
+		"answer": {
+			"type": ["string", "null"],
+			"description": "The clarification answer text. Null when pending."
+		},
+		"status": {
+			"type": "string",
+			"enum": ["pending", "resolved"],
+			"description": "Current status of the clarify record."
+		},
+		"asked_at": {
+			"type": "string",
+			"format": "date-time",
+			"description": "ISO 8601 timestamp when the question was asked."
+		},
+		"answered_at": {
+			"type": ["string", "null"],
+			"format": "date-time",
+			"description": "ISO 8601 timestamp when the answer was received. Null when pending."
+		},
+		"event_ids": {
+			"type": "array",
+			"items": { "type": "string" },
+			"description": "Event IDs of surface events associated with this record."
+		}
+	},
+	"required": [
+		"record_id",
+		"record_kind",
+		"run_id",
+		"phase",
+		"question",
+		"answer",
+		"status",
+		"asked_at",
+		"answered_at",
+		"event_ids"
+	],
+	"additionalProperties": false
+}

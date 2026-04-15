@@ -1,0 +1,290 @@
+{
+	"version": "1.0",
+	"change_id": "define-approval-and-clarify-persistence-semantics",
+	"bundles": [
+		{
+			"id": "interaction-record-types",
+			"title": "Define InteractionRecord types and schemas",
+			"goal": "Define ApprovalRecord, ClarifyRecord types and their JSON Schema validation in src/types/ and dist/package/global/schemas/.",
+			"depends_on": [],
+			"inputs": ["src/types/contracts.ts", "src/contracts/surface-events.ts"],
+			"outputs": [
+				"src/types/interaction-records.ts",
+				"dist/package/global/schemas/interaction-records/"
+			],
+			"status": "done",
+			"tasks": [
+				{
+					"id": "1",
+					"title": "Define ApprovalRecord type with fields: record_id, record_kind ('approval'), run_id, actor (ActorIdentity), phase_from, phase_to, timestamp, decision",
+					"status": "done"
+				},
+				{
+					"id": "2",
+					"title": "Define ClarifyRecord type with fields: record_id, record_kind ('clarify'), run_id, actor, question, context?, answer?, question_event_id?, timestamp, status ('pending' | 'answered')",
+					"status": "done"
+				},
+				{
+					"id": "3",
+					"title": "Define InteractionRecord discriminated union (ApprovalRecord | ClarifyRecord) and RecordKind type",
+					"status": "done"
+				},
+				{
+					"id": "4",
+					"title": "Implement generateRecordId(kind, runId, sequence) helper function returning '<kind>-<runId>-<sequence>' format",
+					"status": "done"
+				},
+				{
+					"id": "5",
+					"title": "Create JSON Schema files for approval-record.schema.json and clarify-record.schema.json in dist/package/global/schemas/interaction-records/",
+					"status": "done"
+				},
+				{
+					"id": "6",
+					"title": "Add schema validation for InteractionRecord types consistent with existing contract validation patterns",
+					"status": "done"
+				}
+			],
+			"owner_capabilities": ["workflow-run-state", "artifact-ownership-model"]
+		},
+		{
+			"id": "interaction-record-store",
+			"title": "Define InteractionRecordStore interface and LocalFs implementation",
+			"goal": "Create the InteractionRecordStore interface and LocalFsInteractionRecordStore that persists records to .specflow/runs/<runId>/records/<recordId>.json.",
+			"depends_on": ["interaction-record-types"],
+			"inputs": [
+				"src/types/interaction-records.ts",
+				"src/lib/artifact-store.ts",
+				"src/lib/local-fs-run-artifact-store.ts"
+			],
+			"outputs": [
+				"src/lib/interaction-record-store.ts",
+				"src/lib/local-fs-interaction-record-store.ts"
+			],
+			"status": "done",
+			"tasks": [
+				{
+					"id": "1",
+					"title": "Define InteractionRecordStore interface with methods: write(record), read(runId, recordId), list(runId), exists(runId, recordId)",
+					"status": "done"
+				},
+				{
+					"id": "2",
+					"title": "Implement LocalFsInteractionRecordStore with file layout .specflow/runs/<runId>/records/<recordId>.json",
+					"status": "done"
+				},
+				{
+					"id": "3",
+					"title": "Implement atomic write (write-to-temp + rename) in LocalFsInteractionRecordStore.write()",
+					"status": "done"
+				},
+				{
+					"id": "4",
+					"title": "Implement createLocalFsInteractionRecordStore(projectRoot) factory function following existing store factory patterns",
+					"status": "done"
+				},
+				{
+					"id": "5",
+					"title": "Create InMemoryInteractionRecordStore for test use following existing test helper patterns",
+					"status": "done"
+				}
+			],
+			"owner_capabilities": ["workflow-run-state", "artifact-ownership-model"]
+		},
+		{
+			"id": "advance-integration",
+			"title": "Integrate record creation into advance transition handler",
+			"goal": "Extend AdvanceDeps with optional records field and create interaction records synchronously during approval/clarify transitions.",
+			"depends_on": ["interaction-record-store"],
+			"inputs": [
+				"src/core/advance.ts",
+				"src/core/types.ts",
+				"src/lib/interaction-record-store.ts"
+			],
+			"outputs": ["src/core/advance.ts"],
+			"status": "done",
+			"tasks": [
+				{
+					"id": "1",
+					"title": "Add optional records?: InteractionRecordStore to AdvanceDeps interface",
+					"status": "done"
+				},
+				{
+					"id": "2",
+					"title": "Identify and document which transitions require record creation (approval gate, clarify request, clarify response)",
+					"status": "done"
+				},
+				{
+					"id": "3",
+					"title": "Implement record creation logic in advanceRun for approval-related transitions: create ApprovalRecord and write via records store",
+					"status": "done"
+				},
+				{
+					"id": "4",
+					"title": "Implement record creation logic in advanceRun for clarify-related transitions: create ClarifyRecord and write via records store",
+					"status": "done"
+				},
+				{
+					"id": "5",
+					"title": "Ensure record write failure causes transition failure (synchronous error propagation)",
+					"status": "done"
+				},
+				{
+					"id": "6",
+					"title": "When records is undefined, skip record creation and allow transition to succeed (backward compatibility)",
+					"status": "done"
+				}
+			],
+			"owner_capabilities": ["workflow-run-state"]
+		},
+		{
+			"id": "history-record-ref",
+			"title": "Add record_ref to RunHistoryEntry",
+			"goal": "Extend RunHistoryEntry with optional record_ref field and populate it during record-associated transitions in advance.ts.",
+			"depends_on": ["advance-integration"],
+			"inputs": ["src/types/contracts.ts", "src/core/advance.ts"],
+			"outputs": ["src/types/contracts.ts", "src/core/advance.ts"],
+			"status": "done",
+			"tasks": [
+				{
+					"id": "1",
+					"title": "Add optional record_ref?: string to RunHistoryEntry interface in src/types/contracts.ts",
+					"status": "done"
+				},
+				{
+					"id": "2",
+					"title": "Update history entry creation in advance.ts (lines 74-82) to include record_id when a record was created for the transition",
+					"status": "done"
+				},
+				{
+					"id": "3",
+					"title": "Update any JSON Schema for RunHistoryEntry if one exists to include optional record_ref field",
+					"status": "done"
+				}
+			],
+			"owner_capabilities": ["workflow-run-state"]
+		},
+		{
+			"id": "surface-event-record-id",
+			"title": "Add record_id to surface event payloads",
+			"goal": "Extend ApprovalPayload, ClarifyRequestPayload, and ClarifyResponsePayload with record_id field and update corresponding JSON Schema files.",
+			"depends_on": ["interaction-record-types"],
+			"inputs": [
+				"src/contracts/surface-events.ts",
+				"dist/package/global/schemas/surface-events/"
+			],
+			"outputs": [
+				"src/contracts/surface-events.ts",
+				"dist/package/global/schemas/surface-events/approval-payload.schema.json",
+				"dist/package/global/schemas/surface-events/clarify-request-payload.schema.json",
+				"dist/package/global/schemas/surface-events/clarify-response-payload.schema.json"
+			],
+			"status": "done",
+			"tasks": [
+				{
+					"id": "1",
+					"title": "Add record_id: string to ApprovalPayload in src/contracts/surface-events.ts",
+					"status": "done"
+				},
+				{
+					"id": "2",
+					"title": "Add record_id: string to ClarifyRequestPayload in src/contracts/surface-events.ts",
+					"status": "done"
+				},
+				{
+					"id": "3",
+					"title": "Add record_id: string to ClarifyResponsePayload in src/contracts/surface-events.ts",
+					"status": "done"
+				},
+				{
+					"id": "4",
+					"title": "Update approval-payload.schema.json to include record_id as required string field",
+					"status": "done"
+				},
+				{
+					"id": "5",
+					"title": "Update clarify-request-payload.schema.json to include record_id as required string field",
+					"status": "done"
+				},
+				{
+					"id": "6",
+					"title": "Update clarify-response-payload.schema.json to include record_id as required string field",
+					"status": "done"
+				}
+			],
+			"owner_capabilities": ["surface-event-contract"]
+		},
+		{
+			"id": "verification",
+			"title": "Tests and verification for interaction record persistence",
+			"goal": "Add comprehensive tests covering record creation, store operations, advance integration, and backward compatibility, then run all verification steps.",
+			"depends_on": [
+				"advance-integration",
+				"history-record-ref",
+				"surface-event-record-id"
+			],
+			"inputs": [
+				"src/lib/interaction-record-store.ts",
+				"src/lib/local-fs-interaction-record-store.ts",
+				"src/core/advance.ts",
+				"src/types/contracts.ts",
+				"src/contracts/surface-events.ts"
+			],
+			"outputs": [
+				"src/__tests__/interaction-record-store.test.ts",
+				"src/__tests__/advance-records.test.ts"
+			],
+			"status": "done",
+			"tasks": [
+				{
+					"id": "1",
+					"title": "Write unit tests for generateRecordId helper function",
+					"status": "done"
+				},
+				{
+					"id": "2",
+					"title": "Write unit tests for InMemoryInteractionRecordStore (write, read, list, exists)",
+					"status": "done"
+				},
+				{
+					"id": "3",
+					"title": "Write integration tests for LocalFsInteractionRecordStore (file creation, atomic write, directory structure)",
+					"status": "done"
+				},
+				{
+					"id": "4",
+					"title": "Write tests for advance with records injected: verify record creation on approval transitions",
+					"status": "done"
+				},
+				{
+					"id": "5",
+					"title": "Write tests for advance with records injected: verify record creation on clarify transitions",
+					"status": "done"
+				},
+				{
+					"id": "6",
+					"title": "Write tests for advance with records undefined: verify transitions succeed without record creation (backward compat)",
+					"status": "done"
+				},
+				{
+					"id": "7",
+					"title": "Write tests verifying record_ref is populated in RunHistoryEntry for record-associated transitions",
+					"status": "done"
+				},
+				{
+					"id": "8",
+					"title": "Write tests verifying record write failure causes transition failure",
+					"status": "done"
+				},
+				{
+					"id": "9",
+					"title": "Run formatting, linting, type checking, and full test suite; fix any failures",
+					"status": "done"
+				}
+			],
+			"owner_capabilities": ["workflow-run-state", "surface-event-contract"]
+		}
+	],
+	"generated_at": "2026-04-15T02:56:10.974Z",
+	"generated_from": "design.md"
+}

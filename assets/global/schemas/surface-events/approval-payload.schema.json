@@ -14,8 +14,13 @@
 			"type": "string",
 			"minLength": 1,
 			"description": "Workflow phase the approval transitions to."
+		},
+		"record_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Reference to the associated ApprovalRecord."
 		}
 	},
-	"required": ["phase_from", "phase_to"],
+	"required": ["phase_from", "phase_to", "record_id"],
 	"additionalProperties": false
 }

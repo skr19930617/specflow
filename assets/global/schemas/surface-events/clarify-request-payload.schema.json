@@ -13,8 +13,13 @@
 		"context": {
 			"type": "string",
 			"description": "Additional context for the question."
+		},
+		"record_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Reference to the associated ClarifyRecord."
 		}
 	},
-	"required": ["question"],
+	"required": ["question", "record_id"],
 	"additionalProperties": false
 }
