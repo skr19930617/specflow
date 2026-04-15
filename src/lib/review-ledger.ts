@@ -579,11 +579,17 @@ export function computeSummary(
 
 export function computeStatus(ledger: ReviewLedger): ReviewLedger {
 	const findings = normalizeFindings(ledger.findings);
-	const hasOpenHigh = findings.some((finding) => {
+	// `has_open_high` status value is retained for backward compatibility with
+	// persisted ledgers and downstream consumers, but semantics now cover
+	// both `critical` and `high` severities per the severity-aware approve
+	// gate (review-orchestration spec). Accepted-risk / ignored high-or-
+	// critical findings still surface as has_open_high so the Approve
+	// Quality Gate can warn about them.
+	const hasOpenHighOrCritical = findings.some((finding) => {
 		const severity = findingSeverity(finding);
 		const status = findingStatus(finding);
 		return (
-			severity === "high" &&
+			(severity === "high" || severity === "critical") &&
 			(status === "open" ||
 				status === "new" ||
 				status === "accepted_risk" ||
@@ -595,7 +601,7 @@ export function computeStatus(ledger: ReviewLedger): ReviewLedger {
 	);
 	return {
 		...ledger,
-		status: hasOpenHigh
+		status: hasOpenHighOrCritical
 			? "has_open_high"
 			: allResolved
 				? "all_resolved"
@@ -608,6 +614,12 @@ export function computeScore(ledger: ReviewLedger): number {
 		.filter((finding) => findingStatus(finding) !== "resolved")
 		.reduce((total, finding) => {
 			const severity = findingSeverity(finding);
+			// CRITICAL is weighted at/above HIGH so divergence heuristics in the
+			// autofix loop stay consistent with the severity-aware approve gate
+			// (which treats CRITICAL and HIGH as equally blocking).
+			if (severity === "critical") {
+				return total + 4;
+			}
 			if (severity === "high") {
 				return total + 3;
 			}
@@ -655,6 +667,21 @@ export function actionableCount(ledger: ReviewLedger): number {
 	}).length;
 }
 
+// Count unresolved findings whose severity is `critical` or `high`.
+// This is the single source of truth for the severity-aware approve gate
+// (apply_review → apply_ready, design_review → design_ready). See
+// openspec/specs/review-orchestration/spec.md for the contract.
+export function unresolvedCriticalHighCount(ledger: ReviewLedger): number {
+	return normalizeFindings(ledger.findings).filter((finding) => {
+		const severity = findingSeverity(finding);
+		const status = findingStatus(finding);
+		return (
+			(severity === "critical" || severity === "high") &&
+			(status === "new" || status === "open")
+		);
+	}).length;
+}
+
 export function severitySummary(ledger: ReviewLedger): string {
 	const counts = new Map<string, number>();
 	for (const finding of normalizeFindings(ledger.findings)) {
@@ -665,7 +692,7 @@ export function severitySummary(ledger: ReviewLedger): string {
 		const key = (findingSeverity(finding) || "unknown").toUpperCase();
 		counts.set(key, (counts.get(key) ?? 0) + 1);
 	}
-	const order = ["HIGH", "MEDIUM", "LOW"];
+	const order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 	const entries = [...counts.entries()].sort(([left], [right]) => {
 		const leftIndex = order.indexOf(left);
 		const rightIndex = order.indexOf(right);

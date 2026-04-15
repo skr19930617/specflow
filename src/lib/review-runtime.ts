@@ -15,7 +15,10 @@ import { atomicWriteText } from "./fs.js";
 import { currentBranch, recentChanges } from "./git.js";
 import { extractJsonFromMarkdown } from "./json.js";
 import { resolveCommand, tryExec } from "./process.js";
-import { actionableCount } from "./review-ledger.js";
+import {
+	actionableCount,
+	unresolvedCriticalHighCount,
+} from "./review-ledger.js";
 
 export interface ReviewConfig {
 	readonly diffWarnThreshold: number;
@@ -338,14 +341,17 @@ export function renderCurrentPhase(
 				: currentRound <= 1
 					? "design-review"
 					: "design-fix-review";
-	const openHigh = (ledger.findings ?? []).filter((finding) => {
+	const openHighCritical = (ledger.findings ?? []).filter((finding) => {
 		const severity = String(finding.severity ?? "");
 		const status = String(finding.status ?? "");
-		return severity === "high" && (status === "new" || status === "open");
+		return (
+			(severity === "high" || severity === "critical") &&
+			(status === "new" || status === "open")
+		);
 	});
-	const openHighStr =
-		openHigh.length > 0
-			? `${openHigh.length} 件 — "${openHigh.map((finding) => String(finding.title ?? "")).join('", "')}"`
+	const openHighCriticalStr =
+		openHighCritical.length > 0
+			? `${openHighCritical.length} 件 — "${openHighCritical.map((finding) => String(finding.title ?? "")).join('", "')}"`
 			: "0 件";
 	const acceptedRisks =
 		(ledger.findings ?? [])
@@ -359,6 +365,10 @@ export function renderCurrentPhase(
 			)
 			.join("\n") || "none";
 	const actionable = actionableCount(ledger);
+	// Severity-aware handoff: the "Next Recommended Action" depends only on
+	// critical/high unresolved findings. LOW/MEDIUM stay visible via the
+	// Actionable Findings line but never shift the primary handoff.
+	const blocking = unresolvedCriticalHighCount(ledger);
 	const proposalMaxRounds = Number(
 		ledger.max_rounds ?? latestRoundSummary?.max_rounds ?? 0,
 	);
@@ -380,14 +390,12 @@ export function renderCurrentPhase(
 		(proposalMaxRounds > 0 && currentRound >= proposalMaxRounds);
 	const nextAction =
 		kind === "proposal"
-			? actionable > 0
-				? "/specflow"
-				: "/specflow"
+			? "/specflow"
 			: kind === "apply"
-				? actionable > 0
+				? blocking > 0
 					? "/specflow.fix_apply"
 					: "/specflow.approve"
-				: actionable > 0
+				: blocking > 0
 					? "/specflow.fix_design"
 					: "/specflow.apply";
 
@@ -408,7 +416,7 @@ export function renderCurrentPhase(
 					]
 				: []),
 			`- Status: ${String(ledger.status ?? "in_progress")}`,
-			`- Open High Findings: ${openHighStr}`,
+			`- Open High/Critical Findings: ${openHighCriticalStr}`,
 			`- Actionable Findings: ${actionable}`,
 			`- Accepted Risks: ${acceptedRisks}`,
 			"- Latest Changes:",
@@ -477,51 +485,6 @@ export function warnValidationRevert(ids: readonly string[]): void {
 	process.stderr.write(
 		`[ledger] WARNING: Reverted high-severity findings with empty notes to 'open': ${ids.join(", ")}\n`,
 	);
-}
-
-export function unresolvedHighCount(ledger: ReviewLedger): number {
-	return (ledger.findings ?? []).filter((finding) => {
-		const severity = String(finding.severity ?? "");
-		const status = String(finding.status ?? "");
-		return severity === "high" && (status === "new" || status === "open");
-	}).length;
-}
-
-export function allHighTitles(ledger: ReviewLedger): string[] {
-	return (ledger.findings ?? [])
-		.filter((finding) => String(finding.severity ?? "") === "high")
-		.map((finding) => String(finding.title ?? ""));
-}
-
-export function resolvedHighTitles(ledger: ReviewLedger): string[] {
-	return (ledger.findings ?? [])
-		.filter(
-			(finding) =>
-				String(finding.severity ?? "") === "high" &&
-				String(finding.status ?? "") === "resolved",
-		)
-		.map((finding) => String(finding.title ?? ""));
-}
-
-export function newHighCount(
-	current: readonly string[],
-	previous: readonly string[],
-): number {
-	return current.filter((value) => !previous.includes(value)).length;
-}
-
-export function reemergedTitle(
-	newlyResolved: readonly string[],
-	unresolved: readonly string[],
-): string | null {
-	const unresolvedLower = unresolved.map((value) => value.toLowerCase());
-	for (const value of newlyResolved) {
-		const lower = value.toLowerCase();
-		if (unresolvedLower.some((candidate) => candidate.includes(lower))) {
-			return value;
-		}
-	}
-	return null;
 }
 
 export function diffWarningSummary(
@@ -613,14 +576,17 @@ export function renderCurrentPhaseToStore(
 				: currentRound <= 1
 					? "design-review"
 					: "design-fix-review";
-	const openHigh = (ledger.findings ?? []).filter((finding) => {
+	const openHighCritical = (ledger.findings ?? []).filter((finding) => {
 		const severity = String(finding.severity ?? "");
 		const status = String(finding.status ?? "");
-		return severity === "high" && (status === "new" || status === "open");
+		return (
+			(severity === "high" || severity === "critical") &&
+			(status === "new" || status === "open")
+		);
 	});
-	const openHighStr =
-		openHigh.length > 0
-			? `${openHigh.length} 件 — "${openHigh.map((finding) => String(finding.title ?? "")).join('", "')}"`
+	const openHighCriticalStr =
+		openHighCritical.length > 0
+			? `${openHighCritical.length} 件 — "${openHighCritical.map((finding) => String(finding.title ?? "")).join('", "')}"`
 			: "0 件";
 	const acceptedRisks =
 		(ledger.findings ?? [])
@@ -634,6 +600,8 @@ export function renderCurrentPhaseToStore(
 			)
 			.join("\n") || "none";
 	const actionable = actionableCount(ledger);
+	// Severity-aware handoff — see renderCurrentPhase for details.
+	const blocking = unresolvedCriticalHighCount(ledger);
 	const proposalMaxRounds = Number(
 		ledger.max_rounds ?? latestRoundSummary?.max_rounds ?? 0,
 	);
@@ -657,10 +625,10 @@ export function renderCurrentPhaseToStore(
 		kind === "proposal"
 			? "/specflow"
 			: kind === "apply"
-				? actionable > 0
+				? blocking > 0
 					? "/specflow.fix_apply"
 					: "/specflow.approve"
-				: actionable > 0
+				: blocking > 0
 					? "/specflow.fix_design"
 					: "/specflow.apply";
 
@@ -681,7 +649,7 @@ export function renderCurrentPhaseToStore(
 					]
 				: []),
 			`- Status: ${String(ledger.status ?? "in_progress")}`,
-			`- Open High Findings: ${openHighStr}`,
+			`- Open High/Critical Findings: ${openHighCriticalStr}`,
 			`- Actionable Findings: ${actionable}`,
 			`- Accepted Risks: ${acceptedRisks}`,
 			"- Latest Changes:",

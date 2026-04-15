@@ -26,6 +26,7 @@ import {
 	readLedgerFromStore,
 	resolvedHighFindingTitles,
 	severitySummary,
+	unresolvedCriticalHighCount,
 	validateLedger,
 	writeLedgerToStore,
 } from "../lib/review-ledger.js";
@@ -44,7 +45,6 @@ import {
 	renderCurrentPhaseToStore,
 	resolveMainAgent,
 	resolveReviewAgent,
-	unresolvedHighCount,
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
 import type {
@@ -187,6 +187,9 @@ function resultFromLedger(
 	} | null,
 ): ReviewResult {
 	const actionable = actionableCount(ledger);
+	// Severity-aware gate: only critical/high unresolved findings block
+	// the design review handoff. See review-orchestration spec.
+	const blocking = unresolvedCriticalHighCount(ledger);
 	return {
 		status: "success",
 		action,
@@ -195,7 +198,7 @@ function resultFromLedger(
 		ledger: ledgerSnapshot(ledger),
 		autofix: null,
 		handoff: {
-			state: actionable > 0 ? "review_with_findings" : "review_no_findings",
+			state: blocking > 0 ? "review_with_findings" : "review_no_findings",
 			actionable_count: actionable,
 			severity_summary: severitySummary(ledger),
 		},
@@ -556,7 +559,7 @@ function runAutofixLoop(
 			ReviewLedgerKind.Design,
 		).ledger;
 		const currentScore = computeScore(ledger);
-		const unresolvedHigh = unresolvedHighCount(ledger);
+		const unresolvedHigh = unresolvedCriticalHighCount(ledger);
 		const currentAllHighTitles = highFindingTitles(ledger);
 		const currentNewHighCount = currentAllHighTitles.filter(
 			(title) => !previousAllHighTitles.includes(title),
@@ -622,6 +625,8 @@ function runAutofixLoop(
 	}
 
 	const actionable = actionableCount(ledger);
+	// Severity-aware handoff: loop is "clean" when no critical/high remain.
+	const blocking = unresolvedCriticalHighCount(ledger);
 	return {
 		status: "success",
 		action: "autofix_loop",
@@ -635,7 +640,7 @@ function runAutofixLoop(
 			divergence_warnings: divergenceWarnings,
 		},
 		handoff: {
-			state: actionable === 0 ? "loop_no_findings" : "loop_with_findings",
+			state: blocking === 0 ? "loop_no_findings" : "loop_with_findings",
 			actionable_count: actionable,
 			severity_summary: severitySummary(ledger),
 		},

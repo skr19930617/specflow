@@ -40,6 +40,11 @@
 				"additionalProperties": false
 			},
 			"description": "Array of review issues (for request_changes and block)."
+		},
+		"schema_version": {
+			"type": "integer",
+			"minimum": 1,
+			"description": "Gate semantics version. Missing or < 2 means legacy actionable-count gate; 2 means severity-aware gate (HIGH+ unresolved only). New events MUST set this to 2."
 		}
 	},
 	"required": ["phase_from", "reviewer_actor"],

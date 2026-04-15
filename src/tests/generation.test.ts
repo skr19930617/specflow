@@ -372,3 +372,70 @@ test("generated specflow.fix_apply.md carries the specflow-advance-bundle safety
 		"fix_apply.md Important Rules should classify inline edits as a contract violation",
 	);
 });
+
+test("review_apply body encodes severity-aware state mapping and approve-last option", () => {
+	const body = commandBodyText("specflow.review_apply");
+	// The State-to-Option Mapping gate conditions must be severity-aware, not
+	// actionable_count-based.
+	assert.ok(
+		body.includes("HIGH+ unresolved ≥ 1 after review"),
+		"review_apply should gate review_with_findings on HIGH+ unresolved",
+	);
+	assert.ok(
+		body.includes("HIGH+ unresolved == 0 after review"),
+		"review_apply should gate review_no_findings on HIGH+ unresolved",
+	);
+	// Approve must be listed as a last-position non-primary option in
+	// _with_findings states and carry the severity_summary suffix.
+	assert.ok(
+		body.includes('"Approve (accepted risk)" → `/specflow.approve` *(last)*'),
+		"review_apply _with_findings states should place Approve last",
+	);
+	assert.ok(
+		body.includes("accepted_risk 運用を確認してください"),
+		"review_apply must carry the accepted-risk confirmation warning",
+	);
+	// _no_findings messaging must clarify that HIGH+ resolved, LOW/MEDIUM may remain.
+	assert.ok(
+		body.includes("all HIGH+ findings resolved (LOW/MEDIUM may remain"),
+		"review_apply _no_findings header should reference HIGH+ semantics",
+	);
+});
+
+test("review_design body mirrors severity-aware mapping with apply-last option", () => {
+	const body = commandBodyText("specflow.review_design");
+	assert.ok(
+		body.includes("HIGH+ unresolved ≥ 1 after review"),
+		"review_design should gate review_with_findings on HIGH+ unresolved",
+	);
+	assert.ok(
+		body.includes('"実装に進む (accepted risk)" → `/specflow.apply` *(last)*'),
+		"review_design _with_findings states should place apply last",
+	);
+	assert.ok(
+		body.includes("accepted_risk 運用を確認してください"),
+		"review_design must carry the accepted-risk confirmation warning",
+	);
+	assert.ok(
+		body.includes("all HIGH+ findings resolved (LOW/MEDIUM may remain"),
+		"review_design _no_findings header should reference HIGH+ semantics",
+	);
+});
+
+test("approve body Quality Gate describes critical+high threshold", () => {
+	const body = commandBodyText("specflow.approve");
+	assert.ok(
+		body.includes("`severity ∈ {critical, high}`"),
+		"approve Quality Gate should describe critical+high threshold explicitly",
+	);
+	assert.ok(
+		body.includes("未解決の critical/high finding"),
+		"approve Quality Gate WARNING copy should mention critical/high",
+	);
+	assert.ok(
+		body.includes(
+			"LOW / MEDIUM のみが残っている場合は `has_open_high` にはならない",
+		),
+		"approve Quality Gate should clarify LOW/MEDIUM do not trigger has_open_high",
+	);
+});
