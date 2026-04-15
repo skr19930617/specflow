@@ -412,11 +412,10 @@ test("specflow-advance-bundle CLI: pre-orchestration errors emit advance-bundle-
 		);
 
 		// Missing args — the earliest failure path.
-		const missingArgs = spawnSync(
-			process.execPath,
-			[advanceBundleCliPath],
-			{ cwd: projectRoot, encoding: "utf8" },
-		);
+		const missingArgs = spawnSync(process.execPath, [advanceBundleCliPath], {
+			cwd: projectRoot,
+			encoding: "utf8",
+		});
 		assert.equal(missingArgs.status, 1);
 		const missingArgsPayload = JSON.parse(missingArgs.stdout) as Record<
 			string,
