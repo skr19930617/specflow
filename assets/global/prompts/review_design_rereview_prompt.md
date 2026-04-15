@@ -38,6 +38,7 @@ Review the ENTIRE design and tasks (not just areas related to previous findings)
 - scope: no unnecessary work beyond what the spec requires
 - consistency: do the tasks align with the design's design decisions? Do data models match contracts?
 - risk: are there unaddressed technical risks, unknowns, or missing error handling strategies?
+- task-plannable: does the design contain the mandatory planning sections required for task graph derivation? The 7 required sections are: Concerns, State / Lifecycle, Contracts / Interfaces, Persistence / Ownership, Integration Points, Ordering / Dependency Notes, Completion Conditions. Each must be present as a ## heading with non-empty content (N/A with justification is acceptable).
 
 Review rules:
 

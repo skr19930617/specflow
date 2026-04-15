@@ -1,0 +1,76 @@
+{
+  "feature_id": "define-design-contract-required-for-specflow-task-planning-and-apply-windowing",
+  "phase": "design",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "consistency",
+      "title": "Prompt contract is a static markdown file, not generated from prompts.ts",
+      "detail": "The design states that the design generation prompt contract lives in `src/contracts/prompts.ts` and that updating it there will update the rendered prompt. However, `prompts.ts` only defines metadata (id, filePath, sourcePath, outputExample) — it does not contain prompt text. The actual prompt text lives in `assets/global/prompts/review_design_prompt.md` (a static markdown file). Tasks 3.1 ('Update the design prompt contract in src/contracts/prompts.ts') needs to be corrected: the prompt text update should target the markdown source files in `assets/global/prompts/`, not `prompts.ts`. Similarly, the design generation instructions come from the OpenSpec artifact system (not from prompts.ts). The design's Integration Points and Persistence/Ownership sections perpetuate this confusion. Fix: (1) Task 3.1 should update the markdown prompt source files (`assets/global/prompts/review_design_prompt.md` and the rereview variant), (2) clarify in the design that `prompts.ts` only needs the `task-plannable` category added to the review finding schema's category union if applicable, (3) identify where the design generation instruction actually lives (OpenSpec artifact instruction, not prompts.ts) and update that separately.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "feasibility",
+      "title": "Backward compatibility check mechanism is underspecified",
+      "detail": "The design says 'The ChangeArtifactStore can check artifact existence timestamps or simply whether the file was present before the current design generation step.' But the review pipeline in `specflow-review-design.ts` runs after generation — at that point `design.md` always exists (it was just generated). There is no timestamp or 'existed before generation' metadata available in the current ChangeArtifactStore interface. The design needs to specify a concrete mechanism, e.g.: (a) check whether the current review round is round 1 (first review after generation means newly generated), (b) add a metadata flag during generation, or (c) check git status for the file (untracked = new). Task 4.1 inherits this ambiguity. Fix: choose a concrete backward compatibility detection approach and update the design and task accordingly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Task 3.2 references openspec/config.yaml rules but config.yaml has no rules section",
+      "detail": "Task 3.2 says 'Update the OpenSpec artifact instruction for design in openspec/config.yaml rules to include planning section requirements.' The actual `openspec/config.yaml` has no `rules` section — it only contains `schema` and `diff_warn_threshold`. The design's Ordering step #4 also references 'openspec/config.yaml rules or schema instruction override'. The design should clarify where design artifact instructions are actually defined (likely in the OpenSpec schema or in `src/contracts/command-bodies.ts` which contains step-by-step instructions for the design workflow). Fix: identify the actual location of design generation instructions and update task 3.2 and the design's Integration Points accordingly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "low",
+      "category": "consistency",
+      "title": "review_design_prompt.md category enum does not include 'task-plannable'",
+      "detail": "The review prompt's output schema uses a category enum of 'completeness | feasibility | ordering | granularity | scope | consistency | risk'. The structural validator will produce findings with category 'task-plannable' which is outside this enum. While the LLM review agent's output schema doesn't need to include it (the findings are injected programmatically), the review ledger and result types should accept it. The design should note that `task-plannable` findings are merged into the ledger alongside but separately from LLM-generated findings, and confirm the existing ReviewFinding type's `category?: string` field accommodates this without schema changes.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2,
+        "low": 1
+      }
+    }
+  ]
+}

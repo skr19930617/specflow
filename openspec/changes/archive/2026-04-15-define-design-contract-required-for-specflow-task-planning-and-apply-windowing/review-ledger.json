@@ -1,0 +1,77 @@
+{
+  "feature_id": "define-design-contract-required-for-specflow-task-planning-and-apply-windowing",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "all_resolved",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/design-planning-validation.ts",
+      "title": "headingMatches may false-positive on substring",
+      "detail": "headingMatches uses `.includes()` so a heading like '## No Concerns Here' would match 'Concerns', and '## Reordering / Dependency Notes' would match 'Ordering / Dependency Notes'. This is documented as intentional ('allows additional words'), but could lead to false negatives (reporting valid when a heading is only tangentially related). The spec says the heading must be 'present as a ## heading' — substring matching is more lenient than exact match. Low risk in practice since heading names are specific enough, but worth noting.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/bin/specflow-review-design.ts",
+      "title": "Type assertion on ReviewFinding in buildTaskPlannableFindings",
+      "detail": "The `as ReviewFinding` cast on each finding object suggests the object literal may not satisfy the full ReviewFinding type. If ReviewFinding has additional required fields (e.g., origin_round), the cast hides the mismatch. Consider satisfying the type directly instead of casting.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/contracts/command-bodies.ts",
+      "title": "Large inline string change is hard to review",
+      "detail": "The command body string has the design artifact special handling inlined in a single long string. This is consistent with existing patterns in the file but makes diffs hard to review. Not a functional issue.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 3,
+      "open": 0,
+      "new": 0,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}
