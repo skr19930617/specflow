@@ -1,0 +1,62 @@
+{
+  "feature_id": "tasks",
+  "phase": "impl",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "completeness",
+      "file": "src/contracts/command-bodies.ts",
+      "title": "Spec delta files not included in diff",
+      "detail": "The proposal's Impact section states that `openspec/specs/slash-command-guides/spec.md`, `openspec/specs/task-planner/spec.md`, and `openspec/specs/utility-cli-suite/spec.md` each receive a delta. The current diff only updates `command-bodies.ts` and tests. If spec deltas are handled via a separate openspec change directory (e.g., `openspec/changes/tasks/`, which is untracked per git status), this is fine — but verify those deltas exist and are staged for the change to land completely.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "testing",
+      "file": "src/tests/generation.test.ts",
+      "title": "Test reads from dist/ — ensure build precedes test",
+      "detail": "The new tests read from `dist/package/global/commands/specflow.apply.md` and `specflow.fix_apply.md`. These tests implicitly depend on a fresh build. If the test suite doesn't trigger or depend on the build step, the test could pass against stale dist output or fail on a clean checkout. Confirm the test script / CI pipeline runs the build before `generation.test.ts`, or have the test regenerate the artifact from `command-bodies.ts` directly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 2,
+      "open": 1,
+      "new": 0,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "low": 1
+      }
+    }
+  ]
+}

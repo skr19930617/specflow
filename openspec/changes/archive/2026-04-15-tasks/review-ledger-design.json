@@ -1,0 +1,19 @@
+{
+  "feature_id": "tasks",
+  "phase": "design",
+  "current_round": 1,
+  "status": "all_resolved",
+  "max_finding_id": 0,
+  "findings": [],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 0,
+      "open": 0,
+      "new": 0,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}
