@@ -2,6 +2,14 @@ import { AssetType, type OrchestratorContract } from "../types/contracts.js";
 
 export const orchestratorContracts: readonly OrchestratorContract[] = [
 	{
+		id: "specflow-advance-bundle",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-advance-bundle",
+		entryModule: "dist/bin/specflow-advance-bundle.js",
+		stdoutSchemaId: "advance-bundle-result",
+		references: [],
+	},
+	{
 		id: "specflow-analyze",
 		type: AssetType.Orchestrator,
 		filePath: "bin/specflow-analyze",

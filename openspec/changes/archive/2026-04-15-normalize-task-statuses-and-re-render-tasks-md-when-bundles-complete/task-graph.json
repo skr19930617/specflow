@@ -1,0 +1,329 @@
+{
+  "version": "1.0",
+  "change_id": "normalize-task-statuses-and-re-render-tasks-md-when-bundles-complete",
+  "bundles": [
+    {
+      "id": "extend-status-update-types",
+      "title": "Extend status update types with coercion metadata",
+      "goal": "Introduce TaskStatusCoercion type and extend StatusUpdateResult so callers can audit child-task coercions.",
+      "depends_on": [],
+      "inputs": [
+        "src/lib/task-planner/status.ts",
+        "src/lib/task-planner/types.ts",
+        "src/lib/task-planner/index.ts"
+      ],
+      "outputs": [
+        "src/lib/task-planner/status.ts (TaskStatusCoercion + extended StatusUpdateResult)",
+        "src/lib/task-planner/index.ts (TaskStatusCoercion re-export)"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add TaskStatusCoercion interface (bundleId, taskId, from, to) in status.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Extend StatusUpdateResult with readonly coercions: readonly TaskStatusCoercion[]",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Re-export TaskStatusCoercion from src/lib/task-planner/index.ts",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner"
+      ]
+    },
+    {
+      "id": "normalize-children-in-update-bundle-status",
+      "title": "Normalize child task statuses inside updateBundleStatus",
+      "goal": "Coerce child task statuses to the terminal bundle status on done/skipped transitions while preserving purity and immutability.",
+      "depends_on": [
+        "extend-status-update-types"
+      ],
+      "inputs": [
+        "src/lib/task-planner/status.ts",
+        "src/lib/task-planner/types.ts"
+      ],
+      "outputs": [
+        "src/lib/task-planner/status.ts (normalization logic + coercions array)"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Detect terminal target status ('done' | 'skipped') inside updateBundleStatus",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Rebuild bundle.tasks immutably with each task.status set to target terminal value",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Collect one TaskStatusCoercion entry per child whose status actually changed",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Return empty coercions array for non-terminal transitions and for empty-bundle cases",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Force-coerce conflicting prior terminal child statuses (e.g. done → skipped) and emit coercion entries",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Ensure input TaskGraph is never mutated and bundles array is rebuilt immutably",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner"
+      ]
+    },
+    {
+      "id": "unit-tests-for-normalization",
+      "title": "Unit tests for status normalization and coercion reporting",
+      "goal": "Cover terminal transitions, non-terminal transitions, empty bundles, conflicting prior terminal states, and immutability guarantees.",
+      "depends_on": [
+        "normalize-children-in-update-bundle-status"
+      ],
+      "inputs": [
+        "src/tests/task-planner-core.test.ts",
+        "src/lib/task-planner/status.ts"
+      ],
+      "outputs": [
+        "src/tests/task-planner-core.test.ts (new test cases)"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Test: bundle → done coerces all pending children to done and reports coercions",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Test: bundle → skipped coerces all pending children to skipped and reports coercions",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Test: no-op children (already matching target) produce no coercion entries",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Test: non-terminal transition returns empty coercions and leaves task statuses untouched",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Test: empty-bundle terminal transition updates bundle status and returns empty coercions",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Test: conflicting prior terminal child (done when bundle → skipped) is force-coerced and logged",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Test: input TaskGraph reference and nested arrays are not mutated",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Test: rejected transitions (e.g. done → pending) still return ok:false with no coercions",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner"
+      ]
+    },
+    {
+      "id": "renderer-consistency-tests",
+      "title": "Renderer consistency tests after normalization",
+      "goal": "Verify renderTasksMd produces a tasks.md whose checkboxes match the bundle header after a terminal transition.",
+      "depends_on": [
+        "normalize-children-in-update-bundle-status"
+      ],
+      "inputs": [
+        "src/lib/task-planner/render.ts",
+        "src/tests/task-planner-core.test.ts"
+      ],
+      "outputs": [
+        "src/tests/task-planner-core.test.ts (renderer consistency cases)"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Test: after bundle → done, rendered tasks.md shows checked boxes under the done header",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Test: after bundle → skipped, rendered tasks.md reflects skipped state consistently",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Confirm renderTasksMd remains unchanged (no special-casing added)",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner"
+      ]
+    },
+    {
+      "id": "apply-phase-caller-integration",
+      "title": "Wire coercions through the apply-phase caller",
+      "goal": "Persist the normalized graph, re-render tasks.md atomically, and emit one structured log per coercion.",
+      "depends_on": [
+        "normalize-children-in-update-bundle-status",
+        "extend-status-update-types"
+      ],
+      "inputs": [
+        "apply-phase caller (persistence + logging wiring)",
+        "src/lib/task-planner/index.ts",
+        "src/lib/task-planner/render.ts"
+      ],
+      "outputs": [
+        "apply-phase caller updated to consume result.coercions",
+        "atomic write sequence for task-graph.json and tasks.md",
+        "structured audit log lines per coercion"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Invoke updateBundleStatus and branch on result.ok in the apply-phase caller",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Persist result.taskGraph to task-graph.json using existing atomic write-temp+rename pattern",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Render tasks.md via renderTasksMd(result.taskGraph) and write atomically",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Emit one structured log line per TaskStatusCoercion with bundle_id, task_id, from_status, to_status",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Ensure no log is emitted when coercions is empty (no-op silence)",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "apply-phase-integration-tests",
+      "title": "Integration tests for apply-phase persistence and logging",
+      "goal": "Assert end-to-end that a terminal bundle transition persists a consistent graph, re-renders tasks.md, and logs exactly one line per coercion.",
+      "depends_on": [
+        "apply-phase-caller-integration"
+      ],
+      "inputs": [
+        "apply-phase caller tests",
+        "src/tests/"
+      ],
+      "outputs": [
+        "integration tests covering persistence + render + logging"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Test: apply-phase terminal transition writes consistent task-graph.json (bundle + children match)",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Test: apply-phase terminal transition writes tasks.md whose checkboxes match bundle header",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Test: exactly one audit log line is emitted per coercion entry",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Test: no audit log lines on non-terminal transitions or when all children already matched",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Test: atomic write pattern is used for both task-graph.json and tasks.md",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "verification-and-docs",
+      "title": "Repository verification and release note",
+      "goal": "Run formatting, linting, type checking, tests, and build; document the additive API change.",
+      "depends_on": [
+        "unit-tests-for-normalization",
+        "renderer-consistency-tests",
+        "apply-phase-integration-tests"
+      ],
+      "inputs": [
+        "repository verification commands",
+        "release notes / changelog"
+      ],
+      "outputs": [
+        "green verification run",
+        "release note entry describing additive StatusUpdateResult.coercions field"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run repository-defined format, lint, type-check, test, and build commands for affected scope",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Fix any failures surfaced by verification steps",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add release note describing additive StatusUpdateResult.coercions and new TaskStatusCoercion export",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-15T05:23:39.184Z",
+  "generated_from": "design.md"
+}

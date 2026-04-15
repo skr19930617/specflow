@@ -1045,6 +1045,40 @@ function generateTaskGraphResultValidator(
 	}
 }
 
+function advanceBundleResultValidator(
+	value: unknown,
+	path: string,
+	errors: ValidationErrors,
+): void {
+	const record = expectRecord(value, path, errors);
+	if (!record) {
+		return;
+	}
+	stringValidator(record.status, `${path}.status`, errors);
+	if (record.status === "success") {
+		// Success always comes from the orchestration call and carries the
+		// full identity tuple plus the coercion count.
+		stringValidator(record.change_id, `${path}.change_id`, errors);
+		stringValidator(record.bundle_id, `${path}.bundle_id`, errors);
+		stringValidator(record.new_status, `${path}.new_status`, errors);
+		numberValidator(record.coercions, `${path}.coercions`, errors);
+	}
+	if (record.status === "error") {
+		// Error may be emitted before CLI argv parsing completes, so the
+		// identity tuple is optional (populated when context is available).
+		stringValidator(record.error, `${path}.error`, errors);
+		if (record.change_id !== undefined) {
+			stringValidator(record.change_id, `${path}.change_id`, errors);
+		}
+		if (record.bundle_id !== undefined) {
+			stringValidator(record.bundle_id, `${path}.bundle_id`, errors);
+		}
+		if (record.new_status !== undefined) {
+			stringValidator(record.new_status, `${path}.new_status`, errors);
+		}
+	}
+}
+
 export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"issue-metadata": issueMetadataValidator,
 	"source-metadata": sourceMetadataValidator,
@@ -1062,6 +1096,7 @@ export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"create-sub-issues-input": createSubIssuesInputValidator,
 	"create-sub-issues-result": createSubIssuesResultValidator,
 	"generate-task-graph-result": generateTaskGraphResultValidator,
+	"advance-bundle-result": advanceBundleResultValidator,
 	profile: profileValidator,
 };
 
