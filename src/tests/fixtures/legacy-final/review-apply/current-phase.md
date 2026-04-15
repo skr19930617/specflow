@@ -3,7 +3,7 @@
 - Phase: impl-review
 - Round: 1
 - Status: has_open_high
-- Open High Findings: 1 件 — "Needs guard"
+- Open High/Critical Findings: 1 件 — "Needs guard"
 - Actionable Findings: 1
 - Accepted Risks: none
 - Latest Changes:

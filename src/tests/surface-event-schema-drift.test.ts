@@ -22,6 +22,10 @@ import type {
 	SurfaceEventEnvelope,
 	SurfaceIdentity,
 } from "../contracts/surface-events.js";
+import {
+	isLegacyReviewOutcomePayload,
+	REVIEW_OUTCOME_PAYLOAD_SCHEMA_VERSION,
+} from "../contracts/surface-events.js";
 
 const SCHEMAS_DIR = resolve("assets/global/schemas/surface-events");
 
@@ -115,6 +119,14 @@ const REVIEW_OUTCOME_PAYLOAD: ReviewOutcomePayload = {
 	reviewer_actor: { actor: "ai-agent", actor_id: "codex" },
 	summary: "Looks good",
 	issues: [{ id: "P1", severity: "medium", detail: "Minor gap" }],
+	schema_version: REVIEW_OUTCOME_PAYLOAD_SCHEMA_VERSION,
+};
+
+const LEGACY_REVIEW_OUTCOME_PAYLOAD: ReviewOutcomePayload = {
+	phase_from: "design_review",
+	reviewer_actor: { actor: "ai-agent", actor_id: "codex" },
+	summary: "Looks good (legacy emission)",
+	// intentionally no schema_version to simulate a pre-schema_version event
 };
 
 const SAMPLE_EVENTS: readonly SurfaceEventEnvelope[] = [
@@ -246,4 +258,47 @@ test("correlation schema rejects correlation missing required run_id", () => {
 	assert.ok(validate);
 
 	assert.ok(!validate({ change_id: "x" }), "should reject missing run_id");
+});
+
+// --- Review-outcome payload schema_version (severity-aware gate bump) ------
+
+test("review-outcome payload schema accepts schema_version:2", () => {
+	const schemas = loadSchemas();
+	const ajv = createAjv(schemas);
+	const validate = ajv.getSchema("review-outcome-payload.schema.json");
+	assert.ok(validate, "review-outcome-payload.schema.json should compile");
+	assert.ok(
+		validate(REVIEW_OUTCOME_PAYLOAD),
+		`schema_version:2 payload should validate: ${JSON.stringify(validate.errors)}`,
+	);
+});
+
+test("review-outcome payload schema accepts legacy (missing schema_version)", () => {
+	const schemas = loadSchemas();
+	const ajv = createAjv(schemas);
+	const validate = ajv.getSchema("review-outcome-payload.schema.json");
+	assert.ok(validate);
+	assert.ok(
+		validate(LEGACY_REVIEW_OUTCOME_PAYLOAD),
+		`legacy payload (no schema_version) should validate: ${JSON.stringify(validate.errors)}`,
+	);
+});
+
+test("isLegacyReviewOutcomePayload flags missing schema_version", () => {
+	assert.equal(
+		isLegacyReviewOutcomePayload(LEGACY_REVIEW_OUTCOME_PAYLOAD),
+		true,
+	);
+});
+
+test("isLegacyReviewOutcomePayload flags schema_version < 2", () => {
+	assert.equal(isLegacyReviewOutcomePayload({ schema_version: 1 }), true);
+});
+
+test("isLegacyReviewOutcomePayload returns false for schema_version == 2", () => {
+	assert.equal(isLegacyReviewOutcomePayload({ schema_version: 2 }), false);
+});
+
+test("isLegacyReviewOutcomePayload returns false for forward-compatible higher versions", () => {
+	assert.equal(isLegacyReviewOutcomePayload({ schema_version: 3 }), false);
 });

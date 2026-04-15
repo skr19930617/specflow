@@ -126,12 +126,51 @@ export interface ReviewIssue {
 	readonly detail: string;
 }
 
+/**
+ * Semantics version for review-outcome payloads.
+ *
+ * Distinct from the envelope-level `schema_version` (which versions the
+ * envelope shape itself). `ReviewOutcomePayloadSchemaVersion` tracks the
+ * *meaning* of the `*_review_approved` / `request_changes` / `block` gate:
+ *
+ * - Missing or `< 2`: legacy semantics. `*_no_findings` / `*_with_findings`
+ *   derived from `actionable_count` (all severities). See
+ *   `isLegacyReviewOutcomePayload`.
+ * - `2`: severity-aware semantics. Gate driven by
+ *   `unresolvedCriticalHighCount(ledger) == 0` — findings of severity
+ *   `medium` or `low` do NOT block approval.
+ */
+export const REVIEW_OUTCOME_PAYLOAD_SCHEMA_VERSION = 2;
+
 /** Payload for review outcome events. */
 export interface ReviewOutcomePayload {
 	readonly phase_from: string;
 	readonly reviewer_actor: ActorIdentity;
 	readonly summary?: string;
 	readonly issues?: readonly ReviewIssue[];
+	/**
+	 * Semantics version for the approve gate — see
+	 * REVIEW_OUTCOME_PAYLOAD_SCHEMA_VERSION. Required on newly emitted
+	 * events; missing on legacy events persisted before this contract.
+	 */
+	readonly schema_version?: number;
+}
+
+/**
+ * Reader helper: returns true when a review-outcome payload was emitted
+ * under the legacy (actionable-count) gate semantics rather than the
+ * current severity-aware gate. Consumers MAY surface a warning when this
+ * returns true so `_no_findings` / `_with_findings` analytics are not
+ * conflated across the semantics boundary.
+ */
+export function isLegacyReviewOutcomePayload(
+	payload: Pick<ReviewOutcomePayload, "schema_version">,
+): boolean {
+	const version = payload.schema_version;
+	if (typeof version !== "number") {
+		return true;
+	}
+	return version < REVIEW_OUTCOME_PAYLOAD_SCHEMA_VERSION;
 }
 
 // ---------------------------------------------------------------------------

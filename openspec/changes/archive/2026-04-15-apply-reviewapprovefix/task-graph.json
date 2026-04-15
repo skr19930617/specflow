@@ -1,0 +1,296 @@
+{
+  "version": "1.0",
+  "change_id": "apply-reviewapprovefix",
+  "bundles": [
+    {
+      "id": "severity-helper",
+      "title": "Severity-aware ledger helper",
+      "goal": "Introduce unresolvedCriticalHighCount helper replacing unresolvedHighCount with full unit coverage.",
+      "depends_on": [],
+      "inputs": [
+        "design.md#D1",
+        "src/lib/review-ledger.ts"
+      ],
+      "outputs": [
+        "src/lib/review-ledger.ts",
+        "src/tests/review-ledger.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add unresolvedCriticalHighCount(ledger) counting severity ∈ {critical, high} with status ∈ {new, open} in src/lib/review-ledger.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Delete unresolvedHighCount helper and sweep all imports via TypeScript rename",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add unit tests with severity matrix fixture (HIGH-only, CRITICAL-only, mixed, LOW/MEDIUM only, empty)",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run tsc --noEmit to confirm no dangling references",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-orchestration"
+      ]
+    },
+    {
+      "id": "surface-event-schema",
+      "title": "Surface-event schema_version bump",
+      "goal": "Add schema_version:2 to review-outcome payload contracts with legacy reader support.",
+      "depends_on": [],
+      "inputs": [
+        "design.md#D3",
+        "design.md#D7",
+        "src/contracts/surface-events.ts"
+      ],
+      "outputs": [
+        "src/contracts/surface-events.ts",
+        "src/tests/surface-event-schema-drift.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add schema_version:number field to apply_review_approved / design_review_approved / request_changes / block payload types",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add reader helper flagging legacy_actionable_count_basis:true when schema_version missing or <2",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Extend surface-event-schema-drift.test.ts: new events carry schema_version:2; legacy fixtures flagged correctly",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "surface-event-contract"
+      ]
+    },
+    {
+      "id": "orchestrator-gate",
+      "title": "Orchestrator severity gate + schema emission",
+      "goal": "Rewire apply/design review orchestrators to gate handoff state on unresolvedCriticalHighCount and emit schema_version:2.",
+      "depends_on": [
+        "severity-helper",
+        "surface-event-schema"
+      ],
+      "inputs": [
+        "design.md#D2",
+        "design.md#D5",
+        "src/bin/specflow-review-apply.ts",
+        "src/bin/specflow-review-design.ts"
+      ],
+      "outputs": [
+        "src/bin/specflow-review-apply.ts",
+        "src/bin/specflow-review-design.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update resultFromLedger in specflow-review-apply.ts to derive state from unresolvedCriticalHighCount>0",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update autofix-loop tail in specflow-review-apply.ts to compute loop_no_findings/loop_with_findings from the new helper",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Mirror both changes in specflow-review-design.ts",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Populate schema_version:2 on all emitted review-outcome surface events",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Confirm decision string is surfaced in UI but not consulted by handoff computation",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-orchestration"
+      ]
+    },
+    {
+      "id": "renderer-and-ledger-status",
+      "title": "Current-phase renderer + ledger status alignment",
+      "goal": "Update renderCurrentPhase/renderCurrentPhaseToStore and ledger status derivation to use the severity-aware helper.",
+      "depends_on": [
+        "severity-helper"
+      ],
+      "inputs": [
+        "design.md#D6",
+        "design.md#D8",
+        "src/lib/review-runtime.ts"
+      ],
+      "outputs": [
+        "src/lib/review-runtime.ts",
+        "src/lib/review-ledger.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add criticalHigh=unresolvedCriticalHighCount(ledger) in renderCurrentPhase and drive nextAction off criticalHigh>0",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Apply same change to renderCurrentPhaseToStore for both apply and design kinds",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Rename Open High Findings line to Open High/Critical Findings with breakdown; retain Actionable Findings line",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Update ledgerStatus derivation so has_open_high covers critical+high via the new helper (value string unchanged)",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-orchestration",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "slash-command-guides",
+      "title": "Slash-command guide bodies",
+      "goal": "Regenerate review_apply/review_design/approve guides to surface approve-last with severity summary and accepted-risk warning.",
+      "depends_on": [
+        "orchestrator-gate",
+        "renderer-and-ledger-status"
+      ],
+      "inputs": [
+        "design.md#D4",
+        "design.md#D6",
+        "src/contracts/command-bodies.ts",
+        "global/commands/specflow.review_apply.md",
+        "global/commands/specflow.review_design.md",
+        "global/commands/specflow.approve.md"
+      ],
+      "outputs": [
+        "src/contracts/command-bodies.ts",
+        "global/commands/specflow.review_apply.md",
+        "global/commands/specflow.review_design.md",
+        "global/commands/specflow.approve.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update State-to-Option Mapping in review_apply body: fix, reject, then Approve (last) with severity-summary suffix",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Mirror mapping in review_design body: fix, reject, then Apply (last) with severity-summary suffix",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add inline accepted-risk warning shown when approve/apply selected in _with_findings states",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Update _no_findings header message to clarify all HIGH+ resolved (LOW/MEDIUM may remain)",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Update specflow.approve.md Quality Gate copy to describe critical+high threshold",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Regenerate global/commands/*.md via the specflow-generate-commands pipeline",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "review-orchestration"
+      ]
+    },
+    {
+      "id": "tests-and-fixtures",
+      "title": "Tests and severity-matrix fixtures",
+      "goal": "Add fixtures and tests covering severity-aware gating across orchestrators, renderer, and generated guides.",
+      "depends_on": [
+        "orchestrator-gate",
+        "renderer-and-ledger-status",
+        "slash-command-guides"
+      ],
+      "inputs": [
+        "design.md#D9",
+        "src/tests/"
+      ],
+      "outputs": [
+        "src/tests/fixtures/",
+        "src/tests/specflow-run.test.ts",
+        "src/tests/generation.test.ts",
+        "src/tests/surface-event-schema-drift.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add fixtures: HIGH=0/LOW=N, HIGH=0/MEDIUM=M, HIGH=0/CRITICAL=K, HIGH≥1/LOW=N",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Refocus existing actionable_count→state tests onto actionableCount as a pure function",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Extend specflow-run.test.ts orchestrator cases to confirm critical blocks and HIGH blocks but LOW/MEDIUM do not",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Extend generation.test.ts to assert approve/apply is last option with severity summary + accepted-risk warning",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Remove any remaining references to unresolvedHighCount or actionable>0 handoff gating",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run bun test and openspec validate apply-reviewapprovefix --type change --json",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-orchestration",
+        "surface-event-contract",
+        "slash-command-guides"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-15T10:03:43.549Z",
+  "generated_from": "design.md"
+}

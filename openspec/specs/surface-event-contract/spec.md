@@ -183,6 +183,7 @@ Each concrete event type SHALL define a payload schema with explicitly declared 
 - `reviewer_actor`: The actor identity of the reviewer (required).
 - `summary`: A review summary text (optional).
 - `issues`: An array of review issues (optional, for `request_changes` and `block`).
+- `schema_version`: An integer declaring the gate semantics version (required for newly emitted events; current value `2`). See the "Review outcome payloads SHALL declare a `schema_version`" requirement for legacy-event handling.
 
 #### Scenario: Approval payload includes record_id
 
@@ -214,6 +215,7 @@ Each concrete event type SHALL define a payload schema with explicitly declared 
 - **WHEN** a `request_changes` event is created
 - **THEN** the payload SHALL include `reviewer_actor` conforming to the actor identity schema
 - **AND** the payload MAY include `issues` as an array
+- **AND** newly emitted events SHALL include `schema_version: 2`
 
 #### Scenario: Unknown payload fields are tolerated for forward compatibility
 
@@ -312,4 +314,48 @@ The system SHALL support multiple surface events referencing the same interactio
 - **WHEN** a consumer has an event with a `record_id` in its payload
 - **THEN** the consumer SHALL be able to retrieve the full interaction record using `InteractionRecordStore.read(runId, recordId)`
 - **AND** the record SHALL contain the complete lifecycle state including all associated event_ids
+
+### Requirement: Review outcome events SHALL be emitted only when the HIGH+ severity gate is satisfied
+
+The `apply_review_approved` and `design_review_approved` events SHALL be emitted only when the corresponding review ledger satisfies the HIGH+ severity gate defined in `review-orchestration` — namely, when no unresolved finding has `severity ∈ {critical, high}` and `status ∈ {new, open}`. Findings whose `severity ∈ {medium, low}` SHALL NOT block emission of `*_review_approved`. The reviewer's free-form `decision` string SHALL NOT be used as the gate; only the ledger's HIGH+ unresolved count drives event emission.
+
+#### Scenario: apply_review_approved is emitted when no HIGH+ findings remain
+
+- **WHEN** an apply review round (or autofix loop) finishes with `unresolvedCriticalHighCount(ledger) == 0`
+- **AND** the reviewer is binding-eligible (per `review-orchestration`)
+- **THEN** an `apply_review_approved` event SHALL be eligible for emission
+- **AND** the presence of unresolved LOW or MEDIUM findings SHALL NOT prevent emission
+
+#### Scenario: apply_review_approved is NOT emitted while HIGH+ findings remain
+
+- **WHEN** an apply review round finishes with `unresolvedCriticalHighCount(ledger) > 0`
+- **THEN** an `apply_review_approved` event SHALL NOT be emitted
+- **AND** the run state SHALL remain in `apply_review`
+
+#### Scenario: design_review_approved follows the same severity-aware rule
+
+- **WHEN** a design review round (or autofix loop) finishes with `unresolvedCriticalHighCount(ledger) == 0` and the reviewer is binding-eligible
+- **THEN** a `design_review_approved` event SHALL be eligible for emission
+- **AND** unresolved LOW or MEDIUM findings SHALL NOT prevent emission
+
+### Requirement: Review outcome payloads SHALL declare a `schema_version`
+
+Review outcome event payloads (`design_review_approved`, `apply_review_approved`, `request_changes`, `block`) SHALL include an integer `schema_version` field. Newly emitted events SHALL set `schema_version = 2`, indicating that the gate is severity-aware (HIGH+ unresolved count). Consumers reading persisted events SHALL treat any payload missing `schema_version`, or whose `schema_version < 2`, as a legacy event whose `*_no_findings` / `*_with_findings` semantics were derived from `actionable_count` (all severities) rather than `unresolvedCriticalHighCount`.
+
+#### Scenario: New review outcome events declare schema_version 2
+
+- **WHEN** an `apply_review_approved`, `design_review_approved`, `request_changes`, or `block` event is created by the current runtime
+- **THEN** its payload SHALL include `schema_version: 2`
+
+#### Scenario: Legacy review outcome events are flagged on read
+
+- **WHEN** a consumer reads a persisted review outcome event whose payload omits `schema_version`, or whose `schema_version < 2`
+- **THEN** the consumer SHALL treat the event as `legacy_actionable_count_basis: true`
+- **AND** the consumer MAY surface a warning that `_no_findings` / `_with_findings` for this event was derived from actionable_count (all severities) rather than the HIGH+ severity gate
+
+#### Scenario: schema_version is forward-compatible
+
+- **WHEN** a consumer encounters a payload whose `schema_version` is greater than the version it natively supports
+- **THEN** the consumer SHALL still apply the "unknown payload fields are tolerated" rule
+- **AND** required fields for the consumer's known schema SHALL still be validated
 
