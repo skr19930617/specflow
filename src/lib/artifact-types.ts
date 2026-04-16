@@ -173,16 +173,24 @@ export function refQualifier(ref: ChangeArtifactRef): string | undefined {
 
 // --- Typed Errors ---
 
-export class ArtifactNotFoundError extends Error {
-	readonly ref: ChangeArtifactRef | RunArtifactRef;
-	constructor(ref: ChangeArtifactRef | RunArtifactRef) {
-		const id =
-			"changeId" in ref
-				? `(${ref.changeId}, ${ref.type}${"qualifier" in ref ? `, ${ref.qualifier}` : ""})`
-				: `(${ref.runId}, ${ref.type})`;
-		super(`Artifact not found: ${id}`);
-		this.name = "ArtifactNotFoundError";
-		this.ref = ref;
+export type ArtifactStoreErrorKind =
+	| "not_found"
+	| "write_failed"
+	| "read_failed"
+	| "conflict";
+
+export class ArtifactStoreError extends Error {
+	readonly kind: ArtifactStoreErrorKind;
+	readonly ref?: ChangeArtifactRef | RunArtifactRef;
+	constructor(opts: {
+		kind: ArtifactStoreErrorKind;
+		message: string;
+		ref?: ChangeArtifactRef | RunArtifactRef;
+	}) {
+		super(opts.message);
+		this.name = "ArtifactStoreError";
+		this.kind = opts.kind;
+		this.ref = opts.ref;
 	}
 }
 

@@ -5,7 +5,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import type { RunArtifactStore } from "./artifact-store.js";
 import {
-	ArtifactNotFoundError,
+	ArtifactStoreError,
 	isRunArtifactType,
 	type RunArtifactQuery,
 	type RunArtifactRef,
@@ -18,38 +18,66 @@ function resolvePath(runsDir: string, ref: RunArtifactRef): string {
 	return resolve(runsDir, ref.runId, "run.json");
 }
 
+function notFoundError(ref: RunArtifactRef): ArtifactStoreError {
+	return new ArtifactStoreError({
+		kind: "not_found",
+		message: `Artifact not found: (${ref.runId}, ${ref.type})`,
+		ref,
+	});
+}
+
 export function createLocalFsRunArtifactStore(
 	projectRoot: string,
 ): RunArtifactStore {
 	const runsDir = resolve(projectRoot, ".specflow/runs");
 
 	return {
-		read(ref: RunArtifactRef): string {
+		async read(ref: RunArtifactRef): Promise<string> {
 			if (!isRunArtifactType(ref.type)) {
 				throw new UnknownArtifactTypeError(ref.type);
 			}
 			const path = resolvePath(runsDir, ref);
 			if (!existsSync(path)) {
-				throw new ArtifactNotFoundError(ref);
+				return Promise.reject(notFoundError(ref));
 			}
-			return readText(path);
+			try {
+				return readText(path);
+			} catch (e) {
+				return Promise.reject(
+					new ArtifactStoreError({
+						kind: "read_failed",
+						message: `Read failed: (${ref.runId}, ${ref.type}): ${e instanceof Error ? e.message : String(e)}`,
+						ref,
+					}),
+				);
+			}
 		},
 
-		write(ref: RunArtifactRef, content: string): void {
+		async write(ref: RunArtifactRef, content: string): Promise<void> {
 			if (!isRunArtifactType(ref.type)) {
 				throw new UnknownArtifactTypeError(ref.type);
 			}
-			atomicWriteText(resolvePath(runsDir, ref), content);
+			try {
+				atomicWriteText(resolvePath(runsDir, ref), content);
+			} catch (e) {
+				return Promise.reject(
+					new ArtifactStoreError({
+						kind: "write_failed",
+						message: `Write failed: (${ref.runId}, ${ref.type}): ${e instanceof Error ? e.message : String(e)}`,
+						ref,
+					}),
+				);
+			}
 		},
 
-		exists(ref: RunArtifactRef): boolean {
+		async exists(ref: RunArtifactRef): Promise<boolean> {
 			if (!isRunArtifactType(ref.type)) {
 				throw new UnknownArtifactTypeError(ref.type);
 			}
 			return existsSync(resolvePath(runsDir, ref));
 		},
 
-		list(query?: RunArtifactQuery): readonly RunArtifactRef[] {
+		async list(query?: RunArtifactQuery): Promise<readonly RunArtifactRef[]> {
 			if (!existsSync(runsDir)) {
 				return [];
 			}

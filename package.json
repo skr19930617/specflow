@@ -19,6 +19,9 @@
 		"specflow-generate-task-graph": "bin/specflow-generate-task-graph",
 		"specflow-run": "bin/specflow-run"
 	},
+	"exports": {
+		"./conformance": "./dist/conformance/index.js"
+	},
 	"files": [
 		"LICENSE",
 		"README.md",

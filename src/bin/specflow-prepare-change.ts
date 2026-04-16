@@ -94,12 +94,12 @@ function specflowRun(
 	);
 }
 
-function ensureChangeExists(
+async function ensureChangeExists(
 	root: string,
 	changeId: string,
 	changeStore: ChangeArtifactStore,
-): void {
-	if (changeStore.changeExists(changeId)) {
+): Promise<void> {
+	if (await changeStore.changeExists(changeId)) {
 		return;
 	}
 	const result = openspec(["new", "change", changeId], root);
@@ -110,7 +110,7 @@ function ensureChangeExists(
 				`openspec new change ${changeId} failed`,
 		);
 	}
-	if (!changeStore.changeExists(changeId)) {
+	if (!(await changeStore.changeExists(changeId))) {
 		fail(`Error: OpenSpec did not create change directory for '${changeId}'`);
 	}
 }
@@ -159,16 +159,16 @@ function loadProposalInstructions(
 	);
 }
 
-function ensureProposalDraft(
+async function ensureProposalDraft(
 	root: string,
 	changeId: string,
 	source: ProposalSource,
 	changeStore: ChangeArtifactStore,
-): void {
+): Promise<void> {
 	const proposalRef = changeRef(changeId, ChangeArtifactType.Proposal);
-	if (changeStore.exists(proposalRef)) {
+	if (await changeStore.exists(proposalRef)) {
 		try {
-			const content = changeStore.read(proposalRef);
+			const content = await changeStore.read(proposalRef);
 			if (content.trim().length > 0) {
 				return;
 			}
@@ -183,17 +183,17 @@ function ensureProposalDraft(
 			`Error: expected OpenSpec proposal outputPath to be proposal.md, received '${outputPath}'`,
 		);
 	}
-	changeStore.write(
+	await changeStore.write(
 		proposalRef,
 		`${renderSeededProposal(changeId, source, instructions)}\n`,
 	);
 }
 
-function findExistingNonTerminalRun(
+async function findExistingNonTerminalRun(
 	runStore: RunArtifactStore,
 	changeId: string,
-): RunState | null {
-	const runs = findRunsForChange(runStore, changeId);
+): Promise<RunState | null> {
+	const runs = await findRunsForChange(runStore, changeId);
 	for (let idx = runs.length - 1; idx >= 0; idx--) {
 		const state = runs[idx]!;
 		if (state.status !== "terminal") {
@@ -209,15 +209,15 @@ function writeInternalTempSourceFile(source: ProposalSource): string {
 	return tempPath;
 }
 
-function ensureRunStarted(
+async function ensureRunStarted(
 	root: string,
 	changeId: string,
 	source: ProposalSource,
 	agentMain: string | null,
 	agentReview: string | null,
-): RunState {
+): Promise<RunState> {
 	const runStore = createLocalFsRunArtifactStore(root);
-	const existing = findExistingNonTerminalRun(runStore, changeId);
+	const existing = await findExistingNonTerminalRun(runStore, changeId);
 	if (existing) {
 		return existing;
 	}
@@ -313,7 +313,7 @@ function normalizeRawInput(rawInput: string, root: string): ProposalSource {
 	};
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const positionalArgs: string[] = [];
 	let sourceFile = "";
 	let agentMain: string | null = null;
@@ -414,16 +414,19 @@ function main(): void {
 	}
 
 	const changeStore = createLocalFsChangeArtifactStore(root);
-	ensureChangeExists(root, changeId, changeStore);
+	await ensureChangeExists(root, changeId, changeStore);
 	ensureBranch(root, changeId);
-	ensureProposalDraft(root, changeId, source, changeStore);
+	await ensureProposalDraft(root, changeId, source, changeStore);
 
 	const state = ensureProposalPhase(
 		root,
 		changeId,
-		ensureRunStarted(root, changeId, source, agentMain, agentReview),
+		await ensureRunStarted(root, changeId, source, agentMain, agentReview),
 	);
 	printSchemaJson("run-state", state);
 }
 
-main();
+main().catch((err: unknown) => {
+	process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+	process.exit(1);
+});

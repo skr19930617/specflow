@@ -22,13 +22,13 @@ test("gate: design_draft → review_design requires proposal, design, and oneOf(
 	assert.equal(gate.required.length, 3);
 });
 
-test("gate: design review passes when task-graph exists (no tasks)", () => {
+test("gate: design review passes when task-graph exists (no tasks)", async () => {
 	const store = createInMemoryChangeArtifactStore();
 	store.seed(changeRef("c", ChangeArtifactType.Proposal), "p");
 	store.seed(changeRef("c", ChangeArtifactType.Design), "d");
 	store.seed(changeRef("c", ChangeArtifactType.TaskGraph), "{}");
 
-	const missing = checkGateRequirements(
+	const missing = await checkGateRequirements(
 		"design_draft",
 		"review_design",
 		ctx("c"),
@@ -38,13 +38,13 @@ test("gate: design review passes when task-graph exists (no tasks)", () => {
 	assert.equal(missing, null);
 });
 
-test("gate: design review passes when tasks exists (no task-graph, legacy fallback)", () => {
+test("gate: design review passes when tasks exists (no task-graph, legacy fallback)", async () => {
 	const store = createInMemoryChangeArtifactStore();
 	store.seed(changeRef("c", ChangeArtifactType.Proposal), "p");
 	store.seed(changeRef("c", ChangeArtifactType.Design), "d");
 	store.seed(changeRef("c", ChangeArtifactType.Tasks), "- [ ] task");
 
-	const missing = checkGateRequirements(
+	const missing = await checkGateRequirements(
 		"design_draft",
 		"review_design",
 		ctx("c"),
@@ -54,12 +54,12 @@ test("gate: design review passes when tasks exists (no task-graph, legacy fallba
 	assert.equal(missing, null);
 });
 
-test("gate: design review fails when neither task-graph nor tasks exist", () => {
+test("gate: design review fails when neither task-graph nor tasks exist", async () => {
 	const store = createInMemoryChangeArtifactStore();
 	store.seed(changeRef("c", ChangeArtifactType.Proposal), "p");
 	store.seed(changeRef("c", ChangeArtifactType.Design), "d");
 
-	const missing = checkGateRequirements(
+	const missing = await checkGateRequirements(
 		"design_draft",
 		"review_design",
 		ctx("c"),
@@ -71,13 +71,13 @@ test("gate: design review fails when neither task-graph nor tasks exist", () => 
 	assert.ok("oneOf" in missing);
 });
 
-test("gate: apply review uses same oneOf fallback", () => {
+test("gate: apply review uses same oneOf fallback", async () => {
 	const store = createInMemoryChangeArtifactStore();
 	store.seed(changeRef("c", ChangeArtifactType.Proposal), "p");
 	store.seed(changeRef("c", ChangeArtifactType.Design), "d");
 	store.seed(changeRef("c", ChangeArtifactType.Tasks), "tasks");
 
-	const missing = checkGateRequirements(
+	const missing = await checkGateRequirements(
 		"apply_draft",
 		"review_apply",
 		ctx("c"),
@@ -87,14 +87,14 @@ test("gate: apply review uses same oneOf fallback", () => {
 	assert.equal(missing, null);
 });
 
-test("gate: task-graph is preferred over tasks when both exist", () => {
+test("gate: task-graph is preferred over tasks when both exist", async () => {
 	const store = createInMemoryChangeArtifactStore();
 	store.seed(changeRef("c", ChangeArtifactType.Proposal), "p");
 	store.seed(changeRef("c", ChangeArtifactType.Design), "d");
 	store.seed(changeRef("c", ChangeArtifactType.TaskGraph), "{}");
 	store.seed(changeRef("c", ChangeArtifactType.Tasks), "tasks");
 
-	const missing = checkGateRequirements(
+	const missing = await checkGateRequirements(
 		"design_draft",
 		"review_design",
 		ctx("c"),

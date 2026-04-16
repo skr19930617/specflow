@@ -81,46 +81,46 @@ function diffFilter(ctx: WorkspaceContext): {
 	return result;
 }
 
-function buildReviewPrompt(
+async function buildReviewPrompt(
 	runtimeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	diff: string,
-): string {
+): Promise<string> {
 	return [
 		readPrompt(runtimeRoot, "review_apply_prompt.md").trimEnd(),
 		buildPrompt([
 			["CURRENT GIT DIFF", diff],
-			["PROPOSAL CONTENT", readProposalFromStore(changeStore, changeId)],
+			["PROPOSAL CONTENT", await readProposalFromStore(changeStore, changeId)],
 		]),
 	].join("\n\n");
 }
 
-function buildRereviewPrompt(
+async function buildRereviewPrompt(
 	runtimeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	diff: string,
 	previousFindings: readonly ReviewFinding[],
 	maxFindingId: number,
-): string {
+): Promise<string> {
 	return [
 		readPrompt(runtimeRoot, "review_apply_rereview_prompt.md").trimEnd(),
 		buildPrompt([
 			["PREVIOUS_FINDINGS", JSON.stringify(previousFindings)],
 			["MAX_FINDING_ID", String(maxFindingId)],
 			["CURRENT GIT DIFF", diff],
-			["PROPOSAL CONTENT", readProposalFromStore(changeStore, changeId)],
+			["PROPOSAL CONTENT", await readProposalFromStore(changeStore, changeId)],
 		]),
 	].join("\n\n");
 }
 
-function buildFixPrompt(
+async function buildFixPrompt(
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	diff: string,
 	findings: readonly ReviewFinding[],
-): string {
+): Promise<string> {
 	return [
 		"You are a code fixer. Based on the review findings below, fix all issues in the codebase.",
 		"Apply fixes for all findings. Do not skip any.",
@@ -128,7 +128,7 @@ function buildFixPrompt(
 		buildPrompt([
 			["REVIEW FINDINGS", JSON.stringify(findings)],
 			["CURRENT GIT DIFF", diff],
-			["PROPOSAL CONTENT", readProposalFromStore(changeStore, changeId)],
+			["PROPOSAL CONTENT", await readProposalFromStore(changeStore, changeId)],
 		]),
 	].join("\n");
 }
@@ -192,7 +192,7 @@ function resultFromLedger(
 	};
 }
 
-function runReviewPipeline(
+async function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
 	ctx: WorkspaceContext,
@@ -203,7 +203,7 @@ function runReviewPipeline(
 	skipDiffCheck: boolean,
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	process.stderr.write("Running diff filter...\n");
 	const rawDiff = diffFilter(ctx);
 	if (rawDiff.summary === "empty") {
@@ -246,10 +246,8 @@ function runReviewPipeline(
 
 	if (rereviewMode) {
 		process.stderr.write(`Applying fixes via ${mainAgent}...\n`);
-		const beforeFix = readLedgerFromStore(
-			changeStore,
-			changeId,
-			ReviewLedgerKind.Apply,
+		const beforeFix = (
+			await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Apply)
 		).ledger;
 		const fixFindings = (beforeFix.findings ?? []).filter((finding) => {
 			const status = String(finding.status ?? "");
@@ -258,7 +256,7 @@ function runReviewPipeline(
 		void callMainAgent(
 			mainAgent,
 			projectRoot,
-			buildFixPrompt(changeStore, changeId, diff, fixFindings),
+			await buildFixPrompt(changeStore, changeId, diff, fixFindings),
 		);
 		const rerun = diffFilter(ctx);
 		if (rerun.summary === "empty") {
@@ -275,26 +273,25 @@ function runReviewPipeline(
 	}
 
 	process.stderr.write(`Calling ${reviewAgent} for review...\n`);
-	const prompt = rereviewMode
-		? (() => {
-				const priorLedger = readLedgerFromStore(
-					changeStore,
-					changeId,
-					ReviewLedgerKind.Apply,
-				).ledger;
-				const previousFindings = (priorLedger.findings ?? []).filter(
-					(finding) => String(finding.status ?? "") !== "resolved",
-				);
-				return buildRereviewPrompt(
-					runtimeRoot,
-					changeStore,
-					changeId,
-					diff,
-					previousFindings,
-					Number(priorLedger.max_finding_id ?? 0),
-				);
-			})()
-		: buildReviewPrompt(runtimeRoot, changeStore, changeId, diff);
+	let prompt: string;
+	if (rereviewMode) {
+		const priorLedger = (
+			await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Apply)
+		).ledger;
+		const previousFindings = (priorLedger.findings ?? []).filter(
+			(finding) => String(finding.status ?? "") !== "resolved",
+		);
+		prompt = await buildRereviewPrompt(
+			runtimeRoot,
+			changeStore,
+			changeId,
+			diff,
+			previousFindings,
+			Number(priorLedger.max_finding_id ?? 0),
+		);
+	} else {
+		prompt = await buildReviewPrompt(runtimeRoot, changeStore, changeId, diff);
+	}
 	const reviewResult = callReviewAgent<Record<string, unknown>>(
 		reviewAgent,
 		projectRoot,
@@ -329,7 +326,7 @@ function runReviewPipeline(
 		reviewJson = reviewResult.payload;
 	}
 
-	const ledgerRead = readLedgerFromStore(
+	const ledgerRead = await readLedgerFromStore(
 		changeStore,
 		changeId,
 		ReviewLedgerKind.Apply,
@@ -374,14 +371,14 @@ function runReviewPipeline(
 		ledger = computeSummary(ledger, round);
 		ledger = computeStatus(ledger);
 		ledger = persistMaxFindingId(ledger);
-		writeLedgerToStore(
+		await writeLedgerToStore(
 			changeStore,
 			changeId,
 			ReviewLedgerKind.Apply,
 			ledger,
 			ledgerRead.status === "clean",
 		);
-		renderCurrentPhaseToStore(
+		await renderCurrentPhaseToStore(
 			changeStore,
 			changeId,
 			ledger,
@@ -403,7 +400,7 @@ function runReviewPipeline(
 	);
 }
 
-function runAutofixLoop(
+async function runAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
 	ctx: WorkspaceContext,
@@ -412,11 +409,9 @@ function runAutofixLoop(
 	maxRounds: number,
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
-): ReviewResult {
-	let ledger = readLedgerFromStore(
-		changeStore,
-		changeId,
-		ReviewLedgerKind.Apply,
+): Promise<ReviewResult> {
+	let ledger = (
+		await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Apply)
 	).ledger;
 	let previousScore = computeScore(ledger);
 	let previousNewHighCount = 0;
@@ -445,7 +440,7 @@ function runAutofixLoop(
 		const fixResult = callMainAgent(
 			mainAgent,
 			projectRoot,
-			buildFixPrompt(
+			await buildFixPrompt(
 				changeStore,
 				changeId,
 				diffResult.diff,
@@ -464,7 +459,7 @@ function runAutofixLoop(
 			continue;
 		}
 
-		const reviewResult = runReviewPipeline(
+		const reviewResult = await runReviewPipeline(
 			runtimeRoot,
 			projectRoot,
 			ctx,
@@ -489,10 +484,8 @@ function runAutofixLoop(
 		}
 
 		consecutiveFailures = 0;
-		ledger = readLedgerFromStore(
-			changeStore,
-			changeId,
-			ReviewLedgerKind.Apply,
+		ledger = (
+			await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Apply)
 		).ledger;
 		const currentScore = computeScore(ledger);
 		const unresolvedHigh = unresolvedCriticalHighCount(ledger);
@@ -594,7 +587,7 @@ function runAutofixLoop(
 	};
 }
 
-function cmdReview(
+async function cmdReview(
 	runtimeRoot: string,
 	projectRoot: string,
 	ctx: WorkspaceContext,
@@ -602,7 +595,7 @@ function cmdReview(
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	let changeId = "";
 	let skipDiffCheck = false;
 	for (let index = 0; index < args.length; index += 1) {
@@ -627,8 +620,8 @@ function cmdReview(
 	if (!changeId) {
 		die("Usage: specflow-review-apply review <CHANGE_ID> [--skip-diff-check]");
 	}
-	validateChangeFromStore(changeStore, changeId);
-	return runReviewPipeline(
+	await validateChangeFromStore(changeStore, changeId);
+	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
 		ctx,
@@ -642,7 +635,7 @@ function cmdReview(
 	);
 }
 
-function cmdFixReview(
+async function cmdFixReview(
 	runtimeRoot: string,
 	projectRoot: string,
 	ctx: WorkspaceContext,
@@ -650,7 +643,7 @@ function cmdFixReview(
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	let changeId = "";
 	let skipDiffCheck = false;
 	for (let index = 0; index < args.length; index += 1) {
@@ -680,8 +673,8 @@ function cmdFixReview(
 			"Usage: specflow-review-apply fix-review <CHANGE_ID> [--autofix] [--skip-diff-check]",
 		);
 	}
-	validateChangeFromStore(changeStore, changeId);
-	return runReviewPipeline(
+	await validateChangeFromStore(changeStore, changeId);
+	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
 		ctx,
@@ -695,7 +688,7 @@ function cmdFixReview(
 	);
 }
 
-function cmdAutofixLoop(
+async function cmdAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
 	ctx: WorkspaceContext,
@@ -703,7 +696,7 @@ function cmdAutofixLoop(
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	let changeId = "";
 	let maxRounds = "";
 	for (let index = 0; index < args.length; index += 1) {
@@ -740,8 +733,8 @@ function cmdAutofixLoop(
 			? Number(maxRounds)
 			: die("Error: --max-rounds must be a number between 1 and 10")
 		: config.maxAutofixRounds;
-	validateChangeFromStore(changeStore, changeId);
-	return runAutofixLoop(
+	await validateChangeFromStore(changeStore, changeId);
+	return await runAutofixLoop(
 		runtimeRoot,
 		projectRoot,
 		ctx,
@@ -762,7 +755,7 @@ function parseReviewAgentFlag(args: readonly string[]): string | undefined {
 	return undefined;
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	let ctx: WorkspaceContext;
 	try {
 		ctx = createLocalWorkspaceContext();
@@ -779,7 +772,7 @@ function main(): void {
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
-			result = cmdReview(
+			result = await cmdReview(
 				runtimeRoot,
 				projectRoot,
 				ctx,
@@ -790,7 +783,7 @@ function main(): void {
 			);
 			break;
 		case "fix-review":
-			result = cmdFixReview(
+			result = await cmdFixReview(
 				runtimeRoot,
 				projectRoot,
 				ctx,
@@ -801,7 +794,7 @@ function main(): void {
 			);
 			break;
 		case "autofix-loop":
-			result = cmdAutofixLoop(
+			result = await cmdAutofixLoop(
 				runtimeRoot,
 				projectRoot,
 				ctx,

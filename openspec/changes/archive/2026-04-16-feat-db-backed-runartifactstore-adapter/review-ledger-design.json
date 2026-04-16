@@ -1,0 +1,62 @@
+{
+  "feature_id": "feat-db-backed-runartifactstore-adapter",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Conformance suite write_failed/read_failed test strategy unclear",
+      "detail": "Task 7.3 mentions testing write_failed and read_failed error kinds, but the conformance suite spec explicitly states it tests only sequential single-threaded semantics. write_failed and read_failed are typically triggered by I/O failures, which are hard to produce against an in-memory store. Clarify whether the conformance factory expects adapters to provide a way to inject failures (e.g., a fault-injection hook), or whether these error-path tests only apply to the LocalFs adapter tests outside the conformance suite. If the latter, move task 7.3's write_failed/read_failed coverage to task group 6 instead.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "completeness",
+      "title": "ChangeArtifactStore conformance not validated against in-memory helper",
+      "detail": "The spec requires 'InMemoryRunArtifactStore passes the conformance suite' but does not have an equivalent scenario for the in-memory ChangeArtifactStore helper. Task 7.6 only validates RunArtifactStore conformance with the in-memory store. Consider adding a parallel validation step for the ChangeArtifactStore conformance suite against the in-memory change store helper.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "consistency",
+      "title": "InteractionRecordStore async migration scope not in proposal",
+      "detail": "Design section 'Integration Points' and task 4.9 include InteractionRecordStore async migration as a propagated dependency. This is reasonable but not mentioned in the proposal's Impact section or Capabilities. Since it's mechanical propagation this is acceptable, but document it in the BREAKING notice (task 8.3) if InteractionRecordStore is part of the public API surface.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 2
+      }
+    }
+  ]
+}

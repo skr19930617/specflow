@@ -8,7 +8,7 @@ import { createInMemoryChangeArtifactStore } from "./helpers/in-memory-change-st
 import { createInMemoryRunArtifactStore } from "./helpers/in-memory-run-store.js";
 import { testWorkflowDefinition } from "./helpers/workflow.js";
 
-function bootstrap(changeId: string) {
+async function bootstrap(changeId: string) {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
@@ -17,7 +17,7 @@ function bootstrap(changeId: string) {
 		changeRef(changeId, ChangeArtifactType.Proposal),
 		"# Proposal\n",
 	);
-	const started = startChangeRun(
+	const started = await startChangeRun(
 		{
 			changeId,
 			source: null,
@@ -33,14 +33,14 @@ function bootstrap(changeId: string) {
 }
 
 /** Advance through the workflow to a specific phase by applying events in order. */
-function advanceTo(
+async function advanceTo(
 	runId: string,
 	runs: ReturnType<typeof createInMemoryRunArtifactStore>,
 	records: ReturnType<typeof createInMemoryInteractionRecordStore>,
 	events: readonly string[],
 ) {
 	for (const event of events) {
-		const result = advanceRun(
+		const result = await advanceRun(
 			{ runId, event },
 			{ runs, workflow: testWorkflowDefinition, records },
 		);
@@ -56,9 +56,9 @@ function advanceTo(
 // Approval record creation on gate entry
 // ---------------------------------------------------------------------------
 
-test("entering spec_ready creates a pending ApprovalRecord", () => {
-	const { runs, records, runId } = bootstrap("rec-approval");
-	advanceTo(runId, runs, records, [
+test("entering spec_ready creates a pending ApprovalRecord", async () => {
+	const { runs, records, runId } = await bootstrap("rec-approval");
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
@@ -81,9 +81,9 @@ test("entering spec_ready creates a pending ApprovalRecord", () => {
 	assert.equal(rec.decision_actor, null);
 });
 
-test("accept_spec updates pending ApprovalRecord to approved", () => {
-	const { runs, records, runId } = bootstrap("rec-approval-accept");
-	advanceTo(runId, runs, records, [
+test("accept_spec updates pending ApprovalRecord to approved", async () => {
+	const { runs, records, runId } = await bootstrap("rec-approval-accept");
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
@@ -109,9 +109,9 @@ test("accept_spec updates pending ApprovalRecord to approved", () => {
 // record_ref in history entries
 // ---------------------------------------------------------------------------
 
-test("history entry has record_ref when entering an approval gate", () => {
-	const { runs, records, runId } = bootstrap("rec-ref");
-	advanceTo(runId, runs, records, [
+test("history entry has record_ref when entering an approval gate", async () => {
+	const { runs, records, runId } = await bootstrap("rec-ref");
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
@@ -123,15 +123,15 @@ test("history entry has record_ref when entering an approval gate", () => {
 	]);
 	// Read the run state to check the last history entry
 	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(runs.read(ref));
+	const state = JSON.parse(await runs.read(ref));
 	const lastEntry = state.history[state.history.length - 1];
 	assert.ok(lastEntry.record_ref, "record_ref should be present");
 	assert.match(lastEntry.record_ref, /^approval-/);
 });
 
-test("history entry has record_ref when accepting spec", () => {
-	const { runs, records, runId } = bootstrap("rec-ref-accept");
-	advanceTo(runId, runs, records, [
+test("history entry has record_ref when accepting spec", async () => {
+	const { runs, records, runId } = await bootstrap("rec-ref-accept");
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
@@ -143,7 +143,7 @@ test("history entry has record_ref when accepting spec", () => {
 		"accept_spec",
 	]);
 	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(runs.read(ref));
+	const state = JSON.parse(await runs.read(ref));
 	const lastEntry = state.history[state.history.length - 1];
 	assert.ok(
 		lastEntry.record_ref,
@@ -151,11 +151,11 @@ test("history entry has record_ref when accepting spec", () => {
 	);
 });
 
-test("history entry has no record_ref for non-record transitions", () => {
-	const { runs, records, runId } = bootstrap("rec-no-ref");
-	advanceTo(runId, runs, records, ["propose"]);
+test("history entry has no record_ref for non-record transitions", async () => {
+	const { runs, records, runId } = await bootstrap("rec-no-ref");
+	await advanceTo(runId, runs, records, ["propose"]);
 	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(runs.read(ref));
+	const state = JSON.parse(await runs.read(ref));
 	const lastEntry = state.history[state.history.length - 1];
 	assert.equal(lastEntry.record_ref, undefined);
 });
@@ -164,9 +164,9 @@ test("history entry has no record_ref for non-record transitions", () => {
 // Backward compatibility: records undefined
 // ---------------------------------------------------------------------------
 
-test("advance succeeds without records (backward compat)", () => {
-	const { runs, runId } = bootstrap("rec-compat");
-	const result = advanceRun(
+test("advance succeeds without records (backward compat)", async () => {
+	const { runs, runId } = await bootstrap("rec-compat");
+	const result = await advanceRun(
 		{ runId, event: "propose" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -175,8 +175,8 @@ test("advance succeeds without records (backward compat)", () => {
 	assert.equal(result.value.current_phase, "proposal_draft");
 });
 
-test("entering spec_ready without records does not create records", () => {
-	const { runs, runId } = bootstrap("rec-compat-gate");
+test("entering spec_ready without records does not create records", async () => {
+	const { runs, runId } = await bootstrap("rec-compat-gate");
 	// No records injected
 	const events = [
 		"propose",
@@ -189,7 +189,7 @@ test("entering spec_ready without records does not create records", () => {
 		"spec_validated",
 	];
 	for (const event of events) {
-		const result = advanceRun(
+		const result = await advanceRun(
 			{ runId, event },
 			{ runs, workflow: testWorkflowDefinition },
 		);
@@ -201,7 +201,7 @@ test("entering spec_ready without records does not create records", () => {
 	}
 	// Verify no record_ref in history
 	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(runs.read(ref));
+	const state = JSON.parse(await runs.read(ref));
 	const lastEntry = state.history[state.history.length - 1];
 	assert.equal(lastEntry.record_ref, undefined);
 });
@@ -210,8 +210,8 @@ test("entering spec_ready without records does not create records", () => {
 // Record write failure causes transition failure
 // ---------------------------------------------------------------------------
 
-test("record write failure causes transition failure", () => {
-	const { runs, runId } = bootstrap("rec-fail");
+test("record write failure causes transition failure", async () => {
+	const { runs, runId } = await bootstrap("rec-fail");
 	const records = createInMemoryInteractionRecordStore();
 	// Advance to just before spec_ready (spec_validate)
 	const preEvents = [
@@ -224,7 +224,7 @@ test("record write failure causes transition failure", () => {
 		"validate_spec",
 	];
 	for (const event of preEvents) {
-		const result = advanceRun(
+		const result = await advanceRun(
 			{ runId, event },
 			{ runs, workflow: testWorkflowDefinition, records },
 		);
@@ -244,7 +244,7 @@ test("record write failure causes transition failure", () => {
 		};
 
 	// spec_validated → spec_ready triggers approval record creation, which should fail
-	const result = advanceRun(
+	const result = await advanceRun(
 		{ runId, event: "spec_validated" },
 		{ runs, workflow: testWorkflowDefinition, records: failingStore },
 	);
@@ -259,9 +259,9 @@ test("record write failure causes transition failure", () => {
 // Reject updates pending approval record
 // ---------------------------------------------------------------------------
 
-test("reject updates pending ApprovalRecord to rejected", () => {
-	const { runs, records, runId } = bootstrap("rec-reject");
-	advanceTo(runId, runs, records, [
+test("reject updates pending ApprovalRecord to rejected", async () => {
+	const { runs, records, runId } = await bootstrap("rec-reject");
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
@@ -287,16 +287,16 @@ test("reject updates pending ApprovalRecord to rejected", () => {
 // ClarifyRecord creation and resolution
 // ---------------------------------------------------------------------------
 
-test("clarify question creates a pending ClarifyRecord", () => {
-	const { runs, records, runId } = bootstrap("rec-clarify-q");
+test("clarify question creates a pending ClarifyRecord", async () => {
+	const { runs, records, runId } = await bootstrap("rec-clarify-q");
 	// Advance to proposal_clarify
-	advanceTo(runId, runs, records, [
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
 	]);
 	// Issue a clarify question via the clarify input
-	const result = advanceRun(
+	const result = await advanceRun(
 		{
 			runId,
 			event: "challenge_proposal",
@@ -317,16 +317,16 @@ test("clarify question creates a pending ClarifyRecord", () => {
 	assert.equal(rec.phase, "proposal_clarify");
 });
 
-test("clarify response resolves a pending ClarifyRecord", () => {
-	const { runs, records, runId } = bootstrap("rec-clarify-a");
+test("clarify response resolves a pending ClarifyRecord", async () => {
+	const { runs, records, runId } = await bootstrap("rec-clarify-a");
 	// Advance to proposal_clarify, issue a question, then answer
-	advanceTo(runId, runs, records, [
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
 	]);
 	// Issue clarify question
-	advanceRun(
+	await advanceRun(
 		{
 			runId,
 			event: "challenge_proposal",
@@ -335,7 +335,7 @@ test("clarify response resolves a pending ClarifyRecord", () => {
 		{ runs, workflow: testWorkflowDefinition, records },
 	);
 	// Answer clarify
-	advanceRun(
+	await advanceRun(
 		{
 			runId,
 			event: "reclarify",
@@ -354,14 +354,14 @@ test("clarify response resolves a pending ClarifyRecord", () => {
 	assert.notEqual(rec.answered_at, null);
 });
 
-test("history entry has record_ref for clarify transitions", () => {
-	const { runs, records, runId } = bootstrap("rec-clarify-ref");
-	advanceTo(runId, runs, records, [
+test("history entry has record_ref for clarify transitions", async () => {
+	const { runs, records, runId } = await bootstrap("rec-clarify-ref");
+	await advanceTo(runId, runs, records, [
 		"propose",
 		"check_scope",
 		"continue_proposal",
 	]);
-	advanceRun(
+	await advanceRun(
 		{
 			runId,
 			event: "challenge_proposal",
@@ -370,7 +370,7 @@ test("history entry has record_ref for clarify transitions", () => {
 		{ runs, workflow: testWorkflowDefinition, records },
 	);
 	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(runs.read(ref));
+	const state = JSON.parse(await runs.read(ref));
 	const lastEntry = state.history[state.history.length - 1];
 	assert.ok(lastEntry.record_ref, "record_ref should be present for clarify");
 	assert.match(lastEntry.record_ref, /^clarify-/);

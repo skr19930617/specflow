@@ -115,11 +115,11 @@ function findPendingClarify(
 	return null;
 }
 
-export function advanceRun<T extends CoreRunState = RunState>(
+export async function advanceRun<T extends CoreRunState = RunState>(
 	input: AdvanceInput,
 	deps: AdvanceDeps,
-): Result<T, CoreRuntimeError> {
-	const loaded = loadRunState<T>(deps.runs, input.runId);
+): Promise<Result<T, CoreRuntimeError>> {
+	const loaded = await loadRunState<T>(deps.runs, input.runId);
 	if (!loaded.ok) return loaded;
 	const runState = loaded.value;
 
@@ -290,7 +290,7 @@ export function advanceRun<T extends CoreRunState = RunState>(
 	};
 
 	try {
-		writeRunState<T>(deps.runs, input.runId, updated);
+		await writeRunState<T>(deps.runs, input.runId, updated);
 	} catch (cause) {
 		// Compensate: if a record was written but state write fails, delete the orphaned record.
 		if (recordRef && deps.records) {

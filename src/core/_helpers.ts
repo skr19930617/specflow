@@ -4,7 +4,7 @@
 // They either operate on injected collaborators (stores) or pure data.
 
 import type { RunArtifactStore } from "../lib/artifact-store.js";
-import { runRef } from "../lib/artifact-types.js";
+import { ArtifactStoreError, runRef } from "../lib/artifact-types.js";
 import { readRunState } from "../lib/run-store-ops.js";
 import type { CoreRunState, RunState } from "../types/contracts.js";
 import type { CoreRuntimeError } from "./types.js";
@@ -55,19 +55,32 @@ export function checkRunId(
  * Questions) and will be relocated to the adapter layer in a separate
  * change under Epic #127.
  */
-export function loadRunState<T extends CoreRunState = RunState>(
+export async function loadRunState<T extends CoreRunState = RunState>(
 	store: RunArtifactStore,
 	runId: string,
-):
+): Promise<
 	| { readonly ok: true; readonly value: T }
-	| { readonly ok: false; readonly error: CoreRuntimeError } {
-	if (!store.exists(runRef(runId))) {
+	| { readonly ok: false; readonly error: CoreRuntimeError }
+> {
+	const exists = await store.exists(runRef(runId));
+	if (!exists) {
 		return err({
 			kind: "run_not_found",
 			message: `Error: run '${runId}' not found. No state file at ${runId}/run.json`,
 		});
 	}
-	const state = readRunState(store, runId);
+	let state: RunState;
+	try {
+		state = await readRunState(store, runId);
+	} catch (e) {
+		if (e instanceof ArtifactStoreError && e.kind === "read_failed") {
+			return err({
+				kind: "run_not_found",
+				message: `Error: run '${runId}' not found. No state file at ${runId}/run.json`,
+			});
+		}
+		throw e;
+	}
 	const missing = REQUIRED_RUN_STATE_FIELDS.filter(
 		(field) => !(field in state),
 	);
@@ -78,10 +91,6 @@ export function loadRunState<T extends CoreRunState = RunState>(
 			details: { missing_fields: missing },
 		});
 	}
-	// Double cast is required because TypeScript cannot prove `RunState` is
-	// assignable to an arbitrary `T extends CoreRunState`. At runtime `T` is
-	// always a structural subset of the persisted `RunState`, so this is a
-	// type-level narrowing only — not a type-safety hole.
 	return { ok: true, value: state as unknown as T };
 }
 
@@ -90,10 +99,10 @@ export function loadRunState<T extends CoreRunState = RunState>(
  * `T extends CoreRunState` so call sites holding a narrower type keep their
  * precision; default `T = RunState` keeps all existing callers unchanged.
  */
-export function writeRunState<T extends CoreRunState = RunState>(
+export async function writeRunState<T extends CoreRunState = RunState>(
 	store: RunArtifactStore,
 	runId: string,
 	state: T,
-): void {
-	store.write(runRef(runId), `${JSON.stringify(state, null, 2)}\n`);
+): Promise<void> {
+	await store.write(runRef(runId), `${JSON.stringify(state, null, 2)}\n`);
 }

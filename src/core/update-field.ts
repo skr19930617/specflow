@@ -10,10 +10,10 @@ export interface UpdateFieldDeps {
 	readonly runs: RunArtifactStore;
 }
 
-export function updateRunField(
+export async function updateRunField(
 	input: UpdateFieldInput,
 	deps: UpdateFieldDeps,
-): Result<RunState, CoreRuntimeError> {
+): Promise<Result<RunState, CoreRuntimeError>> {
 	const { field, value } = input;
 	if (field !== "last_summary_path") {
 		return err({
@@ -22,7 +22,7 @@ export function updateRunField(
 		});
 	}
 
-	const loaded = loadRunState(deps.runs, input.runId);
+	const loaded = await loadRunState(deps.runs, input.runId);
 	if (!loaded.ok) return loaded;
 	const runState = loaded.value;
 
@@ -31,6 +31,6 @@ export function updateRunField(
 		[field]: value,
 		updated_at: nowIso(),
 	};
-	writeRunState(deps.runs, input.runId, updated);
+	await writeRunState(deps.runs, input.runId, updated);
 	return ok(updated);
 }

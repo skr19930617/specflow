@@ -87,13 +87,13 @@ The `task-graph` artifact SHALL be created by the `task-planner` module and read
 
 ### Requirement: ChangeArtifactStore interface defines change-domain operations
 
-The system SHALL define a `ChangeArtifactStore` interface with the following operations:
-- `read(changeId, artifactType, qualifier?)`: returns artifact content or a typed not-found error
-- `write(changeId, artifactType, content, qualifier?)`: writes artifact content atomically
-- `exists(changeId, artifactType, qualifier?)`: returns boolean
-- `list(changeId, artifactType)`: returns all qualifiers for a qualified artifact type, or confirms singleton existence
-- `listChanges()`: returns all change identifiers known to the store
-- `changeExists(changeId)`: returns boolean indicating whether the change container (directory or equivalent) exists
+The system SHALL define a `ChangeArtifactStore` interface with the following asynchronous operations:
+- `read(changeId, artifactType, qualifier?)`: returns `Promise<string>` resolving to artifact content, or rejects with a typed `ArtifactStoreError` where `kind` is `not_found`
+- `write(changeId, artifactType, content, qualifier?)`: returns `Promise<void>`, writes artifact content atomically
+- `exists(changeId, artifactType, qualifier?)`: returns `Promise<boolean>`
+- `list(changeId, artifactType)`: returns `Promise<readonly ChangeArtifactRef[]>` — all qualifiers for a qualified artifact type, or confirms singleton existence
+- `listChanges()`: returns `Promise<readonly string[]>` — all change identifiers known to the store
+- `changeExists(changeId)`: returns `Promise<boolean>` indicating whether the change container (directory or equivalent) exists
 
 For `review-ledger` artifacts, `write` SHALL create a backup of the existing content before overwriting.
 
@@ -101,79 +101,79 @@ Core modules SHALL depend on this interface, never on filesystem paths or I/O pr
 
 #### Scenario: Read returns content for existing artifact
 
-- **WHEN** `read(my-change, proposal)` is called and the proposal exists
-- **THEN** it SHALL return the proposal content as a UTF-8 string
+- **WHEN** `await read(my-change, proposal)` is called and the proposal exists
+- **THEN** it SHALL resolve to the proposal content as a UTF-8 string
 
-#### Scenario: Read returns typed error for missing artifact
+#### Scenario: Read rejects with typed error for missing artifact
 
-- **WHEN** `read(my-change, design)` is called and no design exists
-- **THEN** it SHALL return a typed not-found error identifying `(my-change, design)`
+- **WHEN** `await read(my-change, design)` is called and no design exists
+- **THEN** it SHALL reject with an `ArtifactStoreError` where `kind` is `not_found` and `message` identifies `(my-change, design)`
 
 #### Scenario: Write is atomic
 
-- **WHEN** `write(my-change, proposal, content)` is called
+- **WHEN** `await write(my-change, proposal, content)` is called
 - **THEN** the content SHALL be written atomically — no partial reads are possible during the write
 
 #### Scenario: Write creates backup for review-ledger artifacts
 
-- **WHEN** `write(my-change, review-ledger, content, design)` is called and a design ledger already exists
+- **WHEN** `await write(my-change, review-ledger, content, design)` is called and a design ledger already exists
 - **THEN** the existing content SHALL be backed up before the new content is written
 
 #### Scenario: List returns qualifiers for spec-delta
 
-- **WHEN** `list(my-change, spec-delta)` is called and two spec deltas exist
-- **THEN** it SHALL return the spec name qualifiers for both
+- **WHEN** `await list(my-change, spec-delta)` is called and two spec deltas exist
+- **THEN** it SHALL resolve to the spec name qualifiers for both
 
 #### Scenario: listChanges returns all known change identifiers
 
-- **WHEN** `listChanges()` is called and two changes exist
-- **THEN** it SHALL return an array containing both change identifiers
+- **WHEN** `await listChanges()` is called and two changes exist
+- **THEN** it SHALL resolve to an array containing both change identifiers
 
 #### Scenario: listChanges returns empty when no changes exist
 
-- **WHEN** `listChanges()` is called and no changes exist
-- **THEN** it SHALL return an empty array
+- **WHEN** `await listChanges()` is called and no changes exist
+- **THEN** it SHALL resolve to an empty array
 
 #### Scenario: changeExists returns true for an existing change container
 
-- **WHEN** `changeExists(my-change)` is called and the change directory exists
-- **THEN** it SHALL return `true`
+- **WHEN** `await changeExists(my-change)` is called and the change directory exists
+- **THEN** it SHALL resolve to `true`
 
 #### Scenario: changeExists returns false for a non-existent change
 
-- **WHEN** `changeExists(unknown-change)` is called and no such change exists
-- **THEN** it SHALL return `false`
+- **WHEN** `await changeExists(unknown-change)` is called and no such change exists
+- **THEN** it SHALL resolve to `false`
 
 #### Scenario: changeExists is independent of artifact existence
 
-- **WHEN** `changeExists(my-change)` is called and the change directory exists but contains no artifacts
-- **THEN** it SHALL return `true` (container existence is sufficient)
+- **WHEN** `await changeExists(my-change)` is called and the change directory exists but contains no artifacts
+- **THEN** it SHALL resolve to `true` (container existence is sufficient)
 
 ### Requirement: RunArtifactStore interface defines run-domain operations
 
-The system SHALL define a `RunArtifactStore` interface with the following operations:
-- `read(runId, artifactType)`: returns artifact content or a typed not-found error
-- `write(runId, artifactType, content)`: writes artifact content atomically
-- `exists(runId, artifactType)`: returns boolean
-- `list(changeId?)`: returns all runIds, optionally filtered by changeId
+The system SHALL define a `RunArtifactStore` interface with the following asynchronous operations:
+- `read(runId, artifactType)`: returns `Promise<string>` resolving to artifact content, or rejects with a typed `ArtifactStoreError` where `kind` is `not_found`
+- `write(runId, artifactType, content)`: returns `Promise<void>`, writes artifact content atomically
+- `exists(runId, artifactType)`: returns `Promise<boolean>`
+- `list(changeId?)`: returns `Promise<readonly RunArtifactRef[]>` — all runIds, optionally filtered by changeId
 
 Run-domain writes SHALL be atomic but do not require backup-before-overwrite.
 
 #### Scenario: Read returns run state for existing run
 
-- **WHEN** `read(my-run-1, run-state)` is called and the run exists
-- **THEN** it SHALL return the run state JSON content
+- **WHEN** `await read(my-run-1, run-state)` is called and the run exists
+- **THEN** it SHALL resolve to the run state JSON content
 
 #### Scenario: List returns all runs for a change
 
-- **WHEN** `list(my-change)` is called and two runs exist for `my-change`
-- **THEN** it SHALL return both runIds
+- **WHEN** `await list(my-change)` is called and two runs exist for `my-change`
+- **THEN** it SHALL resolve to both runIds
 
 ### Requirement: LocalFs adapters implement store interfaces using the existing directory layout
 
-`LocalFsChangeArtifactStore` SHALL implement `ChangeArtifactStore` using the directory layout `openspec/changes/<changeId>/` for change artifacts.
+`LocalFsChangeArtifactStore` SHALL implement `ChangeArtifactStore` using the directory layout `openspec/changes/<changeId>/` for change artifacts. All methods SHALL be `async` and return `Promise`.
 
-`LocalFsRunArtifactStore` SHALL implement `RunArtifactStore` using the directory layout `.specflow/runs/<runId>/` for run artifacts.
+`LocalFsRunArtifactStore` SHALL implement `RunArtifactStore` using the directory layout `.specflow/runs/<runId>/` for run artifacts. All methods SHALL be `async` and return `Promise`.
 
 The `task-graph` artifact SHALL be stored at `openspec/changes/<changeId>/task-graph.json`.
 
@@ -185,38 +185,38 @@ The local filesystem layout SHALL be documented as an adapter-specific concern, 
 
 #### Scenario: LocalFs change adapter resolves task-graph path
 
-- **WHEN** `read(my-change, task-graph)` is called on `LocalFsChangeArtifactStore`
+- **WHEN** `await read(my-change, task-graph)` is called on `LocalFsChangeArtifactStore`
 - **THEN** it SHALL read from `openspec/changes/my-change/task-graph.json`
 
 #### Scenario: LocalFs change adapter resolves proposal path
 
-- **WHEN** `read(my-change, proposal)` is called on `LocalFsChangeArtifactStore`
+- **WHEN** `await read(my-change, proposal)` is called on `LocalFsChangeArtifactStore`
 - **THEN** it SHALL read from `openspec/changes/my-change/proposal.md`
 
 #### Scenario: LocalFs change adapter resolves spec-delta path
 
-- **WHEN** `read(my-change, spec-delta, run-identity-model)` is called on `LocalFsChangeArtifactStore`
+- **WHEN** `await read(my-change, spec-delta, run-identity-model)` is called on `LocalFsChangeArtifactStore`
 - **THEN** it SHALL read from `openspec/changes/my-change/specs/run-identity-model/spec.md`
 
 #### Scenario: LocalFs change adapter resolves review-ledger path
 
-- **WHEN** `read(my-change, review-ledger, proposal)` is called on `LocalFsChangeArtifactStore`
+- **WHEN** `await read(my-change, review-ledger, proposal)` is called on `LocalFsChangeArtifactStore`
 - **THEN** it SHALL read from `openspec/changes/my-change/review-ledger-proposal.json`
 
 #### Scenario: LocalFs run adapter resolves run-state path
 
-- **WHEN** `read(my-run-1, run-state)` is called on `LocalFsRunArtifactStore`
+- **WHEN** `await read(my-run-1, run-state)` is called on `LocalFsRunArtifactStore`
 - **THEN** it SHALL read from `.specflow/runs/my-run-1/run.json`
 
 #### Scenario: LocalFs listChanges enumerates change directories
 
-- **WHEN** `listChanges()` is called and `openspec/changes/` contains `foo/` and `bar/`
-- **THEN** it SHALL return `["bar", "foo"]` (or equivalent unordered)
+- **WHEN** `await listChanges()` is called and `openspec/changes/` contains `foo/` and `bar/`
+- **THEN** it SHALL resolve to `["bar", "foo"]` (or equivalent unordered)
 
 #### Scenario: LocalFs changeExists checks directory presence
 
-- **WHEN** `changeExists(my-change)` is called and `openspec/changes/my-change/` exists
-- **THEN** it SHALL return `true`
+- **WHEN** `await changeExists(my-change)` is called and `openspec/changes/my-change/` exists
+- **THEN** it SHALL resolve to `true`
 
 ### Requirement: Backend-agnostic invariants constrain all adapter implementations
 
@@ -224,6 +224,7 @@ Any adapter implementing `ChangeArtifactStore` or `RunArtifactStore` SHALL satis
 - **Payload expectations**: markdown artifacts (`proposal`, `design`, `tasks`, `spec-delta`, `current-phase`, `approval-summary`) are UTF-8 text; `task-graph`, `review-ledger` and `run-state` are JSON validated against their respective schemas
 - **Atomic update**: all writes MUST be atomic — no partial reads are possible during a write operation
 - **Single-writer assumption**: adapters are not required to handle concurrent writes to the same artifact
+- **Error contract**: all adapter methods SHALL reject with `ArtifactStoreError` instances using the typed `kind` field. Adapters SHALL NOT throw raw `Error` objects or vendor-specific error types to callers.
 
 #### Scenario: Markdown artifacts are UTF-8 text
 
@@ -239,6 +240,12 @@ Any adapter implementing `ChangeArtifactStore` or `RunArtifactStore` SHALL satis
 
 - **WHEN** a write is in progress and a concurrent read occurs
 - **THEN** the read SHALL return either the previous complete content or the new complete content — never partial content
+
+#### Scenario: Adapter errors use ArtifactStoreError
+
+- **WHEN** an adapter method encounters an error
+- **THEN** it SHALL reject with an `ArtifactStoreError` instance
+- **AND** it SHALL NOT throw raw `Error`, `ENOENT`, or vendor-specific error types
 
 ### Requirement: The artifact-phase gate matrix formalizes transition requirements
 

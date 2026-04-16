@@ -74,12 +74,12 @@ function die(message: string): never {
 	process.exit(1);
 }
 
-function buildReviewPrompt(
+async function buildReviewPrompt(
 	runtimeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
-): string {
-	const artifacts = readDesignArtifactsFromStore(changeStore, changeId);
+): Promise<string> {
+	const artifacts = await readDesignArtifactsFromStore(changeStore, changeId);
 	if (!artifacts) {
 		throw new Error("missing_artifacts");
 	}
@@ -97,14 +97,14 @@ function buildReviewPrompt(
 	].join("\n\n");
 }
 
-function buildRereviewPrompt(
+async function buildRereviewPrompt(
 	runtimeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	previousFindings: readonly ReviewFinding[],
 	maxFindingId: number,
-): string {
-	const artifacts = readDesignArtifactsFromStore(changeStore, changeId);
+): Promise<string> {
+	const artifacts = await readDesignArtifactsFromStore(changeStore, changeId);
 	if (!artifacts) {
 		throw new Error("missing_artifacts");
 	}
@@ -126,13 +126,13 @@ function buildRereviewPrompt(
 	].join("\n\n");
 }
 
-function buildFixPrompt(
+async function buildFixPrompt(
 	runtimeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	findings: readonly ReviewFinding[],
-): string {
-	const artifacts = readDesignArtifactsFromStore(changeStore, changeId);
+): Promise<string> {
+	const artifacts = await readDesignArtifactsFromStore(changeStore, changeId);
 	if (!artifacts) {
 		throw new Error("missing_artifacts");
 	}
@@ -207,28 +207,28 @@ function resultFromLedger(
 	};
 }
 
-function artifactHash(
+async function artifactHash(
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	type: typeof ChangeArtifactType.Design | typeof ChangeArtifactType.Tasks,
-): string {
+): Promise<string> {
 	const ref = changeRef(changeId, type);
-	if (!changeStore.exists(ref)) {
+	if (!(await changeStore.exists(ref))) {
 		return "";
 	}
-	return contentHash(changeStore.read(ref));
+	return contentHash(await changeStore.read(ref));
 }
 
-function buildTaskPlannableFindings(
+async function buildTaskPlannableFindings(
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	startId: number,
-): ReviewFinding[] {
+): Promise<ReviewFinding[]> {
 	const designRef = changeRef(changeId, ChangeArtifactType.Design);
-	if (!changeStore.exists(designRef)) {
+	if (!(await changeStore.exists(designRef))) {
 		return [];
 	}
-	const designContent = changeStore.read(designRef);
+	const designContent = await changeStore.read(designRef);
 	const result = validatePlanningHeadings(designContent);
 	if (result.valid) {
 		return [];
@@ -262,7 +262,7 @@ function buildTaskPlannableFindings(
 	return findings;
 }
 
-function runReviewPipeline(
+async function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
@@ -270,9 +270,9 @@ function runReviewPipeline(
 	changeId: string,
 	rereviewMode: boolean,
 	reviewAgent: ReviewAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	process.stderr.write("Reading artifacts...\n");
-	if (!readDesignArtifactsFromStore(changeStore, changeId)) {
+	if (!(await readDesignArtifactsFromStore(changeStore, changeId))) {
 		return {
 			...errorJson(action, changeId, "missing_artifacts"),
 			review: null,
@@ -283,25 +283,24 @@ function runReviewPipeline(
 	}
 
 	process.stderr.write(`Calling ${reviewAgent} for design review...\n`);
-	const prompt = rereviewMode
-		? (() => {
-				const priorLedger = readLedgerFromStore(
-					changeStore,
-					changeId,
-					ReviewLedgerKind.Design,
-				).ledger;
-				const previousFindings = (priorLedger.findings ?? []).filter(
-					(finding) => String(finding.status ?? "") !== "resolved",
-				);
-				return buildRereviewPrompt(
-					runtimeRoot,
-					changeStore,
-					changeId,
-					previousFindings,
-					Number(priorLedger.max_finding_id ?? 0),
-				);
-			})()
-		: buildReviewPrompt(runtimeRoot, changeStore, changeId);
+	let prompt: string;
+	if (rereviewMode) {
+		const priorLedger = (
+			await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Design)
+		).ledger;
+		const previousFindings = (priorLedger.findings ?? []).filter(
+			(finding) => String(finding.status ?? "") !== "resolved",
+		);
+		prompt = await buildRereviewPrompt(
+			runtimeRoot,
+			changeStore,
+			changeId,
+			previousFindings,
+			Number(priorLedger.max_finding_id ?? 0),
+		);
+	} else {
+		prompt = await buildReviewPrompt(runtimeRoot, changeStore, changeId);
+	}
 	const reviewAgentResult = callReviewAgent<Record<string, unknown>>(
 		reviewAgent,
 		projectRoot,
@@ -336,7 +335,7 @@ function runReviewPipeline(
 		reviewJson = reviewAgentResult.payload;
 	}
 
-	const ledgerRead = readLedgerFromStore(
+	const ledgerRead = await readLedgerFromStore(
 		changeStore,
 		changeId,
 		ReviewLedgerKind.Design,
@@ -406,7 +405,7 @@ function runReviewPipeline(
 				const num = Number(String(f.id ?? "").replace(/\D/g, ""));
 				return Number.isNaN(num) ? max : Math.max(max, num);
 			}, 0);
-			const tpFindings = buildTaskPlannableFindings(
+			const tpFindings = await buildTaskPlannableFindings(
 				changeStore,
 				changeId,
 				maxLlmId + 1,
@@ -416,14 +415,14 @@ function runReviewPipeline(
 		ledger = computeSummary(ledger, round);
 		ledger = computeStatus(ledger);
 		ledger = persistMaxFindingId(ledger);
-		writeLedgerToStore(
+		await writeLedgerToStore(
 			changeStore,
 			changeId,
 			ReviewLedgerKind.Design,
 			ledger,
 			ledgerRead.status === "clean",
 		);
-		renderCurrentPhaseToStore(
+		await renderCurrentPhaseToStore(
 			changeStore,
 			changeId,
 			ledger,
@@ -444,7 +443,7 @@ function runReviewPipeline(
 	);
 }
 
-function runAutofixLoop(
+async function runAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
@@ -452,8 +451,8 @@ function runAutofixLoop(
 	maxRounds: number,
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
-): ReviewResult {
-	if (!readDesignArtifactsFromStore(changeStore, changeId)) {
+): Promise<ReviewResult> {
+	if (!(await readDesignArtifactsFromStore(changeStore, changeId))) {
 		return {
 			...errorJson("autofix_loop", changeId, "missing_artifacts"),
 			review: null,
@@ -463,7 +462,7 @@ function runAutofixLoop(
 		};
 	}
 
-	const ledgerRead = readLedgerFromStore(
+	const ledgerRead = await readLedgerFromStore(
 		changeStore,
 		changeId,
 		ReviewLedgerKind.Design,
@@ -497,12 +496,17 @@ function runAutofixLoop(
 			return status === "new" || status === "open";
 		});
 		const preFixHash =
-			artifactHash(changeStore, changeId, ChangeArtifactType.Design) +
-			artifactHash(changeStore, changeId, ChangeArtifactType.Tasks);
+			(await artifactHash(changeStore, changeId, ChangeArtifactType.Design)) +
+			(await artifactHash(changeStore, changeId, ChangeArtifactType.Tasks));
 		const fixResult = callMainAgent(
 			mainAgent,
 			projectRoot,
-			buildFixPrompt(runtimeRoot, changeStore, changeId, actionableFindings),
+			await buildFixPrompt(
+				runtimeRoot,
+				changeStore,
+				changeId,
+				actionableFindings,
+			),
 		);
 		if (!fixResult.ok) {
 			consecutiveFailures += 1;
@@ -516,8 +520,8 @@ function runAutofixLoop(
 			continue;
 		}
 		const postFixHash =
-			artifactHash(changeStore, changeId, ChangeArtifactType.Design) +
-			artifactHash(changeStore, changeId, ChangeArtifactType.Tasks);
+			(await artifactHash(changeStore, changeId, ChangeArtifactType.Design)) +
+			(await artifactHash(changeStore, changeId, ChangeArtifactType.Tasks));
 		if (preFixHash === postFixHash) {
 			consecutiveNoChange += 1;
 			process.stderr.write(
@@ -531,7 +535,7 @@ function runAutofixLoop(
 			consecutiveNoChange = 0;
 		}
 
-		const reviewResult = runReviewPipeline(
+		const reviewResult = await runReviewPipeline(
 			runtimeRoot,
 			projectRoot,
 			changeStore,
@@ -553,10 +557,8 @@ function runAutofixLoop(
 		}
 
 		consecutiveFailures = 0;
-		ledger = readLedgerFromStore(
-			changeStore,
-			changeId,
-			ReviewLedgerKind.Design,
+		ledger = (
+			await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Design)
 		).ledger;
 		const currentScore = computeScore(ledger);
 		const unresolvedHigh = unresolvedCriticalHighCount(ledger);
@@ -648,25 +650,25 @@ function runAutofixLoop(
 	};
 }
 
-function cmdReview(
+async function cmdReview(
 	runtimeRoot: string,
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	const changeId = args[0];
 	if (!changeId) {
 		die("Usage: specflow-review-design review <CHANGE_ID> [--reset-ledger]");
 	}
 	const reset = args.includes("--reset-ledger");
 	try {
-		validateChangeFromStore(changeStore, changeId);
+		await validateChangeFromStore(changeStore, changeId);
 	} catch (error) {
 		die(String((error as Error).message));
 	}
 	if (reset) {
-		writeLedgerToStore(
+		await writeLedgerToStore(
 			changeStore,
 			changeId,
 			ReviewLedgerKind.Design,
@@ -675,7 +677,7 @@ function cmdReview(
 		);
 		process.stderr.write("Ledger reset to empty\n");
 	}
-	return runReviewPipeline(
+	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
 		changeStore,
@@ -686,13 +688,13 @@ function cmdReview(
 	);
 }
 
-function cmdFixReview(
+async function cmdFixReview(
 	runtimeRoot: string,
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	const changeId = args[0];
 	if (!changeId) {
 		die(
@@ -701,12 +703,12 @@ function cmdFixReview(
 	}
 	const reset = args.includes("--reset-ledger");
 	try {
-		validateChangeFromStore(changeStore, changeId);
+		await validateChangeFromStore(changeStore, changeId);
 	} catch (error) {
 		die(String((error as Error).message));
 	}
 	if (reset) {
-		writeLedgerToStore(
+		await writeLedgerToStore(
 			changeStore,
 			changeId,
 			ReviewLedgerKind.Design,
@@ -715,7 +717,7 @@ function cmdFixReview(
 		);
 		process.stderr.write("Ledger reset to empty\n");
 	}
-	return runReviewPipeline(
+	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
 		changeStore,
@@ -726,14 +728,14 @@ function cmdFixReview(
 	);
 }
 
-function cmdAutofixLoop(
+async function cmdAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
-): ReviewResult {
+): Promise<ReviewResult> {
 	const changeId = args[0];
 	if (!changeId) {
 		die(
@@ -750,11 +752,11 @@ function cmdAutofixLoop(
 	const config = readReviewConfig(projectRoot);
 	const rounds = maxRounds ? Number(maxRounds) : config.maxAutofixRounds;
 	try {
-		validateChangeFromStore(changeStore, changeId);
+		await validateChangeFromStore(changeStore, changeId);
 	} catch (error) {
 		die(String((error as Error).message));
 	}
-	return runAutofixLoop(
+	return await runAutofixLoop(
 		runtimeRoot,
 		projectRoot,
 		changeStore,
@@ -774,7 +776,7 @@ function parseReviewAgentFlag(args: readonly string[]): string | undefined {
 	return undefined;
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const projectRoot = ensureGitRepo();
 	loadConfigEnv(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
@@ -797,7 +799,7 @@ Subcommands:
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
-			result = cmdReview(
+			result = await cmdReview(
 				runtimeRoot,
 				projectRoot,
 				changeStore,
@@ -806,7 +808,7 @@ Subcommands:
 			);
 			break;
 		case "fix-review":
-			result = cmdFixReview(
+			result = await cmdFixReview(
 				runtimeRoot,
 				projectRoot,
 				changeStore,
@@ -815,7 +817,7 @@ Subcommands:
 			);
 			break;
 		case "autofix-loop":
-			result = cmdAutofixLoop(
+			result = await cmdAutofixLoop(
 				runtimeRoot,
 				projectRoot,
 				changeStore,

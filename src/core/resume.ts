@@ -11,11 +11,11 @@ export interface ResumeDeps {
 	readonly runs: RunArtifactStore;
 }
 
-export function resumeRun<T extends CoreRunState = RunState>(
+export async function resumeRun<T extends CoreRunState = RunState>(
 	input: ResumeInput,
 	deps: ResumeDeps,
-): Result<T, CoreRuntimeError> {
-	const loaded = loadRunState<T>(deps.runs, input.runId);
+): Promise<Result<T, CoreRuntimeError>> {
+	const loaded = await loadRunState<T>(deps.runs, input.runId);
 	if (!loaded.ok) return loaded;
 	const runState = loaded.value;
 
@@ -42,6 +42,6 @@ export function resumeRun<T extends CoreRunState = RunState>(
 		],
 	};
 
-	writeRunState<T>(deps.runs, input.runId, updated);
+	await writeRunState<T>(deps.runs, input.runId, updated);
 	return ok(updated);
 }

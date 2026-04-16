@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
-	ArtifactNotFoundError,
+	ArtifactStoreError,
 	ChangeArtifactType,
 	changeRef,
 	ReviewLedgerKind,
@@ -22,18 +22,22 @@ function makeTempRoot(): string {
 	return dir;
 }
 
-test("ChangeArtifactStore: read/write/exists for singleton proposal", () => {
+test("ChangeArtifactStore: read/write/exists for singleton proposal", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
 		const ref = changeRef("my-change", ChangeArtifactType.Proposal);
 
-		assert.equal(store.exists(ref), false);
-		assert.throws(() => store.read(ref), ArtifactNotFoundError);
+		assert.equal(await store.exists(ref), false);
+		await assert.rejects(store.read(ref), (err: unknown) => {
+			assert.ok(err instanceof ArtifactStoreError);
+			assert.equal(err.kind, "not_found");
+			return true;
+		});
 
-		store.write(ref, "# My Proposal\n");
-		assert.equal(store.exists(ref), true);
-		assert.equal(store.read(ref), "# My Proposal\n");
+		await store.write(ref, "# My Proposal\n");
+		assert.equal(await store.exists(ref), true);
+		assert.equal(await store.read(ref), "# My Proposal\n");
 
 		// Verify filesystem path
 		const expected = join(root, "openspec/changes/my-change/proposal.md");
@@ -43,7 +47,7 @@ test("ChangeArtifactStore: read/write/exists for singleton proposal", () => {
 	}
 });
 
-test("ChangeArtifactStore: read/write spec-delta with qualifier", () => {
+test("ChangeArtifactStore: read/write spec-delta with qualifier", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
@@ -53,9 +57,9 @@ test("ChangeArtifactStore: read/write spec-delta with qualifier", () => {
 			"run-identity-model",
 		);
 
-		store.write(ref, "## ADDED Requirements\n");
-		assert.equal(store.exists(ref), true);
-		assert.equal(store.read(ref), "## ADDED Requirements\n");
+		await store.write(ref, "## ADDED Requirements\n");
+		assert.equal(await store.exists(ref), true);
+		assert.equal(await store.read(ref), "## ADDED Requirements\n");
 
 		const expected = join(
 			root,
@@ -67,7 +71,7 @@ test("ChangeArtifactStore: read/write spec-delta with qualifier", () => {
 	}
 });
 
-test("ChangeArtifactStore: review-ledger with unconditional backup", () => {
+test("ChangeArtifactStore: review-ledger with unconditional backup", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
@@ -78,8 +82,8 @@ test("ChangeArtifactStore: review-ledger with unconditional backup", () => {
 		);
 
 		// First write — no backup needed (file doesn't exist)
-		store.write(ref, '{"round":1}\n');
-		assert.equal(store.exists(ref), true);
+		await store.write(ref, '{"round":1}\n');
+		assert.equal(await store.exists(ref), true);
 
 		const ledgerPath = join(
 			root,
@@ -89,7 +93,7 @@ test("ChangeArtifactStore: review-ledger with unconditional backup", () => {
 		assert.equal(readFileSync(ledgerPath, "utf8"), '{"round":1}\n');
 
 		// Second write — backup should be created unconditionally
-		store.write(ref, '{"round":2}\n');
+		await store.write(ref, '{"round":2}\n');
 		assert.equal(readFileSync(ledgerPath, "utf8"), '{"round":2}\n');
 		assert.equal(readFileSync(backupPath, "utf8"), '{"round":1}\n');
 	} finally {
@@ -97,7 +101,7 @@ test("ChangeArtifactStore: review-ledger with unconditional backup", () => {
 	}
 });
 
-test("ChangeArtifactStore: list spec-deltas", () => {
+test("ChangeArtifactStore: list spec-deltas", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
@@ -105,10 +109,10 @@ test("ChangeArtifactStore: list spec-deltas", () => {
 		// Create two spec deltas
 		const ref1 = changeRef("my-change", ChangeArtifactType.SpecDelta, "alpha");
 		const ref2 = changeRef("my-change", ChangeArtifactType.SpecDelta, "beta");
-		store.write(ref1, "spec alpha");
-		store.write(ref2, "spec beta");
+		await store.write(ref1, "spec alpha");
+		await store.write(ref2, "spec beta");
 
-		const results = store.list({
+		const results = await store.list({
 			changeId: "my-change",
 			type: ChangeArtifactType.SpecDelta,
 		});
@@ -122,7 +126,7 @@ test("ChangeArtifactStore: list spec-deltas", () => {
 	}
 });
 
-test("ChangeArtifactStore: list review-ledgers", () => {
+test("ChangeArtifactStore: list review-ledgers", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
@@ -136,10 +140,10 @@ test("ChangeArtifactStore: list review-ledgers", () => {
 			ChangeArtifactType.ReviewLedger,
 			ReviewLedgerKind.Design,
 		);
-		store.write(ref1, "{}");
-		store.write(ref2, "{}");
+		await store.write(ref1, "{}");
+		await store.write(ref2, "{}");
 
-		const results = store.list({
+		const results = await store.list({
 			changeId: "my-change",
 			type: ChangeArtifactType.ReviewLedger,
 		});
@@ -149,19 +153,22 @@ test("ChangeArtifactStore: list review-ledgers", () => {
 	}
 });
 
-test("ChangeArtifactStore: list singleton returns 0 or 1", () => {
+test("ChangeArtifactStore: list singleton returns 0 or 1", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
 
-		let results = store.list({
+		let results = await store.list({
 			changeId: "my-change",
 			type: ChangeArtifactType.Proposal,
 		});
 		assert.equal(results.length, 0);
 
-		store.write(changeRef("my-change", ChangeArtifactType.Proposal), "content");
-		results = store.list({
+		await store.write(
+			changeRef("my-change", ChangeArtifactType.Proposal),
+			"content",
+		);
+		results = await store.list({
 			changeId: "my-change",
 			type: ChangeArtifactType.Proposal,
 		});
@@ -171,53 +178,53 @@ test("ChangeArtifactStore: list singleton returns 0 or 1", () => {
 	}
 });
 
-test("ChangeArtifactStore: listChanges returns empty when no changes exist", () => {
+test("ChangeArtifactStore: listChanges returns empty when no changes exist", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
-		assert.deepEqual(store.listChanges(), []);
+		assert.deepEqual(await store.listChanges(), []);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("ChangeArtifactStore: listChanges returns all change identifiers", () => {
+test("ChangeArtifactStore: listChanges returns all change identifiers", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
-		store.write(changeRef("alpha", ChangeArtifactType.Proposal), "a");
-		store.write(changeRef("beta", ChangeArtifactType.Proposal), "b");
+		await store.write(changeRef("alpha", ChangeArtifactType.Proposal), "a");
+		await store.write(changeRef("beta", ChangeArtifactType.Proposal), "b");
 
-		const changes = [...store.listChanges()].sort();
+		const changes = [...(await store.listChanges())].sort();
 		assert.deepEqual(changes, ["alpha", "beta"]);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("ChangeArtifactStore: changeExists returns true for existing change directory", () => {
+test("ChangeArtifactStore: changeExists returns true for existing change directory", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
-		store.write(changeRef("my-change", ChangeArtifactType.Proposal), "x");
+		await store.write(changeRef("my-change", ChangeArtifactType.Proposal), "x");
 
-		assert.equal(store.changeExists("my-change"), true);
+		assert.equal(await store.changeExists("my-change"), true);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("ChangeArtifactStore: changeExists returns false for non-existent change", () => {
+test("ChangeArtifactStore: changeExists returns false for non-existent change", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
-		assert.equal(store.changeExists("nonexistent"), false);
+		assert.equal(await store.changeExists("nonexistent"), false);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("ChangeArtifactStore: changeExists returns true for empty change directory", () => {
+test("ChangeArtifactStore: changeExists returns true for empty change directory", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
@@ -226,25 +233,29 @@ test("ChangeArtifactStore: changeExists returns true for empty change directory"
 			recursive: true,
 		});
 
-		assert.equal(store.changeExists("empty-change"), true);
+		assert.equal(await store.changeExists("empty-change"), true);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("ChangeArtifactStore: read/write/exists for singleton task-graph", () => {
+test("ChangeArtifactStore: read/write/exists for singleton task-graph", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsChangeArtifactStore(root);
 		const ref = changeRef("my-change", ChangeArtifactType.TaskGraph);
 
-		assert.equal(store.exists(ref), false);
-		assert.throws(() => store.read(ref), ArtifactNotFoundError);
+		assert.equal(await store.exists(ref), false);
+		await assert.rejects(store.read(ref), (err: unknown) => {
+			assert.ok(err instanceof ArtifactStoreError);
+			assert.equal(err.kind, "not_found");
+			return true;
+		});
 
 		const content = '{"version":"1.0","bundles":[]}\n';
-		store.write(ref, content);
-		assert.equal(store.exists(ref), true);
-		assert.equal(store.read(ref), content);
+		await store.write(ref, content);
+		assert.equal(await store.exists(ref), true);
+		assert.equal(await store.read(ref), content);
 
 		// Verify filesystem path
 		const expected = join(root, "openspec/changes/my-change/task-graph.json");
@@ -254,18 +265,22 @@ test("ChangeArtifactStore: read/write/exists for singleton task-graph", () => {
 	}
 });
 
-test("RunArtifactStore: read/write/exists for run-state", () => {
+test("RunArtifactStore: read/write/exists for run-state", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsRunArtifactStore(root);
 		const ref = runRef("my-change-1");
 
-		assert.equal(store.exists(ref), false);
-		assert.throws(() => store.read(ref), ArtifactNotFoundError);
+		assert.equal(await store.exists(ref), false);
+		await assert.rejects(store.read(ref), (err: unknown) => {
+			assert.ok(err instanceof ArtifactStoreError);
+			assert.equal(err.kind, "not_found");
+			return true;
+		});
 
-		store.write(ref, '{"run_id":"my-change-1"}\n');
-		assert.equal(store.exists(ref), true);
-		assert.equal(store.read(ref), '{"run_id":"my-change-1"}\n');
+		await store.write(ref, '{"run_id":"my-change-1"}\n');
+		assert.equal(await store.exists(ref), true);
+		assert.equal(await store.read(ref), '{"run_id":"my-change-1"}\n');
 
 		const expected = join(root, ".specflow/runs/my-change-1/run.json");
 		assert.equal(readFileSync(expected, "utf8"), '{"run_id":"my-change-1"}\n');
@@ -274,59 +289,62 @@ test("RunArtifactStore: read/write/exists for run-state", () => {
 	}
 });
 
-test("RunArtifactStore: list all runs", () => {
+test("RunArtifactStore: list all runs", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsRunArtifactStore(root);
-		store.write(runRef("my-change-1"), '{"run_id":"my-change-1"}');
-		store.write(runRef("my-change-2"), '{"run_id":"my-change-2"}');
+		await store.write(runRef("my-change-1"), '{"run_id":"my-change-1"}');
+		await store.write(runRef("my-change-2"), '{"run_id":"my-change-2"}');
 
-		const results = store.list();
+		const results = await store.list();
 		assert.equal(results.length, 2);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("RunArtifactStore: list filters by changeId", () => {
+test("RunArtifactStore: list filters by changeId", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsRunArtifactStore(root);
-		store.write(runRef("alpha-1"), '{"run_id":"alpha-1"}');
-		store.write(runRef("alpha-2"), '{"run_id":"alpha-2"}');
-		store.write(runRef("beta-1"), '{"run_id":"beta-1"}');
+		await store.write(runRef("alpha-1"), '{"run_id":"alpha-1"}');
+		await store.write(runRef("alpha-2"), '{"run_id":"alpha-2"}');
+		await store.write(runRef("beta-1"), '{"run_id":"beta-1"}');
 
-		const alphaResults = store.list({ changeId: "alpha" });
+		const alphaResults = await store.list({ changeId: "alpha" });
 		assert.equal(alphaResults.length, 2);
 
-		const betaResults = store.list({ changeId: "beta" });
+		const betaResults = await store.list({ changeId: "beta" });
 		assert.equal(betaResults.length, 1);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("RunArtifactStore: list returns empty for non-existent runsDir", () => {
+test("RunArtifactStore: list returns empty for non-existent runsDir", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsRunArtifactStore(root);
-		const results = store.list();
+		const results = await store.list();
 		assert.equal(results.length, 0);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
 
-test("RunArtifactStore: list({ changeId }) filters only valid <changeId>-<N> run IDs", () => {
+test("RunArtifactStore: list({ changeId }) filters only valid <changeId>-<N> run IDs", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsRunArtifactStore(root);
-		store.write(runRef("my-change-1"), '{"run_id":"my-change-1"}');
-		store.write(runRef("my-change-2"), '{"run_id":"my-change-2"}');
-		store.write(runRef("my-change-extra-1"), '{"run_id":"my-change-extra-1"}');
-		store.write(runRef("other-1"), '{"run_id":"other-1"}');
+		await store.write(runRef("my-change-1"), '{"run_id":"my-change-1"}');
+		await store.write(runRef("my-change-2"), '{"run_id":"my-change-2"}');
+		await store.write(
+			runRef("my-change-extra-1"),
+			'{"run_id":"my-change-extra-1"}',
+		);
+		await store.write(runRef("other-1"), '{"run_id":"other-1"}');
 
-		const results = store.list({ changeId: "my-change" });
+		const results = await store.list({ changeId: "my-change" });
 		const runIds = results.map((r) => r.runId).sort();
 		assert.deepEqual(runIds, ["my-change-1", "my-change-2"]);
 	} finally {
@@ -334,16 +352,16 @@ test("RunArtifactStore: list({ changeId }) filters only valid <changeId>-<N> run
 	}
 });
 
-test("RunArtifactStore: list returns deterministic lexicographic order including double-digit IDs", () => {
+test("RunArtifactStore: list returns deterministic lexicographic order including double-digit IDs", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsRunArtifactStore(root);
 		// Write in non-sorted order
-		store.write(runRef("change-10"), '{"run_id":"change-10"}');
-		store.write(runRef("change-2"), '{"run_id":"change-2"}');
-		store.write(runRef("change-1"), '{"run_id":"change-1"}');
+		await store.write(runRef("change-10"), '{"run_id":"change-10"}');
+		await store.write(runRef("change-2"), '{"run_id":"change-2"}');
+		await store.write(runRef("change-1"), '{"run_id":"change-1"}');
 
-		const results = store.list({ changeId: "change" });
+		const results = await store.list({ changeId: "change" });
 		const runIds = results.map((r) => r.runId);
 		// Lexicographic order: change-1, change-10, change-2
 		assert.deepEqual(runIds, ["change-1", "change-10", "change-2"]);
@@ -352,20 +370,20 @@ test("RunArtifactStore: list returns deterministic lexicographic order including
 	}
 });
 
-test("RunArtifactStore: read-after-write consistency", () => {
+test("RunArtifactStore: read-after-write consistency", async () => {
 	const root = makeTempRoot();
 	try {
 		const store = createLocalFsRunArtifactStore(root);
 		const ref = runRef("rw-test-1");
 		const content = '{"run_id":"rw-test-1","version":1}\n';
 
-		store.write(ref, content);
-		assert.equal(store.read(ref), content);
+		await store.write(ref, content);
+		assert.equal(await store.read(ref), content);
 
 		// Overwrite and verify
 		const updated = '{"run_id":"rw-test-1","version":2}\n';
-		store.write(ref, updated);
-		assert.equal(store.read(ref), updated);
+		await store.write(ref, updated);
+		assert.equal(await store.read(ref), updated);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}

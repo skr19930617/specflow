@@ -16,13 +16,13 @@ function seedProposal(
 	);
 }
 
-test("startChangeRun writes initial run state via the run store", () => {
+test("startChangeRun writes initial run state via the run store", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-one");
 
-	const result = startChangeRun(
+	const result = await startChangeRun(
 		{
 			changeId: "feat-one",
 			source: null,
@@ -43,12 +43,12 @@ test("startChangeRun writes initial run state via the run store", () => {
 	assert.equal(runs.snapshot().size, 1);
 });
 
-test("startChangeRun returns change_proposal_missing when proposal absent", () => {
+test("startChangeRun returns change_proposal_missing when proposal absent", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 
-	const result = startChangeRun(
+	const result = await startChangeRun(
 		{
 			changeId: "missing-change",
 			source: null,
@@ -64,12 +64,12 @@ test("startChangeRun returns change_proposal_missing when proposal absent", () =
 	assert.match(result.error.message, /no OpenSpec proposal/);
 });
 
-test("startChangeRun rejects invalid change_id", () => {
+test("startChangeRun rejects invalid change_id", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 
-	const result = startChangeRun(
+	const result = await startChangeRun(
 		{
 			changeId: "../evil",
 			source: null,
@@ -83,13 +83,13 @@ test("startChangeRun rejects invalid change_id", () => {
 	assert.equal(result.error.kind, "invalid_run_id");
 });
 
-test("startChangeRun rejects when an active non-terminal run exists", () => {
+test("startChangeRun rejects when an active non-terminal run exists", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-one");
 
-	const first = startChangeRun(
+	const first = await startChangeRun(
 		{
 			changeId: "feat-one",
 			source: null,
@@ -100,7 +100,7 @@ test("startChangeRun rejects when an active non-terminal run exists", () => {
 	);
 	assert.equal(first.ok, true);
 
-	const second = startChangeRun(
+	const second = await startChangeRun(
 		{
 			changeId: "feat-one",
 			source: null,
@@ -115,13 +115,13 @@ test("startChangeRun rejects when an active non-terminal run exists", () => {
 	assert.match(second.error.message, /Active run already exists/);
 });
 
-test("startChangeRun rejects when prior terminal runs exist without --retry", () => {
+test("startChangeRun rejects when prior terminal runs exist without --retry", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-two");
 
-	const first = startChangeRun(
+	const first = await startChangeRun(
 		{
 			changeId: "feat-two",
 			source: null,
@@ -133,12 +133,12 @@ test("startChangeRun rejects when prior terminal runs exist without --retry", ()
 	assert.equal(first.ok, true);
 	if (!first.ok) return;
 	// Manually terminate the prior run in the store
-	runs.write(
+	await runs.write(
 		{ runId: first.value.run_id, type: "run-state" },
 		`${JSON.stringify({ ...first.value, status: "terminal" }, null, 2)}\n`,
 	);
 
-	const second = startChangeRun(
+	const second = await startChangeRun(
 		{
 			changeId: "feat-two",
 			source: null,
@@ -152,13 +152,13 @@ test("startChangeRun rejects when prior terminal runs exist without --retry", ()
 	assert.equal(second.error.kind, "prior_runs_require_retry");
 });
 
-test("startChangeRun with retry copies prior source and links previous_run_id", () => {
+test("startChangeRun with retry copies prior source and links previous_run_id", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-three");
 
-	const first = startChangeRun(
+	const first = await startChangeRun(
 		{
 			changeId: "feat-three",
 			source: {
@@ -174,12 +174,12 @@ test("startChangeRun with retry copies prior source and links previous_run_id", 
 	);
 	assert.equal(first.ok, true);
 	if (!first.ok) return;
-	runs.write(
+	await runs.write(
 		{ runId: first.value.run_id, type: "run-state" },
 		`${JSON.stringify({ ...first.value, status: "terminal", current_phase: "approved" }, null, 2)}\n`,
 	);
 
-	const retryResult = startChangeRun(
+	const retryResult = await startChangeRun(
 		{
 			changeId: "feat-three",
 			source: null,
@@ -200,13 +200,13 @@ test("startChangeRun with retry copies prior source and links previous_run_id", 
 	});
 });
 
-test("startChangeRun rejects retry without any prior run", () => {
+test("startChangeRun rejects retry without any prior run", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-four");
 
-	const result = startChangeRun(
+	const result = await startChangeRun(
 		{
 			changeId: "feat-four",
 			source: null,
@@ -220,11 +220,11 @@ test("startChangeRun rejects retry without any prior run", () => {
 	assert.equal(result.error.kind, "retry_without_prior");
 });
 
-test("startSyntheticRun creates a synthetic run with verbatim run_id", () => {
+test("startSyntheticRun creates a synthetic run with verbatim run_id", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 
-	const result = startSyntheticRun(
+	const result = await startSyntheticRun(
 		{
 			runId: "synth-run-xyz",
 			source: null,
@@ -239,22 +239,24 @@ test("startSyntheticRun creates a synthetic run with verbatim run_id", () => {
 	assert.equal(result.value.run_kind, "synthetic");
 });
 
-test("startSyntheticRun rejects collisions", () => {
+test("startSyntheticRun rejects collisions", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 
 	assert.equal(
-		startSyntheticRun(
-			{
-				runId: "synth-dup",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-			},
-			{ runs, workspace },
+		(
+			await startSyntheticRun(
+				{
+					runId: "synth-dup",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+				},
+				{ runs, workspace },
+			)
 		).ok,
 		true,
 	);
-	const dup = startSyntheticRun(
+	const dup = await startSyntheticRun(
 		{
 			runId: "synth-dup",
 			source: null,

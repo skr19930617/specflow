@@ -43,29 +43,29 @@ interface ChallengePayload {
 	readonly summary?: string;
 }
 
-function buildChallengePrompt(
+async function buildChallengePrompt(
 	runtimeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
-): string {
+): Promise<string> {
 	return [
 		readPrompt(runtimeRoot, "challenge_proposal_prompt.md").trimEnd(),
 		buildPrompt([
-			["PROPOSAL CONTENT", readProposalFromStore(changeStore, changeId)],
+			["PROPOSAL CONTENT", await readProposalFromStore(changeStore, changeId)],
 		]),
 	].join("\n\n");
 }
 
-function runChallenge(
+async function runChallenge(
 	runtimeRoot: string,
 	projectRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	agent: ReviewAgentName,
-): ChallengeResult {
+): Promise<ChallengeResult> {
 	process.stderr.write("Reading proposal...\n");
 	try {
-		validateChangeFromStore(changeStore, changeId);
+		await validateChangeFromStore(changeStore, changeId);
 	} catch {
 		return {
 			...errorJson("challenge", changeId, "missing_proposal"),
@@ -75,7 +75,7 @@ function runChallenge(
 	}
 
 	process.stderr.write(`Calling ${agent} for proposal challenge...\n`);
-	const prompt = buildChallengePrompt(runtimeRoot, changeStore, changeId);
+	const prompt = await buildChallengePrompt(runtimeRoot, changeStore, changeId);
 	const agentResult = callReviewAgent<ChallengePayload>(
 		agent,
 		projectRoot,
@@ -135,7 +135,7 @@ function parseReviewAgentFlag(args: readonly string[]): string | undefined {
 	return undefined;
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const projectRoot = ensureGitRepo();
 	loadConfigEnv(projectRoot);
 	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
@@ -152,7 +152,7 @@ function main(): void {
 		die("Usage: specflow-challenge-proposal challenge <CHANGE_ID>");
 	}
 
-	const result = runChallenge(
+	const result = await runChallenge(
 		runtimeRoot,
 		projectRoot,
 		changeStore,

@@ -809,20 +809,20 @@ export function reemergedFindingTitle(
 
 // --- Store-backed ledger operations ---
 
-export function readLedgerFromStore(
+export async function readLedgerFromStore(
 	store: ChangeArtifactStore,
 	changeId: string,
 	kind: ReviewLedgerKind,
-): LedgerReadResult {
+): Promise<LedgerReadResult> {
 	const ref = changeRef(changeId, ChangeArtifactType.ReviewLedger, kind);
 	const phase = kind === "apply" ? "impl" : kind;
-	if (!store.exists(ref)) {
+	if (!(await store.exists(ref))) {
 		return { ledger: emptyLedger(changeId, phase), status: "new" };
 	}
 	try {
 		return {
 			ledger: parseJson<ReviewLedger>(
-				store.read(ref),
+				await store.read(ref),
 				kind === "apply" ? "review-ledger.json" : `review-ledger-${kind}.json`,
 			),
 			status: "clean",
@@ -832,14 +832,14 @@ export function readLedgerFromStore(
 	}
 }
 
-export function writeLedgerToStore(
+export async function writeLedgerToStore(
 	store: ChangeArtifactStore,
 	changeId: string,
 	kind: ReviewLedgerKind,
 	ledger: ReviewLedger,
 	_cleanRead: boolean,
-): void {
-	store.write(
+): Promise<void> {
+	await store.write(
 		changeRef(changeId, ChangeArtifactType.ReviewLedger, kind),
 		`${JSON.stringify(ledger, null, 2)}\n`,
 	);
