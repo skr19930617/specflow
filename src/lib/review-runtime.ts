@@ -511,54 +511,55 @@ export function repoInitMessage(branch: string): string {
 
 // --- Store-backed helpers ---
 
-export function validateChangeFromStore(
+export async function validateChangeFromStore(
 	store: ChangeArtifactStore,
 	changeId: string,
-): void {
-	if (!store.changeExists(changeId)) {
+): Promise<void> {
+	if (!(await store.changeExists(changeId))) {
 		throw new Error(`Error: change not found: ${changeId}`);
 	}
-	if (!store.exists(changeRef(changeId, ChangeArtifactType.Proposal))) {
+	if (!(await store.exists(changeRef(changeId, ChangeArtifactType.Proposal)))) {
 		throw new Error(`Error: proposal.md not found for change: ${changeId}`);
 	}
 }
 
-export function readDesignArtifactsFromStore(
+export async function readDesignArtifactsFromStore(
 	store: ChangeArtifactStore,
 	changeId: string,
-): DesignArtifacts | null {
+): Promise<DesignArtifacts | null> {
 	const designRef = changeRef(changeId, ChangeArtifactType.Design);
 	const tasksRef = changeRef(changeId, ChangeArtifactType.Tasks);
-	if (!store.exists(designRef) || !store.exists(tasksRef)) {
+	if (!(await store.exists(designRef)) || !(await store.exists(tasksRef))) {
 		return null;
 	}
 	const proposalRef = changeRef(changeId, ChangeArtifactType.Proposal);
-	const specRefs = store.list({
+	const specRefs = await store.list({
 		changeId,
 		type: ChangeArtifactType.SpecDelta,
 	});
-	const specs = [...specRefs]
-		.map((ref) => {
-			const qualifier = "qualifier" in ref ? ref.qualifier : "";
-			return `--- specs/${qualifier}/spec.md ---\n${store.read(ref)}`;
-		})
-		.sort()
-		.join("\n\n");
+	const specEntries: string[] = [];
+	for (const ref of specRefs) {
+		const qualifier = "qualifier" in ref ? ref.qualifier : "";
+		specEntries.push(
+			`--- specs/${qualifier}/spec.md ---\n${await store.read(ref)}`,
+		);
+	}
+	const specs = specEntries.sort().join("\n\n");
 	return {
-		proposal: store.read(proposalRef),
-		design: store.read(designRef),
-		tasks: store.read(tasksRef),
+		proposal: await store.read(proposalRef),
+		design: await store.read(designRef),
+		tasks: await store.read(tasksRef),
 		specs,
 	};
 }
 
-export function renderCurrentPhaseToStore(
+export async function renderCurrentPhaseToStore(
 	store: ChangeArtifactStore,
 	changeId: string,
 	ledger: ReviewLedger,
 	kind: "apply" | "design" | "proposal",
 	cwd: string,
-): void {
+): Promise<void> {
 	const currentRound = Number(ledger.current_round ?? 1);
 	const latestRoundSummary =
 		Array.isArray(ledger.round_summaries) && ledger.round_summaries.length > 0
@@ -632,7 +633,7 @@ export function renderCurrentPhaseToStore(
 					? "/specflow.fix_design"
 					: "/specflow.apply";
 
-	store.write(
+	await store.write(
 		changeRef(changeId, ChangeArtifactType.CurrentPhase),
 		[
 			`# Current Phase: ${String(ledger.feature_id ?? changeId)}`,
@@ -661,11 +662,11 @@ export function renderCurrentPhaseToStore(
 	process.stderr.write("current-phase.md updated\n");
 }
 
-export function readProposalFromStore(
+export async function readProposalFromStore(
 	store: ChangeArtifactStore,
 	changeId: string,
-): string {
-	return store.read(changeRef(changeId, ChangeArtifactType.Proposal));
+): Promise<string> {
+	return await store.read(changeRef(changeId, ChangeArtifactType.Proposal));
 }
 
 export function contentHash(content: string): string {

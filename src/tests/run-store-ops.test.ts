@@ -17,20 +17,20 @@ import {
 
 function createMockStore(data: Map<string, string>): RunArtifactStore {
 	return {
-		read(ref: RunArtifactRef): string {
+		async read(ref: RunArtifactRef): Promise<string> {
 			const content = data.get(ref.runId);
 			if (content === undefined) {
 				throw new Error(`Not found: ${ref.runId}`);
 			}
 			return content;
 		},
-		write(ref: RunArtifactRef, content: string): void {
+		async write(ref: RunArtifactRef, content: string): Promise<void> {
 			data.set(ref.runId, content);
 		},
-		exists(ref: RunArtifactRef): boolean {
+		async exists(ref: RunArtifactRef): Promise<boolean> {
 			return data.has(ref.runId);
 		},
-		list(query?: RunArtifactQuery): readonly RunArtifactRef[] {
+		async list(query?: RunArtifactQuery): Promise<readonly RunArtifactRef[]> {
 			const entries = [...data.keys()].sort(); // lexicographic
 			return entries
 				.filter((runId) => {
@@ -89,82 +89,82 @@ test("extractSequence: returns null for invalid suffix", () => {
 
 // --- readRunState ---
 
-test("readRunState: reads and parses from store", () => {
+test("readRunState: reads and parses from store", async () => {
 	const data = new Map([["test-1", makeRunJson("test-1")]]);
 	const store = createMockStore(data);
-	const state = readRunState(store, "test-1");
+	const state = await readRunState(store, "test-1");
 	assert.equal(state.run_id, "test-1");
 	assert.equal(state.current_phase, "proposal_draft");
 });
 
-test("readRunState: applies backward-compatibility fallback for missing run_id", () => {
+test("readRunState: applies backward-compatibility fallback for missing run_id", async () => {
 	const data = new Map([["test-1", '{"current_phase":"start"}']]);
 	const store = createMockStore(data);
-	const state = readRunState(store, "test-1");
+	const state = await readRunState(store, "test-1");
 	assert.equal(state.run_id, "test-1");
 	assert.equal(state.status, "active");
 });
 
 // --- findRunsForChange with double-digit IDs ---
 
-test("findRunsForChange: returns runs sorted by numeric sequence, not lexicographic", () => {
+test("findRunsForChange: returns runs sorted by numeric sequence, not lexicographic", async () => {
 	const data = new Map([
 		["change-1", makeRunJson("change-1")],
 		["change-10", makeRunJson("change-10")],
 		["change-2", makeRunJson("change-2")],
 	]);
 	const store = createMockStore(data);
-	const runs = findRunsForChange(store, "change");
+	const runs = await findRunsForChange(store, "change");
 	const ids = runs.map((r) => r.run_id);
 	assert.deepEqual(ids, ["change-1", "change-2", "change-10"]);
 });
 
-test("findRunsForChange: returns empty for no runs", () => {
+test("findRunsForChange: returns empty for no runs", async () => {
 	const store = createMockStore(new Map());
-	const runs = findRunsForChange(store, "nonexistent");
+	const runs = await findRunsForChange(store, "nonexistent");
 	assert.deepEqual(runs, []);
 });
 
 // --- findLatestRun ---
 
-test("findLatestRun: selects highest sequence number, not last lexicographic", () => {
+test("findLatestRun: selects highest sequence number, not last lexicographic", async () => {
 	const data = new Map([
 		["change-1", makeRunJson("change-1")],
 		["change-10", makeRunJson("change-10")],
 		["change-2", makeRunJson("change-2")],
 	]);
 	const store = createMockStore(data);
-	const latest = findLatestRun(store, "change");
+	const latest = await findLatestRun(store, "change");
 	assert.equal(latest?.run_id, "change-10");
 });
 
-test("findLatestRun: returns null for no runs", () => {
+test("findLatestRun: returns null for no runs", async () => {
 	const store = createMockStore(new Map());
-	assert.equal(findLatestRun(store, "change"), null);
+	assert.equal(await findLatestRun(store, "change"), null);
 });
 
 // --- generateRunId ---
 
-test("generateRunId: produces change-11 from change-1, change-10, change-2", () => {
+test("generateRunId: produces change-11 from change-1, change-10, change-2", async () => {
 	const data = new Map([
 		["change-1", makeRunJson("change-1")],
 		["change-10", makeRunJson("change-10")],
 		["change-2", makeRunJson("change-2")],
 	]);
 	const store = createMockStore(data);
-	assert.equal(generateRunId(store, "change"), "change-11");
+	assert.equal(await generateRunId(store, "change"), "change-11");
 });
 
-test("generateRunId: produces change-1 when no prior runs exist", () => {
+test("generateRunId: produces change-1 when no prior runs exist", async () => {
 	const store = createMockStore(new Map());
-	assert.equal(generateRunId(store, "change"), "change-1");
+	assert.equal(await generateRunId(store, "change"), "change-1");
 });
 
-test("generateRunId: produces change-3 from change-1, change-2", () => {
+test("generateRunId: produces change-3 from change-1, change-2", async () => {
 	const data = new Map([
 		["change-1", makeRunJson("change-1")],
 		["change-2", makeRunJson("change-2")],
 	]);
 	const store = createMockStore(data);
-	assert.equal(generateRunId(store, "change"), "change-3");
+	assert.equal(await generateRunId(store, "change"), "change-3");
 });

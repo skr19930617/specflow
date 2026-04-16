@@ -3,7 +3,7 @@
 
 import type { RunArtifactStore } from "../../lib/artifact-store.js";
 import {
-	ArtifactNotFoundError,
+	ArtifactStoreError,
 	isRunArtifactType,
 	type RunArtifactQuery,
 	type RunArtifactRef,
@@ -27,23 +27,29 @@ export function createInMemoryRunArtifactStore(
 	}
 
 	return {
-		read(ref: RunArtifactRef): string {
+		async read(ref: RunArtifactRef): Promise<string> {
 			ensureType(ref);
 			const content = store.get(ref.runId);
 			if (content === undefined) {
-				throw new ArtifactNotFoundError(ref);
+				return Promise.reject(
+					new ArtifactStoreError({
+						kind: "not_found",
+						message: `Artifact not found: ${ref.runId} (${ref.type})`,
+						ref,
+					}),
+				);
 			}
 			return content;
 		},
-		write(ref: RunArtifactRef, content: string): void {
+		async write(ref: RunArtifactRef, content: string): Promise<void> {
 			ensureType(ref);
 			store.set(ref.runId, content);
 		},
-		exists(ref: RunArtifactRef): boolean {
+		async exists(ref: RunArtifactRef): Promise<boolean> {
 			ensureType(ref);
 			return store.has(ref.runId);
 		},
-		list(query?: RunArtifactQuery): readonly RunArtifactRef[] {
+		async list(query?: RunArtifactQuery): Promise<readonly RunArtifactRef[]> {
 			const refs: RunArtifactRef[] = [];
 			for (const runId of store.keys()) {
 				if (query?.changeId) {

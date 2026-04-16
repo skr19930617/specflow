@@ -2,7 +2,7 @@
 
 import type { ChangeArtifactStore } from "../../lib/artifact-store.js";
 import {
-	ArtifactNotFoundError,
+	ArtifactStoreError,
 	type ChangeArtifactQuery,
 	type ChangeArtifactRef,
 	changeRef,
@@ -30,23 +30,31 @@ export function createInMemoryChangeArtifactStore(): InMemoryChangeArtifactStore
 	}
 
 	return {
-		read(ref: ChangeArtifactRef): string {
+		async read(ref: ChangeArtifactRef): Promise<string> {
 			ensureType(ref);
 			const content = contents.get(keyFor(ref));
 			if (content === undefined) {
-				throw new ArtifactNotFoundError(ref);
+				return Promise.reject(
+					new ArtifactStoreError({
+						kind: "not_found",
+						message: `Artifact not found: ${ref.changeId} (${ref.type})`,
+						ref,
+					}),
+				);
 			}
 			return content;
 		},
-		write(ref: ChangeArtifactRef, content: string): void {
+		async write(ref: ChangeArtifactRef, content: string): Promise<void> {
 			ensureType(ref);
 			contents.set(keyFor(ref), content);
 		},
-		exists(ref: ChangeArtifactRef): boolean {
+		async exists(ref: ChangeArtifactRef): Promise<boolean> {
 			ensureType(ref);
 			return contents.has(keyFor(ref));
 		},
-		list(query: ChangeArtifactQuery): readonly ChangeArtifactRef[] {
+		async list(
+			query: ChangeArtifactQuery,
+		): Promise<readonly ChangeArtifactRef[]> {
 			const prefix = `${query.changeId}|${query.type}`;
 			const refs: ChangeArtifactRef[] = [];
 			for (const key of contents.keys()) {
@@ -63,7 +71,7 @@ export function createInMemoryChangeArtifactStore(): InMemoryChangeArtifactStore
 			}
 			return refs;
 		},
-		listChanges(): readonly string[] {
+		async listChanges(): Promise<readonly string[]> {
 			const ids = new Set<string>();
 			for (const key of contents.keys()) {
 				const [changeId] = key.split("|");
@@ -71,7 +79,7 @@ export function createInMemoryChangeArtifactStore(): InMemoryChangeArtifactStore
 			}
 			return Array.from(ids).sort();
 		},
-		changeExists(changeId: string): boolean {
+		async changeExists(changeId: string): Promise<boolean> {
 			for (const key of contents.keys()) {
 				if (key.startsWith(`${changeId}|`)) return true;
 			}

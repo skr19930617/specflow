@@ -1,0 +1,392 @@
+{
+  "version": "1.0",
+  "change_id": "feat-db-backed-runartifactstore-adapter",
+  "bundles": [
+    {
+      "id": "store-interface-and-error-types",
+      "title": "Async Store Interfaces & ArtifactStoreError",
+      "goal": "Migrate RunArtifactStore and ChangeArtifactStore interfaces to Promise-based signatures and introduce ArtifactStoreError typed error hierarchy.",
+      "depends_on": [],
+      "inputs": [
+        "src/lib/artifact-store.ts",
+        "src/lib/artifact-types.ts"
+      ],
+      "outputs": [
+        "src/lib/artifact-store.ts",
+        "src/lib/artifact-types.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define ArtifactStoreErrorKind type and ArtifactStoreError class with kind discriminant in artifact-types.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Change RunArtifactStore interface methods (read, write, exists, list) to return Promise<T>",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Change ChangeArtifactStore interface methods (read, write, exists, list, listChanges, changeExists) to return Promise<T>",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Remove ArtifactNotFoundError class; retain UnknownArtifactTypeError unchanged",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Update all import sites that referenced ArtifactNotFoundError to use ArtifactStoreError",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "artifact-ownership-model"
+      ]
+    },
+    {
+      "id": "localfs-adapter-migration",
+      "title": "LocalFs Adapter Async Wrapping",
+      "goal": "Wrap LocalFsRunArtifactStore and LocalFsChangeArtifactStore sync FS calls in Promise.resolve/reject to conform to the new async interface.",
+      "depends_on": [
+        "store-interface-and-error-types"
+      ],
+      "inputs": [
+        "src/lib/artifact-store.ts",
+        "src/lib/artifact-types.ts"
+      ],
+      "outputs": [
+        "src/lib/local-fs-run-artifact-store.ts",
+        "src/lib/local-fs-change-artifact-store.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update LocalFsRunArtifactStore methods to return Promise.resolve for success and Promise.reject(ArtifactStoreError) for failure",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update LocalFsChangeArtifactStore methods to return Promise.resolve for success and Promise.reject(ArtifactStoreError) for failure",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Replace all throw ArtifactNotFoundError with Promise.reject(new ArtifactStoreError({kind: 'not_found'}))",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Map FS errors (ENOENT, EACCES, etc.) to appropriate ArtifactStoreError kinds",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "artifact-ownership-model",
+        "repo-responsibility"
+      ]
+    },
+    {
+      "id": "run-store-ops-migration",
+      "title": "Run-Store-Ops Async Migration",
+      "goal": "Migrate run-store-ops.ts helper functions to async, keeping extractSequence as sync pure computation.",
+      "depends_on": [
+        "store-interface-and-error-types"
+      ],
+      "inputs": [
+        "src/lib/artifact-store.ts"
+      ],
+      "outputs": [
+        "src/lib/run-store-ops.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add async to readRunState, findRunsForChange, findLatestRun, generateRunId",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add await to all store method calls within run-store-ops functions",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Verify extractSequence remains sync (pure computation, no store calls)",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "core-runtime-async-migration",
+      "title": "Core Runtime & Helpers Async Migration",
+      "goal": "Migrate all 7 core command functions and _helpers.ts to async, preserving the Result<Ok, CoreRuntimeError> envelope.",
+      "depends_on": [
+        "store-interface-and-error-types",
+        "run-store-ops-migration"
+      ],
+      "inputs": [
+        "src/lib/artifact-store.ts",
+        "src/lib/run-store-ops.ts"
+      ],
+      "outputs": [
+        "src/core/advance.ts",
+        "src/core/start.ts",
+        "src/core/suspend.ts",
+        "src/core/resume.ts",
+        "src/core/status.ts",
+        "src/core/update-field.ts",
+        "src/core/get-field.ts",
+        "src/core/_helpers.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Migrate loadRunState and writeRunState in _helpers.ts to async; catch ArtifactStoreError and convert to CoreRuntimeError Result",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Migrate start.ts to async function returning Promise<Result<RunState, CoreRuntimeError>>",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Migrate advance.ts to async",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Migrate suspend.ts to async",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Migrate resume.ts to async",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Migrate status.ts to async",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Migrate update-field.ts and get-field.ts to async",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Migrate artifact-phase-gates.ts to await exists() calls",
+          "status": "done"
+        },
+        {
+          "id": "9",
+          "title": "Migrate InteractionRecordStore methods that call ChangeArtifactStore to async (propagated dependency)",
+          "status": "done"
+        },
+        {
+          "id": "10",
+          "title": "Migrate review-runtime.ts store read/write calls to async",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "phase-contract-types",
+        "review-orchestration"
+      ]
+    },
+    {
+      "id": "cli-wiring-migration",
+      "title": "CLI Entry Points Async Migration",
+      "goal": "Wrap CLI main() functions in async and await all core runtime calls, preserving stdout/stderr/exit code behavior.",
+      "depends_on": [
+        "core-runtime-async-migration"
+      ],
+      "inputs": [
+        "src/core/start.ts",
+        "src/core/advance.ts"
+      ],
+      "outputs": [
+        "src/bin/specflow-run.ts",
+        "src/bin/specflow-prepare-change.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Convert specflow-run.ts main to async; add await to all core runtime calls",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Convert specflow-prepare-change.ts main to async; add await to all core runtime calls",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Map unhandled ArtifactStoreError rejections to stderr output and exit code 1",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Verify observable CLI behavior (stdout, stderr, exit codes) is unchanged via manual smoke test",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "utility-cli-suite"
+      ]
+    },
+    {
+      "id": "test-migration",
+      "title": "Test Suite Async Migration",
+      "goal": "Migrate all test files, InMemoryRunArtifactStore, and in-memory change store helpers to async/await with no behavioral assertion changes.",
+      "depends_on": [
+        "localfs-adapter-migration",
+        "core-runtime-async-migration",
+        "run-store-ops-migration"
+      ],
+      "inputs": [
+        "src/lib/artifact-store.ts",
+        "src/core/_helpers.ts"
+      ],
+      "outputs": [
+        "src/tests/helpers/in-memory-run-store.ts",
+        "src/tests/helpers/in-memory-change-store.ts",
+        "src/tests/*.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update InMemoryRunArtifactStore to return Promises and reject with ArtifactStoreError",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update in-memory change store helper to return Promises and reject with ArtifactStoreError",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add async/await to all test functions that call store methods or core runtime functions",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Update error assertion tests to check ArtifactStoreError.kind instead of instanceof ArtifactNotFoundError",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run full test suite and verify all tests pass with no behavioral changes",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "artifact-ownership-model"
+      ]
+    },
+    {
+      "id": "conformance-test-suite",
+      "title": "Conformance Test Suite for External Adapters",
+      "goal": "Create exportable conformance test factory functions that validate any RunArtifactStore or ChangeArtifactStore implementation against the contract.",
+      "depends_on": [
+        "store-interface-and-error-types"
+      ],
+      "inputs": [
+        "src/lib/artifact-store.ts",
+        "src/lib/artifact-types.ts"
+      ],
+      "outputs": [
+        "src/conformance/run-artifact-store.ts",
+        "src/conformance/change-artifact-store.ts",
+        "src/conformance/index.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create runArtifactStoreConformance factory function covering read/write/exists/list contract",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Create changeArtifactStoreConformance factory function covering all 6 method contracts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add error-path tests: not_found rejection, write_failed, read_failed kinds",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Create conformance/index.ts barrel export",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Configure npm package exports for specflow-node/conformance entry point",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Validate conformance suite passes with InMemoryRunArtifactStore",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "artifact-ownership-model",
+        "repo-responsibility"
+      ]
+    },
+    {
+      "id": "documentation-updates",
+      "title": "Architecture Documentation & Persistence Contract",
+      "goal": "Update docs/architecture.md with persistence contract status change and CoreRunState → DB column mapping guidance.",
+      "depends_on": [],
+      "inputs": [
+        "docs/architecture.md"
+      ],
+      "outputs": [
+        "docs/architecture.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update persistence contract status from 'deferred-required' to 'defined' in architecture.md",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add CoreRunState → SQL type mapping table with recommended column types and notes",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add BREAKING notice section documenting the sync-to-async interface migration for external consumers",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "repo-responsibility"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-16T09:31:20.335Z",
+  "generated_from": "design.md"
+}

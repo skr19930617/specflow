@@ -50,7 +50,7 @@ function createInMemoryStore(opts: InMemoryStoreOpts = {}): {
 		Object.entries(opts.throwOnRead ?? {}),
 	);
 	const store: RunArtifactStore = {
-		read(ref: RunArtifactRef): string {
+		async read(ref: RunArtifactRef): Promise<string> {
 			const err = throwers.get(ref.runId);
 			if (err) throw err;
 			if (corrupt.has(ref.runId)) {
@@ -60,13 +60,13 @@ function createInMemoryStore(opts: InMemoryStoreOpts = {}): {
 			if (!run) throw new Error(`not found: ${ref.runId}`);
 			return JSON.stringify(run);
 		},
-		write(): void {
+		async write(): Promise<void> {
 			throw new Error("write not allowed in this store double");
 		},
-		exists(ref: RunArtifactRef): boolean {
+		async exists(ref: RunArtifactRef): Promise<boolean> {
 			return runs.has(ref.runId);
 		},
-		list(query?: RunArtifactQuery): readonly RunArtifactRef[] {
+		async list(query?: RunArtifactQuery): Promise<readonly RunArtifactRef[]> {
 			const all: RunArtifactRef[] = [];
 			for (const runId of runs.keys()) {
 				if (query?.changeId && !runId.startsWith(`${query.changeId}-`))
@@ -100,21 +100,21 @@ function createAssertNoWriteStore(reads: Record<string, RunState>): {
 } {
 	const state = { writeCalls: 0 };
 	const store: RunArtifactStore = {
-		read(ref: RunArtifactRef): string {
+		async read(ref: RunArtifactRef): Promise<string> {
 			const run = reads[ref.runId];
 			if (!run) throw new Error(`not found: ${ref.runId}`);
 			return JSON.stringify(run);
 		},
-		write(): void {
+		async write(): Promise<void> {
 			state.writeCalls += 1;
 			throw new Error(
 				"AssertNoWriteStore.write called — router must be read-only",
 			);
 		},
-		exists(): boolean {
+		async exists(): Promise<boolean> {
 			return true;
 		},
-		list(): readonly RunArtifactRef[] {
+		async list(): Promise<readonly RunArtifactRef[]> {
 			return [];
 		},
 	};
@@ -239,7 +239,7 @@ const FIXTURE_CONTRACTS: Record<string, PhaseContract> = {
 
 // --- 6.1 currentPhase returns the contract for the run's phase -----------
 
-test("PhaseRouter.currentPhase returns the contract for the run's phase", () => {
+test("PhaseRouter.currentPhase returns the contract for the run's phase", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-1",
@@ -260,12 +260,12 @@ test("PhaseRouter.currentPhase returns the contract for the run's phase", () => 
 	const contracts = createRegistry(FIXTURE_CONTRACTS);
 	const router = new PhaseRouter({ store, eventSink: sink, contracts });
 
-	assert.deepEqual(router.currentPhase("r-1"), FIXTURE_CONTRACTS.advance_phase);
+	assert.deepEqual(await router.currentPhase("r-1"), FIXTURE_CONTRACTS.advance_phase);
 });
 
 // --- 6.2 nextAction returns a value whose kind is in the PhaseAction union --
 
-test("PhaseRouter.nextAction returns a value with a valid kind for every fixture contract", () => {
+test("PhaseRouter.nextAction returns a value with a valid kind for every fixture contract", async () => {
 	const { store, setRun } = createInMemoryStore();
 	const sink = createRecordingSink();
 	const contracts = createRegistry(FIXTURE_CONTRACTS);
@@ -290,7 +290,7 @@ test("PhaseRouter.nextAction returns a value with a valid kind for every fixture
 				],
 			}),
 		);
-		const action = router.nextAction(runId);
+		const action = await router.nextAction(runId);
 		assert.ok(
 			(["invoke_agent", "await_user", "advance", "terminal"] as const).includes(
 				action.kind,
@@ -302,7 +302,7 @@ test("PhaseRouter.nextAction returns a value with a valid kind for every fixture
 
 // --- 6.3 Determinism -----------------------------------------------------
 
-test("PhaseRouter.nextAction is deterministic for unchanged store snapshots", () => {
+test("PhaseRouter.nextAction is deterministic for unchanged store snapshots", async () => {
 	const { store, setRun } = createInMemoryStore();
 	const baseRun = makeRun({
 		runId: "r-2",
@@ -321,14 +321,14 @@ test("PhaseRouter.nextAction is deterministic for unchanged store snapshots", ()
 	const sink = createRecordingSink();
 	const router = new PhaseRouter({ store, eventSink: sink, contracts });
 
-	const a = router.nextAction("r-2");
-	const b = router.nextAction("r-2");
+	const a = await router.nextAction("r-2");
+	const b = await router.nextAction("r-2");
 	assert.deepEqual(a, b);
 });
 
 // --- 6.4 Gated phase emits event synchronously before await_user returns --
 
-test("PhaseRouter.nextAction emits the gated event before returning await_user", () => {
+test("PhaseRouter.nextAction emits the gated event before returning await_user", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-gated",
@@ -352,7 +352,7 @@ test("PhaseRouter.nextAction emits the gated event before returning await_user",
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	const action = router.nextAction("r-gated");
+	const action = await router.nextAction("r-gated");
 	sink.markReturn("await_user");
 
 	assert.equal(action.kind, "await_user");
@@ -373,7 +373,7 @@ test("PhaseRouter.nextAction emits the gated event before returning await_user",
 
 // --- 6.4b Different gated phases produce different event_type values ------
 
-test("PhaseRouter.nextAction derives event_kind and event_type from the contract", () => {
+test("PhaseRouter.nextAction derives event_kind and event_type from the contract", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-design-gated",
@@ -410,7 +410,7 @@ test("PhaseRouter.nextAction derives event_kind and event_type from the contract
 		}),
 	});
 
-	router.nextAction("r-design-gated");
+	await router.nextAction("r-design-gated");
 	assert.equal(sink.events.length, 1);
 
 	const evt = sink.events[0]!;
@@ -424,7 +424,7 @@ test("PhaseRouter.nextAction derives event_kind and event_type from the contract
 
 // --- 6.5 Dedup within same entry -----------------------------------------
 
-test("PhaseRouter.nextAction dedupes gated emission within the same phase-entry", () => {
+test("PhaseRouter.nextAction dedupes gated emission within the same phase-entry", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-dedup",
@@ -448,9 +448,9 @@ test("PhaseRouter.nextAction dedupes gated emission within the same phase-entry"
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	const a = router.nextAction("r-dedup");
-	const b = router.nextAction("r-dedup");
-	const c = router.nextAction("r-dedup");
+	const a = await router.nextAction("r-dedup");
+	const b = await router.nextAction("r-dedup");
+	const c = await router.nextAction("r-dedup");
 
 	assert.deepEqual(a, b);
 	assert.deepEqual(b, c);
@@ -459,7 +459,7 @@ test("PhaseRouter.nextAction dedupes gated emission within the same phase-entry"
 
 // --- 6.6 Re-entering the same gated phase emits again --------------------
 
-test("PhaseRouter.nextAction re-emits when the run re-enters the same gated phase", () => {
+test("PhaseRouter.nextAction re-emits when the run re-enters the same gated phase", async () => {
 	const { store, setRun } = createInMemoryStore();
 	const run = makeRun({
 		runId: "r-reenter",
@@ -481,8 +481,8 @@ test("PhaseRouter.nextAction re-emits when the run re-enters the same gated phas
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	router.nextAction("r-reenter");
-	router.nextAction("r-reenter"); // dedup
+	await router.nextAction("r-reenter");
+	await router.nextAction("r-reenter"); // dedup
 	assert.equal(sink.events.length, 1);
 
 	// Simulate the run leaving and re-entering the same gated phase.
@@ -507,7 +507,7 @@ test("PhaseRouter.nextAction re-emits when the run re-enters the same gated phas
 	});
 	setRun("r-reenter", reEntered);
 
-	router.nextAction("r-reenter");
+	await router.nextAction("r-reenter");
 	assert.equal(
 		sink.events.length,
 		2,
@@ -520,7 +520,7 @@ test("PhaseRouter.nextAction re-emits when the run re-enters the same gated phas
 
 // --- 6.7 Caller does not need to emit ------------------------------------
 
-test("PhaseRouter.nextAction is the sole emitter for gated events (no double source)", () => {
+test("PhaseRouter.nextAction is the sole emitter for gated events (no double source)", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-sole",
@@ -544,7 +544,7 @@ test("PhaseRouter.nextAction is the sole emitter for gated events (no double sou
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	const action = router.nextAction("r-sole");
+	const action = await router.nextAction("r-sole");
 	// The caller does nothing further.
 	assert.equal(action.kind, "await_user");
 	assert.equal(
@@ -556,7 +556,7 @@ test("PhaseRouter.nextAction is the sole emitter for gated events (no double sou
 
 // --- 6.8 advance does not mutate the store -------------------------------
 
-test("PhaseRouter.nextAction does not call any write method on the store (advance)", () => {
+test("PhaseRouter.nextAction does not call any write method on the store (advance)", async () => {
 	const run = makeRun({
 		runId: "r-advance",
 		currentPhase: "advance_phase",
@@ -577,14 +577,14 @@ test("PhaseRouter.nextAction does not call any write method on the store (advanc
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	const action = router.nextAction("r-advance");
+	const action = await router.nextAction("r-advance");
 	assert.equal(action.kind, "advance");
 	assert.equal(noWrite.writeCalls, 0);
 });
 
 // --- 6.9 advance carries the event name ----------------------------------
 
-test("PhaseRouter.nextAction returns the advance event name from the contract", () => {
+test("PhaseRouter.nextAction returns the advance event name from the contract", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-evt",
@@ -608,7 +608,7 @@ test("PhaseRouter.nextAction returns the advance event name from the contract", 
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	const action = router.nextAction("r-evt") as Extract<
+	const action = await router.nextAction("r-evt") as Extract<
 		PhaseAction,
 		{ kind: "advance" }
 	>;
@@ -618,7 +618,7 @@ test("PhaseRouter.nextAction returns the advance event name from the contract", 
 
 // --- 6.10 Terminal phase returns terminal --------------------------------
 
-test("PhaseRouter.nextAction returns terminal for terminal contracts", () => {
+test("PhaseRouter.nextAction returns terminal for terminal contracts", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-term",
@@ -642,14 +642,14 @@ test("PhaseRouter.nextAction returns terminal for terminal contracts", () => {
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	const action = router.nextAction("r-term");
+	const action = await router.nextAction("r-term");
 	assert.deepEqual(action, { kind: "terminal", reason: "done" });
 	assert.equal(sink.events.length, 0);
 });
 
 // --- 6.11 MissingContractError ------------------------------------------
 
-test("PhaseRouter throws MissingContractError when no contract is registered", () => {
+test("PhaseRouter throws MissingContractError when no contract is registered", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-miss",
@@ -673,8 +673,8 @@ test("PhaseRouter throws MissingContractError when no contract is registered", (
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	assert.throws(() => router.nextAction("r-miss"), MissingContractError);
-	assert.throws(() => router.currentPhase("r-miss"), MissingContractError);
+	await assert.rejects(router.nextAction("r-miss"), MissingContractError);
+	await assert.rejects(router.currentPhase("r-miss"), MissingContractError);
 	assert.equal(sink.events.length, 0);
 });
 
@@ -729,7 +729,7 @@ test("deriveAction throws when invoke_agent is missing the agent field", () => {
 	);
 });
 
-test("PhaseRouter.nextAction does not emit when the contract is malformed", () => {
+test("PhaseRouter.nextAction does not emit when the contract is malformed", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-bad",
@@ -764,11 +764,11 @@ test("PhaseRouter.nextAction does not emit when the contract is malformed", () =
 		}),
 	});
 
-	assert.throws(() => router.nextAction("r-bad"), MalformedContractError);
+	await assert.rejects(router.nextAction("r-bad"), MalformedContractError);
 	assert.equal(sink.events.length, 0);
 });
 
-test("PhaseRouter.nextAction throws MalformedContractError when gated_event_type is missing", () => {
+test("PhaseRouter.nextAction throws MalformedContractError when gated_event_type is missing", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-bad2",
@@ -804,13 +804,13 @@ test("PhaseRouter.nextAction throws MalformedContractError when gated_event_type
 		}),
 	});
 
-	assert.throws(() => router.nextAction("r-bad2"), MalformedContractError);
+	await assert.rejects(router.nextAction("r-bad2"), MalformedContractError);
 	assert.equal(sink.events.length, 0);
 });
 
 // --- 6.13 RunReadError --------------------------------------------------
 
-test("PhaseRouter throws RunReadError when the store read fails", () => {
+test("PhaseRouter throws RunReadError when the store read fails", async () => {
 	const { store, setThrowOnRead } = createInMemoryStore();
 	setThrowOnRead("r-err", new Error("disk gone"));
 	const sink = createRecordingSink();
@@ -820,10 +820,10 @@ test("PhaseRouter throws RunReadError when the store read fails", () => {
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	assert.throws(() => router.nextAction("r-err"), RunReadError);
+	await assert.rejects(router.nextAction("r-err"), RunReadError);
 });
 
-test("PhaseRouter throws RunReadError when run.json is not valid JSON", () => {
+test("PhaseRouter throws RunReadError when run.json is not valid JSON", async () => {
 	const { store, setCorrupt } = createInMemoryStore();
 	setCorrupt("r-corrupt", "{this is not json");
 	const sink = createRecordingSink();
@@ -833,10 +833,10 @@ test("PhaseRouter throws RunReadError when run.json is not valid JSON", () => {
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	assert.throws(() => router.currentPhase("r-corrupt"), RunReadError);
+	await assert.rejects(router.currentPhase("r-corrupt"), RunReadError);
 });
 
-test("PhaseRouter throws RunReadError when run.json lacks current_phase", () => {
+test("PhaseRouter throws RunReadError when run.json lacks current_phase", async () => {
 	const { store, setCorrupt } = createInMemoryStore();
 	setCorrupt("r-no-phase", JSON.stringify({ history: [] }));
 	const sink = createRecordingSink();
@@ -846,12 +846,12 @@ test("PhaseRouter throws RunReadError when run.json lacks current_phase", () => 
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	assert.throws(() => router.currentPhase("r-no-phase"), RunReadError);
+	await assert.rejects(router.currentPhase("r-no-phase"), RunReadError);
 });
 
 // --- 6.14 InconsistentRunStateError -------------------------------------
 
-test("PhaseRouter throws InconsistentRunStateError when terminal + gated contract collide", () => {
+test("PhaseRouter throws InconsistentRunStateError when terminal + gated contract collide", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-inc",
@@ -887,11 +887,11 @@ test("PhaseRouter throws InconsistentRunStateError when terminal + gated contrac
 		}),
 	});
 
-	assert.throws(() => router.nextAction("r-inc"), InconsistentRunStateError);
+	await assert.rejects(router.nextAction("r-inc"), InconsistentRunStateError);
 	assert.equal(sink.events.length, 0);
 });
 
-test("PhaseRouter throws InconsistentRunStateError when history has no entry for current phase", () => {
+test("PhaseRouter throws InconsistentRunStateError when history has no entry for current phase", async () => {
 	const { store, setRun } = createInMemoryStore();
 	setRun(
 		"r-ghost",
@@ -915,7 +915,7 @@ test("PhaseRouter throws InconsistentRunStateError when history has no entry for
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	assert.throws(() => router.nextAction("r-ghost"), InconsistentRunStateError);
+	await assert.rejects(router.nextAction("r-ghost"), InconsistentRunStateError);
 	assert.equal(sink.events.length, 0);
 });
 

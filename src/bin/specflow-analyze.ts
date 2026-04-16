@@ -121,7 +121,7 @@ function detectLicense(cwd: string): string | null {
 	return "other";
 }
 
-function openspecInfo(cwd: string) {
+async function openspecInfo(cwd: string) {
 	const configPath = resolve(cwd, "openspec/config.yaml");
 	if (!existsSync(configPath)) {
 		return {
@@ -155,7 +155,7 @@ function openspecInfo(cwd: string) {
 				.sort()
 		: [];
 	const changeStore = createLocalFsChangeArtifactStore(cwd);
-	const activeChanges = [...changeStore.listChanges()].sort();
+	const activeChanges = [...(await changeStore.listChanges())].sort();
 
 	return {
 		has_config: true,
@@ -192,7 +192,7 @@ function fileStructure(cwd: string): string {
 	return entries.sort().join("\n");
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const root = resolve(process.argv[2] ?? ".");
 	if (!existsSync(root) || !statSync(root).isDirectory()) {
 		throw new Error(`Path not found: ${root}`);
@@ -200,7 +200,7 @@ function main(): void {
 	const projectName = basename(root);
 	const repo = repoInfo(root);
 	const ci = ciInfo(root);
-	const openspec = openspecInfo(root);
+	const openspec = await openspecInfo(root);
 	const existingReadme = readTextIfExists(resolve(root, "README.md")) || null;
 	const contributing =
 		readTextIfExists(resolve(root, "CONTRIBUTING.md")) || null;

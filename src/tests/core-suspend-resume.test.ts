@@ -12,7 +12,7 @@ import { createInMemoryChangeArtifactStore } from "./helpers/in-memory-change-st
 import { createInMemoryRunArtifactStore } from "./helpers/in-memory-run-store.js";
 import { testWorkflowDefinition } from "./helpers/workflow.js";
 
-function bootstrap(changeId: string) {
+async function bootstrap(changeId: string) {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
@@ -20,7 +20,7 @@ function bootstrap(changeId: string) {
 		changeRef(changeId, ChangeArtifactType.Proposal),
 		"# Proposal\n",
 	);
-	const started = startChangeRun(
+	const started = await startChangeRun(
 		{
 			changeId,
 			source: null,
@@ -33,18 +33,18 @@ function bootstrap(changeId: string) {
 	return { runs, runId: started.value.run_id };
 }
 
-test("suspendRun sets status=suspended and preserves current_phase", () => {
-	const { runs, runId } = bootstrap("feat-suspend");
+test("suspendRun sets status=suspended and preserves current_phase", async () => {
+	const { runs, runId } = await bootstrap("feat-suspend");
 	// Advance to proposal_draft first
 	assert.equal(
-		advanceRun(
+		(await advanceRun(
 			{ runId, event: "propose" },
 			{ runs, workflow: testWorkflowDefinition },
-		).ok,
+		)).ok,
 		true,
 	);
 
-	const result = suspendRun({ runId }, { runs });
+	const result = await suspendRun({ runId }, { runs });
 	assert.equal(result.ok, true);
 	if (!result.ok) return;
 	assert.equal(result.value.status, "suspended");
@@ -52,51 +52,51 @@ test("suspendRun sets status=suspended and preserves current_phase", () => {
 	assert.deepEqual(result.value.allowed_events, ["resume"]);
 });
 
-test("suspendRun rejects terminal runs", () => {
-	const { runs, runId } = bootstrap("feat-suspend-terminal");
+test("suspendRun rejects terminal runs", async () => {
+	const { runs, runId } = await bootstrap("feat-suspend-terminal");
 	assert.equal(
-		advanceRun(
+		(await advanceRun(
 			{ runId, event: "propose" },
 			{ runs, workflow: testWorkflowDefinition },
-		).ok,
+		)).ok,
 		true,
 	);
 	assert.equal(
-		advanceRun(
+		(await advanceRun(
 			{ runId, event: "reject" },
 			{ runs, workflow: testWorkflowDefinition },
-		).ok,
+		)).ok,
 		true,
 	);
 
-	const result = suspendRun({ runId }, { runs });
+	const result = await suspendRun({ runId }, { runs });
 	assert.equal(result.ok, false);
 	if (result.ok) return;
 	assert.equal(result.error.kind, "terminal_suspend");
 });
 
-test("suspendRun rejects already-suspended runs", () => {
-	const { runs, runId } = bootstrap("feat-suspend-dup");
-	const first = suspendRun({ runId }, { runs });
+test("suspendRun rejects already-suspended runs", async () => {
+	const { runs, runId } = await bootstrap("feat-suspend-dup");
+	const first = await suspendRun({ runId }, { runs });
 	assert.equal(first.ok, true);
-	const second = suspendRun({ runId }, { runs });
+	const second = await suspendRun({ runId }, { runs });
 	assert.equal(second.ok, false);
 	if (second.ok) return;
 	assert.equal(second.error.kind, "already_suspended");
 });
 
-test("resumeRun restores allowed_events for the preserved phase", () => {
-	const { runs, runId } = bootstrap("feat-resume");
+test("resumeRun restores allowed_events for the preserved phase", async () => {
+	const { runs, runId } = await bootstrap("feat-resume");
 	assert.equal(
-		advanceRun(
+		(await advanceRun(
 			{ runId, event: "propose" },
 			{ runs, workflow: testWorkflowDefinition },
-		).ok,
+		)).ok,
 		true,
 	);
-	assert.equal(suspendRun({ runId }, { runs }).ok, true);
+	assert.equal((await suspendRun({ runId }, { runs })).ok, true);
 
-	const result = resumeRun({ runId }, { runs });
+	const result = await resumeRun({ runId }, { runs });
 	assert.equal(result.ok, true);
 	if (!result.ok) return;
 	assert.equal(result.value.status, "active");
@@ -104,9 +104,9 @@ test("resumeRun restores allowed_events for the preserved phase", () => {
 	assert.ok(result.value.allowed_events.includes("suspend"));
 });
 
-test("resumeRun rejects non-suspended runs", () => {
-	const { runs, runId } = bootstrap("feat-resume-noop");
-	const result = resumeRun({ runId }, { runs });
+test("resumeRun rejects non-suspended runs", async () => {
+	const { runs, runId } = await bootstrap("feat-resume-noop");
+	const result = await resumeRun({ runId }, { runs });
 	assert.equal(result.ok, false);
 	if (result.ok) return;
 	assert.equal(result.error.kind, "run_not_suspended");

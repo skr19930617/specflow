@@ -83,7 +83,7 @@ Design document:
 ${designContent}`;
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	if (args.length < 1) {
 		die("Usage: specflow-generate-task-graph <CHANGE_ID> [--max-retries N]");
@@ -101,11 +101,11 @@ function main(): void {
 
 	const store = createLocalFsChangeArtifactStore(projectRoot);
 	const designRef = changeRef(changeId, ChangeArtifactType.Design);
-	if (!store.exists(designRef)) {
+	if (!(await store.exists(designRef))) {
 		die(`design.md not found for change '${changeId}'`);
 	}
 
-	const designContent = store.read(designRef);
+	const designContent = await store.read(designRef);
 	const specNames = getSpecNames(projectRoot);
 	const agent = resolveReviewAgent();
 
@@ -140,11 +140,11 @@ function main(): void {
 		// Success — write task-graph.json and render tasks.md
 		const taskGraph = result.payload;
 		const taskGraphRef = changeRef(changeId, ChangeArtifactType.TaskGraph);
-		store.write(taskGraphRef, JSON.stringify(taskGraph, null, 2) + "\n");
+		await store.write(taskGraphRef, JSON.stringify(taskGraph, null, 2) + "\n");
 
 		const tasksMd = renderTasksMd(taskGraph);
 		const tasksRef = changeRef(changeId, ChangeArtifactType.Tasks);
-		store.write(tasksRef, tasksMd);
+		await store.write(tasksRef, tasksMd);
 
 		process.stderr.write("Task graph generated successfully.\n");
 		process.stdout.write(

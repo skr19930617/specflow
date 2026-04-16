@@ -77,8 +77,8 @@ export class PhaseRouter {
 	 * Throws on missing/malformed contract, read failure, or inconsistent
 	 * run state — never emits.
 	 */
-	currentPhase(runId: string): PhaseContract {
-		const run = this.readRun(runId);
+	async currentPhase(runId: string): Promise<PhaseContract> {
+		const run = await this.readRun(runId);
 		const contract = this.resolveContract(run);
 		this.assertConsistent(runId, run, contract);
 		return contract;
@@ -96,8 +96,11 @@ export class PhaseRouter {
 	 * @param context - Orchestrator-provided actor/surface/correlation context.
 	 *   Falls back to a minimal default for backward-compatible test usage.
 	 */
-	nextAction(runId: string, context?: SurfaceEventContext): PhaseAction {
-		const run = this.readRun(runId);
+	async nextAction(
+		runId: string,
+		context?: SurfaceEventContext,
+	): Promise<PhaseAction> {
+		const run = await this.readRun(runId);
 		const contract = this.resolveContract(run);
 		this.assertConsistent(runId, run, contract);
 		const action = deriveAction(contract);
@@ -149,10 +152,10 @@ export class PhaseRouter {
 
 	// --- internals ---
 
-	private readRun(runId: string): RunState {
+	private async readRun(runId: string): Promise<RunState> {
 		let raw: string;
 		try {
-			raw = this.store.read(runRef(runId));
+			raw = await this.store.read(runRef(runId));
 		} catch (cause) {
 			throw new RunReadError(runId, cause);
 		}

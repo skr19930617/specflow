@@ -5,7 +5,7 @@ import { copyFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ChangeArtifactStore } from "./artifact-store.js";
 import {
-	ArtifactNotFoundError,
+	ArtifactStoreError,
 	type ChangeArtifactQuery,
 	type ChangeArtifactRef,
 	ChangeArtifactType,
@@ -47,41 +47,70 @@ function backupPath(filePath: string): string {
 	return `${filePath}.bak`;
 }
 
+function notFoundError(ref: ChangeArtifactRef): ArtifactStoreError {
+	const id = `(${ref.changeId}, ${ref.type}${"qualifier" in ref ? `, ${ref.qualifier}` : ""})`;
+	return new ArtifactStoreError({
+		kind: "not_found",
+		message: `Artifact not found: ${id}`,
+		ref,
+	});
+}
+
 export function createLocalFsChangeArtifactStore(
 	projectRoot: string,
 ): ChangeArtifactStore {
 	return {
-		read(ref: ChangeArtifactRef): string {
+		async read(ref: ChangeArtifactRef): Promise<string> {
 			if (!isChangeArtifactType(ref.type)) {
 				throw new UnknownArtifactTypeError(ref.type);
 			}
 			const path = resolvePath(projectRoot, ref);
 			if (!existsSync(path)) {
-				throw new ArtifactNotFoundError(ref);
+				return Promise.reject(notFoundError(ref));
 			}
-			return readText(path);
+			try {
+				return readText(path);
+			} catch (e) {
+				return Promise.reject(
+					new ArtifactStoreError({
+						kind: "read_failed",
+						message: `Read failed: ${ref.changeId}/${ref.type}: ${e instanceof Error ? e.message : String(e)}`,
+						ref,
+					}),
+				);
+			}
 		},
 
-		write(ref: ChangeArtifactRef, content: string): void {
+		async write(ref: ChangeArtifactRef, content: string): Promise<void> {
 			if (!isChangeArtifactType(ref.type)) {
 				throw new UnknownArtifactTypeError(ref.type);
 			}
-			const path = resolvePath(projectRoot, ref);
-			// Unconditional backup for review-ledger before overwrite
-			if (ref.type === ChangeArtifactType.ReviewLedger && existsSync(path)) {
-				copyFileSync(path, backupPath(path));
+			try {
+				const path = resolvePath(projectRoot, ref);
+				// Unconditional backup for review-ledger before overwrite
+				if (ref.type === ChangeArtifactType.ReviewLedger && existsSync(path)) {
+					copyFileSync(path, backupPath(path));
+				}
+				atomicWriteText(path, content);
+			} catch (e) {
+				return Promise.reject(
+					new ArtifactStoreError({
+						kind: "write_failed",
+						message: `Write failed: ${ref.changeId}/${ref.type}: ${e instanceof Error ? e.message : String(e)}`,
+						ref,
+					}),
+				);
 			}
-			atomicWriteText(path, content);
 		},
 
-		exists(ref: ChangeArtifactRef): boolean {
+		async exists(ref: ChangeArtifactRef): Promise<boolean> {
 			if (!isChangeArtifactType(ref.type)) {
 				throw new UnknownArtifactTypeError(ref.type);
 			}
 			return existsSync(resolvePath(projectRoot, ref));
 		},
 
-		listChanges(): readonly string[] {
+		async listChanges(): Promise<readonly string[]> {
 			const changesDir = resolve(projectRoot, "openspec/changes");
 			if (!existsSync(changesDir)) {
 				return [];
@@ -91,11 +120,13 @@ export function createLocalFsChangeArtifactStore(
 				.map((entry) => entry.name);
 		},
 
-		changeExists(changeId: string): boolean {
+		async changeExists(changeId: string): Promise<boolean> {
 			return existsSync(resolve(projectRoot, "openspec/changes", changeId));
 		},
 
-		list(query: ChangeArtifactQuery): readonly ChangeArtifactRef[] {
+		async list(
+			query: ChangeArtifactQuery,
+		): Promise<readonly ChangeArtifactRef[]> {
 			if (!isChangeArtifactType(query.type)) {
 				throw new UnknownArtifactTypeError(query.type);
 			}

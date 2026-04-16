@@ -38,22 +38,26 @@ export interface StartSyntheticDeps {
  * change id. Enforces the "one non-terminal run per change" invariant and
  * the --retry rule for prior terminal runs.
  */
-export function startChangeRun(
+export async function startChangeRun(
 	input: StartChangeInput,
 	deps: StartChangeDeps,
-): Result<RunState, CoreRuntimeError> {
+): Promise<Result<RunState, CoreRuntimeError>> {
 	const { changeId, retry } = input;
 	const idCheck = checkRunId(changeId);
 	if (idCheck) return idCheck;
 
-	if (!deps.changes.exists(changeRef(changeId, ChangeArtifactType.Proposal))) {
+	if (
+		!(await deps.changes.exists(
+			changeRef(changeId, ChangeArtifactType.Proposal),
+		))
+	) {
 		return err({
 			kind: "change_proposal_missing",
 			message: `Error: no OpenSpec proposal found for '${changeId}'. Expected file: openspec/changes/${changeId}/proposal.md`,
 		});
 	}
 
-	const existingRuns = findRunsForChange(deps.runs, changeId);
+	const existingRuns = await findRunsForChange(deps.runs, changeId);
 
 	const nonTerminalRun = existingRuns.find((run) => run.status !== "terminal");
 	if (nonTerminalRun) {
@@ -103,7 +107,7 @@ export function startChangeRun(
 		agents = { ...latestRun.agents };
 	}
 
-	const newRunId = generateRunId(deps.runs, changeId);
+	const newRunId = await generateRunId(deps.runs, changeId);
 
 	const state: RunState = {
 		run_id: newRunId,
@@ -125,7 +129,7 @@ export function startChangeRun(
 		previous_run_id: previousRunId,
 	};
 
-	writeRunState(deps.runs, newRunId, state);
+	await writeRunState(deps.runs, newRunId, state);
 	return ok(state);
 }
 
@@ -133,15 +137,15 @@ export function startChangeRun(
  * Start a synthetic run (no associated OpenSpec change). The caller owns
  * the run_id verbatim; no sequence number is generated.
  */
-export function startSyntheticRun(
+export async function startSyntheticRun(
 	input: StartSyntheticInput,
 	deps: StartSyntheticDeps,
-): Result<RunState, CoreRuntimeError> {
+): Promise<Result<RunState, CoreRuntimeError>> {
 	const { runId } = input;
 	const idCheck = checkRunId(runId);
 	if (idCheck) return idCheck;
 
-	if (deps.runs.exists(runRef(runId))) {
+	if (await deps.runs.exists(runRef(runId))) {
 		return err({
 			kind: "run_already_exists",
 			message: `Error: run '${runId}' already exists`,
@@ -169,6 +173,6 @@ export function startSyntheticRun(
 		previous_run_id: null,
 	};
 
-	writeRunState(deps.runs, runId, state);
+	await writeRunState(deps.runs, runId, state);
 	return ok(state);
 }

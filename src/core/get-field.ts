@@ -11,12 +11,12 @@ export interface GetFieldDeps {
 	readonly runs: RunArtifactStore;
 }
 
-export function getRunField(
+export async function getRunField(
 	input: GetFieldInput,
 	deps: GetFieldDeps,
-): Result<unknown, CoreRuntimeError> {
+): Promise<Result<unknown, CoreRuntimeError>> {
 	const { runId, field } = input;
-	if (!deps.runs.exists(runRef(runId))) {
+	if (!(await deps.runs.exists(runRef(runId)))) {
 		return err({
 			kind: "run_not_found",
 			message: `Error: run '${runId}' not found. No state file at ${runId}/run.json`,
@@ -24,7 +24,7 @@ export function getRunField(
 	}
 	// Note: get-field does NOT validate the run schema because a valid use
 	// case is inspecting fields on legacy/partial run states.
-	const runState = readRunState(deps.runs, runId) as unknown as JsonMap;
+	const runState = (await readRunState(deps.runs, runId)) as unknown as JsonMap;
 	const value = runState[field];
 	if (value === undefined) {
 		return err({

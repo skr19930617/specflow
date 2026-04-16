@@ -64,11 +64,11 @@ function expectError(
 	return result.error;
 }
 
-test("invalid_run_id wording matches fixture", () => {
+test("invalid_run_id wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
-	const r = startChangeRun(
+	const r = await startChangeRun(
 		{
 			changeId: "../evil",
 			source: null,
@@ -81,21 +81,21 @@ test("invalid_run_id wording matches fixture", () => {
 	assert.equal(e.message, fixture.invalid_run_id);
 });
 
-test("run_not_found wording matches fixture", () => {
+test("run_not_found wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
-	const r = getRunField({ runId: "ghost-1", field: "current_phase" }, { runs });
+	const r = await getRunField({ runId: "ghost-1", field: "current_phase" }, { runs });
 	const e = expectError(r, "run_not_found");
 	assert.equal(e.message, fixture.run_not_found);
 });
 
-test("run_schema_mismatch wording matches fixture", () => {
+test("run_schema_mismatch wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	// Seed a minimal run.json without the required schema fields.
-	runs.write(
+	await runs.write(
 		runRef("legacy-1"),
 		`${JSON.stringify({ run_id: "legacy-1", current_phase: "start", status: "active", allowed_events: [], history: [], change_name: null, created_at: "", updated_at: "" })}\n`,
 	);
-	const r = advanceRun(
+	const r = await advanceRun(
 		{ runId: "legacy-1", event: "propose" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -103,12 +103,12 @@ test("run_schema_mismatch wording matches fixture", () => {
 	assert.equal(e.message, fixture.run_schema_mismatch);
 });
 
-test("invalid_event wording matches fixture", () => {
+test("invalid_event wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-iw");
-	const started = startChangeRun(
+	const started = await startChangeRun(
 		{
 			changeId: "feat-iw",
 			source: null,
@@ -118,7 +118,7 @@ test("invalid_event wording matches fixture", () => {
 		{ runs, changes, workspace },
 	);
 	assert.equal(started.ok, true);
-	const r = advanceRun(
+	const r = await advanceRun(
 		{ runId: "feat-iw-1", event: "bogus" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -126,12 +126,12 @@ test("invalid_event wording matches fixture", () => {
 	assert.equal(e.message, fixture.invalid_event);
 });
 
-test("run_suspended wording matches fixture", () => {
+test("run_suspended wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-sw");
-	const started = startChangeRun(
+	const started = await startChangeRun(
 		{
 			changeId: "feat-sw",
 			source: null,
@@ -141,8 +141,8 @@ test("run_suspended wording matches fixture", () => {
 		{ runs, changes, workspace },
 	);
 	assert.equal(started.ok, true);
-	assert.equal(suspendRun({ runId: "feat-sw-1" }, { runs }).ok, true);
-	const r = advanceRun(
+	assert.equal((await suspendRun({ runId: "feat-sw-1" }, { runs })).ok, true);
+	const r = await advanceRun(
 		{ runId: "feat-sw-1", event: "propose" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -150,13 +150,13 @@ test("run_suspended wording matches fixture", () => {
 	assert.equal(e.message, fixture.run_suspended);
 });
 
-test("run_not_suspended wording matches fixture", () => {
+test("run_not_suspended wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-nsw");
 	assert.equal(
-		startChangeRun(
+		(await startChangeRun(
 			{
 				changeId: "feat-nsw",
 				source: null,
@@ -164,25 +164,25 @@ test("run_not_suspended wording matches fixture", () => {
 				retry: false,
 			},
 			{ runs, changes, workspace },
-		).ok,
+		)).ok,
 		true,
 	);
-	const r = resumeRun({ runId: "feat-nsw-1" }, { runs });
+	const r = await resumeRun({ runId: "feat-nsw-1" }, { runs });
 	const e = expectError(r, "run_not_suspended");
 	assert.equal(e.message, fixture.run_not_suspended);
 });
 
-test("run_already_exists wording matches fixture", () => {
+test("run_already_exists wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	assert.equal(
-		startSyntheticRun(
+		(await startSyntheticRun(
 			{ runId: "synth-x", source: null, agents: { main: "c", review: "x" } },
 			{ runs, workspace },
-		).ok,
+		)).ok,
 		true,
 	);
-	const r = startSyntheticRun(
+	const r = await startSyntheticRun(
 		{ runId: "synth-x", source: null, agents: { main: "c", review: "x" } },
 		{ runs, workspace },
 	);
@@ -190,13 +190,13 @@ test("run_already_exists wording matches fixture", () => {
 	assert.equal(e.message, fixture.run_already_exists);
 });
 
-test("run_active_exists wording matches fixture", () => {
+test("run_active_exists wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-one");
 	assert.equal(
-		startChangeRun(
+		(await startChangeRun(
 			{
 				changeId: "feat-one",
 				source: null,
@@ -204,10 +204,10 @@ test("run_active_exists wording matches fixture", () => {
 				retry: false,
 			},
 			{ runs, changes, workspace },
-		).ok,
+		)).ok,
 		true,
 	);
-	const r = startChangeRun(
+	const r = await startChangeRun(
 		{
 			changeId: "feat-one",
 			source: null,
@@ -220,13 +220,13 @@ test("run_active_exists wording matches fixture", () => {
 	assert.equal(e.message, fixture.run_active_exists);
 });
 
-test("run_suspended_exists wording matches fixture", () => {
+test("run_suspended_exists wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-one");
 	assert.equal(
-		startChangeRun(
+		(await startChangeRun(
 			{
 				changeId: "feat-one",
 				source: null,
@@ -234,11 +234,11 @@ test("run_suspended_exists wording matches fixture", () => {
 				retry: false,
 			},
 			{ runs, changes, workspace },
-		).ok,
+		)).ok,
 		true,
 	);
-	assert.equal(suspendRun({ runId: "feat-one-1" }, { runs }).ok, true);
-	const r = startChangeRun(
+	assert.equal((await suspendRun({ runId: "feat-one-1" }, { runs })).ok, true);
+	const r = await startChangeRun(
 		{
 			changeId: "feat-one",
 			source: null,
@@ -251,12 +251,12 @@ test("run_suspended_exists wording matches fixture", () => {
 	assert.equal(e.message, fixture.run_suspended_exists);
 });
 
-test("prior_runs_require_retry wording matches fixture", () => {
+test("prior_runs_require_retry wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-p");
-	const first = startChangeRun(
+	const first = await startChangeRun(
 		{
 			changeId: "feat-p",
 			source: null,
@@ -268,11 +268,11 @@ test("prior_runs_require_retry wording matches fixture", () => {
 	assert.equal(first.ok, true);
 	// Terminate the run manually.
 	if (!first.ok) return;
-	runs.write(
+	await runs.write(
 		runRef(first.value.run_id),
 		`${JSON.stringify({ ...first.value, status: "terminal" })}\n`,
 	);
-	const r = startChangeRun(
+	const r = await startChangeRun(
 		{
 			changeId: "feat-p",
 			source: null,
@@ -285,12 +285,12 @@ test("prior_runs_require_retry wording matches fixture", () => {
 	assert.equal(e.message, fixture.prior_runs_require_retry);
 });
 
-test("retry_without_prior wording matches fixture", () => {
+test("retry_without_prior wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-rw");
-	const r = startChangeRun(
+	const r = await startChangeRun(
 		{
 			changeId: "feat-rw",
 			source: null,
@@ -303,12 +303,12 @@ test("retry_without_prior wording matches fixture", () => {
 	assert.equal(e.message, fixture.retry_without_prior);
 });
 
-test("retry_on_rejected wording matches fixture", () => {
+test("retry_on_rejected wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-rr");
-	const first = startChangeRun(
+	const first = await startChangeRun(
 		{
 			changeId: "feat-rr",
 			source: null,
@@ -318,11 +318,11 @@ test("retry_on_rejected wording matches fixture", () => {
 		{ runs, changes, workspace },
 	);
 	if (!first.ok) return;
-	runs.write(
+	await runs.write(
 		runRef(first.value.run_id),
 		`${JSON.stringify({ ...first.value, status: "terminal", current_phase: "rejected" })}\n`,
 	);
-	const r = startChangeRun(
+	const r = await startChangeRun(
 		{
 			changeId: "feat-rr",
 			source: null,
@@ -335,11 +335,11 @@ test("retry_on_rejected wording matches fixture", () => {
 	assert.equal(e.message, fixture.retry_on_rejected);
 });
 
-test("change_proposal_missing wording matches fixture", () => {
+test("change_proposal_missing wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
-	const r = startChangeRun(
+	const r = await startChangeRun(
 		{
 			changeId: "missing-change",
 			source: null,
@@ -352,12 +352,12 @@ test("change_proposal_missing wording matches fixture", () => {
 	assert.equal(e.message, fixture.change_proposal_missing);
 });
 
-test("terminal_suspend wording matches fixture", () => {
+test("terminal_suspend wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-ts");
-	const first = startChangeRun(
+	const first = await startChangeRun(
 		{
 			changeId: "feat-ts",
 			source: null,
@@ -367,22 +367,22 @@ test("terminal_suspend wording matches fixture", () => {
 		{ runs, changes, workspace },
 	);
 	if (!first.ok) return;
-	runs.write(
+	await runs.write(
 		runRef(first.value.run_id),
 		`${JSON.stringify({ ...first.value, status: "terminal" })}\n`,
 	);
-	const r = suspendRun({ runId: first.value.run_id }, { runs });
+	const r = await suspendRun({ runId: first.value.run_id }, { runs });
 	const e = expectError(r, "terminal_suspend");
 	assert.equal(e.message, fixture.terminal_suspend);
 });
 
-test("already_suspended wording matches fixture", () => {
+test("already_suspended wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-as");
 	assert.equal(
-		startChangeRun(
+		(await startChangeRun(
 			{
 				changeId: "feat-as",
 				source: null,
@@ -390,22 +390,22 @@ test("already_suspended wording matches fixture", () => {
 				retry: false,
 			},
 			{ runs, changes, workspace },
-		).ok,
+		)).ok,
 		true,
 	);
-	assert.equal(suspendRun({ runId: "feat-as-1" }, { runs }).ok, true);
-	const r = suspendRun({ runId: "feat-as-1" }, { runs });
+	assert.equal((await suspendRun({ runId: "feat-as-1" }, { runs })).ok, true);
+	const r = await suspendRun({ runId: "feat-as-1" }, { runs });
 	const e = expectError(r, "already_suspended");
 	assert.equal(e.message, fixture.already_suspended);
 });
 
-test("field_not_found wording matches fixture", () => {
+test("field_not_found wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-fn");
 	assert.equal(
-		startChangeRun(
+		(await startChangeRun(
 			{
 				changeId: "feat-fn",
 				source: null,
@@ -413,21 +413,21 @@ test("field_not_found wording matches fixture", () => {
 				retry: false,
 			},
 			{ runs, changes, workspace },
-		).ok,
+		)).ok,
 		true,
 	);
-	const r = getRunField({ runId: "feat-fn-1", field: "nope" }, { runs });
+	const r = await getRunField({ runId: "feat-fn-1", field: "nope" }, { runs });
 	const e = expectError(r, "field_not_found");
 	assert.equal(e.message, fixture.field_not_found);
 });
 
-test("field_not_updatable wording matches fixture", () => {
+test("field_not_updatable wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-fu");
 	assert.equal(
-		startChangeRun(
+		(await startChangeRun(
 			{
 				changeId: "feat-fu",
 				source: null,
@@ -435,10 +435,10 @@ test("field_not_updatable wording matches fixture", () => {
 				retry: false,
 			},
 			{ runs, changes, workspace },
-		).ok,
+		)).ok,
 		true,
 	);
-	const r = updateRunField(
+	const r = await updateRunField(
 		{ runId: "feat-fu-1", field: "status", value: "terminal" },
 		{ runs },
 	);

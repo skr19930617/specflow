@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-	ArtifactNotFoundError,
 	ArtifactSchemaValidationError,
+	ArtifactStoreError,
 	ChangeArtifactType,
 	changeArtifactTypes,
 	changeRef,
@@ -109,20 +109,22 @@ test("runRef creates run-state ref", () => {
 	assert.equal(ref.type, "run-state");
 });
 
-test("ArtifactNotFoundError includes ref details in message", () => {
+test("ArtifactStoreError with kind not_found includes ref details in message", () => {
 	const ref = changeRef("my-change", ChangeArtifactType.Proposal);
-	const error = new ArtifactNotFoundError(ref);
+	const error = new ArtifactStoreError({ kind: "not_found", message: `Artifact not found: my-change (proposal)`, ref });
 	assert.ok(error.message.includes("my-change"));
 	assert.ok(error.message.includes("proposal"));
-	assert.equal(error.name, "ArtifactNotFoundError");
+	assert.equal(error.name, "ArtifactStoreError");
+	assert.equal(error.kind, "not_found");
 	assert.equal(error.ref, ref);
 });
 
-test("ArtifactNotFoundError works with run refs", () => {
+test("ArtifactStoreError with kind not_found works with run refs", () => {
 	const ref = runRef("my-run-1");
-	const error = new ArtifactNotFoundError(ref);
+	const error = new ArtifactStoreError({ kind: "not_found", message: `Artifact not found: my-run-1 (run-state)`, ref });
 	assert.ok(error.message.includes("my-run-1"));
 	assert.ok(error.message.includes("run-state"));
+	assert.equal(error.kind, "not_found");
 });
 
 test("UnknownArtifactTypeError stores type", () => {

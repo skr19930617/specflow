@@ -9,9 +9,9 @@ export interface StatusDeps {
 	readonly runs: RunArtifactStore;
 }
 
-export function readRunStatus(
+export async function readRunStatus(
 	input: StatusInput,
 	deps: StatusDeps,
-): Result<RunState, CoreRuntimeError> {
-	return loadRunState(deps.runs, input.runId);
+): Promise<Result<RunState, CoreRuntimeError>> {
+	return await loadRunState(deps.runs, input.runId);
 }

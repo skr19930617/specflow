@@ -1,5 +1,6 @@
 // Store interfaces for artifact I/O abstraction.
 // Core modules depend on these interfaces, never on filesystem paths or I/O primitives.
+// All methods are async (Promise-based) to support DB-backed and network-backed adapters.
 
 import type {
 	ChangeArtifactQuery,
@@ -9,17 +10,17 @@ import type {
 } from "./artifact-types.js";
 
 export interface ChangeArtifactStore {
-	read(ref: ChangeArtifactRef): string;
-	write(ref: ChangeArtifactRef, content: string): void;
-	exists(ref: ChangeArtifactRef): boolean;
-	list(query: ChangeArtifactQuery): readonly ChangeArtifactRef[];
-	listChanges(): readonly string[];
-	changeExists(changeId: string): boolean;
+	read(ref: ChangeArtifactRef): Promise<string>;
+	write(ref: ChangeArtifactRef, content: string): Promise<void>;
+	exists(ref: ChangeArtifactRef): Promise<boolean>;
+	list(query: ChangeArtifactQuery): Promise<readonly ChangeArtifactRef[]>;
+	listChanges(): Promise<readonly string[]>;
+	changeExists(changeId: string): Promise<boolean>;
 }
 
 export interface RunArtifactStore {
-	read(ref: RunArtifactRef): string;
-	write(ref: RunArtifactRef, content: string): void;
-	exists(ref: RunArtifactRef): boolean;
-	list(query?: RunArtifactQuery): readonly RunArtifactRef[];
+	read(ref: RunArtifactRef): Promise<string>;
+	write(ref: RunArtifactRef, content: string): Promise<void>;
+	exists(ref: RunArtifactRef): Promise<boolean>;
+	list(query?: RunArtifactQuery): Promise<readonly RunArtifactRef[]>;
 }

@@ -55,7 +55,7 @@ function isBundleStatus(value: string): value is BundleStatus {
 	return (VALID_STATUSES as readonly string[]).includes(value);
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	if (args.length < 3) {
 		die(
@@ -75,7 +75,7 @@ function main(): void {
 	const projectRoot = ensureGitRepo();
 	const store = createLocalFsChangeArtifactStore(projectRoot);
 	const taskGraphRef = changeRef(changeId, ChangeArtifactType.TaskGraph);
-	if (!store.exists(taskGraphRef)) {
+	if (!(await store.exists(taskGraphRef))) {
 		die(`task-graph.json not found for change '${changeId}'`, {
 			changeId,
 			bundleId,
@@ -85,7 +85,7 @@ function main(): void {
 
 	let taskGraph: TaskGraph;
 	try {
-		const parsed = JSON.parse(store.read(taskGraphRef)) as unknown;
+		const parsed = JSON.parse(await store.read(taskGraphRef)) as unknown;
 		const validation = validateTaskGraph(parsed);
 		if (!validation.valid) {
 			die(
@@ -108,10 +108,10 @@ function main(): void {
 		newStatus: rawStatus,
 		writer: {
 			writeTaskGraph(content) {
-				store.write(taskGraphRef, content);
+				void store.write(taskGraphRef, content);
 			},
 			writeTasksMd(content) {
-				store.write(tasksRef, content);
+				void store.write(tasksRef, content);
 			},
 		},
 		logger(coercion) {

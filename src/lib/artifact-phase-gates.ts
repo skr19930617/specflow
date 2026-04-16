@@ -93,11 +93,11 @@ export interface GateContext {
  * which candidate artifact exists. If `changeStore` is not provided for a
  * `oneOf` requirement, this function returns `null` (unsatisfied).
  */
-export function resolveRequirement(
+export async function resolveRequirement(
 	requirement: ArtifactRequirement,
 	context: GateContext,
 	changeStore?: ChangeArtifactStore | null,
-): ChangeArtifactRef | RunArtifactRef | null {
+): Promise<ChangeArtifactRef | RunArtifactRef | null> {
 	if (requirement.domain === "change") {
 		if (!context.changeId) {
 			return null;
@@ -112,7 +112,7 @@ export function resolveRequirement(
 			}
 			for (const type of requirement.oneOf) {
 				const ref = changeRef(context.changeId, type);
-				if (changeStore.exists(ref)) {
+				if (await changeStore.exists(ref)) {
 					return ref;
 				}
 			}
@@ -136,13 +136,13 @@ export function resolveRequirement(
 	return runRef(context.runId);
 }
 
-export function checkGateRequirements(
+export async function checkGateRequirements(
 	fromPhase: string,
 	event: string,
 	context: GateContext,
 	changeStore: ChangeArtifactStore | null,
 	runStore: RunArtifactStore | null,
-): ArtifactRequirement | null {
+): Promise<ArtifactRequirement | null> {
 	const gate = getGateEntry(fromPhase, event);
 	if (!gate) {
 		return null;
@@ -151,24 +151,24 @@ export function checkGateRequirements(
 		// oneOf requirements: resolveRequirement returns null if none of the
 		// candidates exist — that means the requirement is unsatisfied.
 		if (requirement.domain === "change" && "oneOf" in requirement) {
-			const ref = resolveRequirement(requirement, context, changeStore);
+			const ref = await resolveRequirement(requirement, context, changeStore);
 			if (!ref) {
 				return requirement;
 			}
 			continue;
 		}
 
-		const ref = resolveRequirement(requirement, context, changeStore);
+		const ref = await resolveRequirement(requirement, context, changeStore);
 		if (!ref) {
 			continue;
 		}
 		if ("changeId" in ref) {
-			if (changeStore && !changeStore.exists(ref)) {
+			if (changeStore && !(await changeStore.exists(ref))) {
 				return requirement;
 			}
 		}
 		if ("runId" in ref) {
-			if (runStore && !runStore.exists(ref)) {
+			if (runStore && !(await runStore.exists(ref))) {
 				return requirement;
 			}
 		}

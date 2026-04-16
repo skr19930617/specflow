@@ -7,7 +7,7 @@ import { createInMemoryChangeArtifactStore } from "./helpers/in-memory-change-st
 import { createInMemoryRunArtifactStore } from "./helpers/in-memory-run-store.js";
 import { testWorkflowDefinition } from "./helpers/workflow.js";
 
-function bootstrap(changeId: string) {
+async function bootstrap(changeId: string) {
 	const runs = createInMemoryRunArtifactStore();
 	const changes = createInMemoryChangeArtifactStore();
 	const workspace = createFakeWorkspaceContext();
@@ -15,7 +15,7 @@ function bootstrap(changeId: string) {
 		changeRef(changeId, ChangeArtifactType.Proposal),
 		"# Proposal\n",
 	);
-	const started = startChangeRun(
+	const started = await startChangeRun(
 		{
 			changeId,
 			source: null,
@@ -30,9 +30,9 @@ function bootstrap(changeId: string) {
 	return { runs, runId: started.value.run_id };
 }
 
-test("advanceRun applies a declared transition and appends history", () => {
-	const { runs, runId } = bootstrap("feat-adv");
-	const result = advanceRun(
+test("advanceRun applies a declared transition and appends history", async () => {
+	const { runs, runId } = await bootstrap("feat-adv");
+	const result = await advanceRun(
 		{ runId, event: "propose" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -46,9 +46,9 @@ test("advanceRun applies a declared transition and appends history", () => {
 	assert.equal(entry?.event, "propose");
 });
 
-test("advanceRun rejects invalid events and lists allowed ones", () => {
-	const { runs, runId } = bootstrap("feat-adv-invalid");
-	const result = advanceRun(
+test("advanceRun rejects invalid events and lists allowed ones", async () => {
+	const { runs, runId } = await bootstrap("feat-adv-invalid");
+	const result = await advanceRun(
 		{ runId, event: "bogus" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -58,14 +58,14 @@ test("advanceRun rejects invalid events and lists allowed ones", () => {
 	assert.match(result.error.message, /Allowed events:/);
 });
 
-test("advanceRun rejects events when run is suspended", () => {
-	const { runs, runId } = bootstrap("feat-adv-suspended");
+test("advanceRun rejects events when run is suspended", async () => {
+	const { runs, runId } = await bootstrap("feat-adv-suspended");
 	// Directly mutate stored state to suspended for this branch.
 	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(runs.read(ref));
-	runs.write(ref, `${JSON.stringify({ ...state, status: "suspended" })}\n`);
+	const state = JSON.parse(await runs.read(ref));
+	await runs.write(ref, `${JSON.stringify({ ...state, status: "suspended" })}\n`);
 
-	const result = advanceRun(
+	const result = await advanceRun(
 		{ runId, event: "propose" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -74,9 +74,9 @@ test("advanceRun rejects events when run is suspended", () => {
 	assert.equal(result.error.kind, "run_suspended");
 });
 
-test("advanceRun reports run_not_found for unknown run_id", () => {
+test("advanceRun reports run_not_found for unknown run_id", async () => {
 	const runs = createInMemoryRunArtifactStore();
-	const result = advanceRun(
+	const result = await advanceRun(
 		{ runId: "does-not-exist-1", event: "propose" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
@@ -85,15 +85,15 @@ test("advanceRun reports run_not_found for unknown run_id", () => {
 	assert.equal(result.error.kind, "run_not_found");
 });
 
-test("advanceRun transitions to terminal status on terminal phases", () => {
-	const { runs, runId } = bootstrap("feat-adv-terminal");
+test("advanceRun transitions to terminal status on terminal phases", async () => {
+	const { runs, runId } = await bootstrap("feat-adv-terminal");
 	// Drive to proposal_draft → reject (terminal).
-	const r1 = advanceRun(
+	const r1 = await advanceRun(
 		{ runId, event: "propose" },
 		{ runs, workflow: testWorkflowDefinition },
 	);
 	assert.equal(r1.ok, true);
-	const r2 = advanceRun(
+	const r2 = await advanceRun(
 		{ runId, event: "reject" },
 		{ runs, workflow: testWorkflowDefinition },
 	);

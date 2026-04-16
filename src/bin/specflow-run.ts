@@ -174,7 +174,7 @@ function parseStartArgs(args: readonly string[]): StartArgs {
 
 // --- Subcommand glue ------------------------------------------------------
 
-function runStart(args: readonly string[]): never {
+async function runStart(args: readonly string[]): Promise<never> {
 	let ctx: WorkspaceContext;
 	try {
 		ctx = createLocalWorkspaceContext();
@@ -198,7 +198,7 @@ function runStart(args: readonly string[]): never {
 		}
 		renderResult(
 			"run-state",
-			startSyntheticRun(
+			await startSyntheticRun(
 				{ runId: parsed.positional, source, agents },
 				{ runs: runStore, workspace: ctx },
 			),
@@ -207,7 +207,7 @@ function runStart(args: readonly string[]): never {
 
 	renderResult(
 		"run-state",
-		startChangeRun(
+		await startChangeRun(
 			{
 				changeId: parsed.positional,
 				source,
@@ -219,7 +219,7 @@ function runStart(args: readonly string[]): never {
 	);
 }
 
-function runAdvance(args: readonly string[]): never {
+async function runAdvance(args: readonly string[]): Promise<never> {
 	const runId = args[0];
 	const event = args[1];
 	if (!runId || !event) {
@@ -230,35 +230,35 @@ function runAdvance(args: readonly string[]): never {
 	const workflow = loadWorkflow(stateMachinePath(root));
 	renderResult(
 		"run-state",
-		advanceRun({ runId, event }, { runs: runStore, workflow }),
+		await advanceRun({ runId, event }, { runs: runStore, workflow }),
 	);
 }
 
-function runSuspend(args: readonly string[]): never {
+async function runSuspend(args: readonly string[]): Promise<never> {
 	const runId = args[0];
 	if (!runId) fail("Usage: specflow-run suspend <run_id>");
 	const root = projectRoot();
 	const runStore = createLocalFsRunArtifactStore(root);
-	renderResult("run-state", suspendRun({ runId }, { runs: runStore }));
+	renderResult("run-state", await suspendRun({ runId }, { runs: runStore }));
 }
 
-function runResume(args: readonly string[]): never {
+async function runResume(args: readonly string[]): Promise<never> {
 	const runId = args[0];
 	if (!runId) fail("Usage: specflow-run resume <run_id>");
 	const root = projectRoot();
 	const runStore = createLocalFsRunArtifactStore(root);
-	renderResult("run-state", resumeRun({ runId }, { runs: runStore }));
+	renderResult("run-state", await resumeRun({ runId }, { runs: runStore }));
 }
 
-function runStatus(args: readonly string[]): never {
+async function runStatus(args: readonly string[]): Promise<never> {
 	const runId = args[0];
 	if (!runId) fail("Usage: specflow-run status <run_id>");
 	const root = projectRoot();
 	const runStore = createLocalFsRunArtifactStore(root);
-	renderResult("run-state", readRunStatus({ runId }, { runs: runStore }));
+	renderResult("run-state", await readRunStatus({ runId }, { runs: runStore }));
 }
 
-function runUpdateField(args: readonly string[]): never {
+async function runUpdateField(args: readonly string[]): Promise<never> {
 	const [runId, field, value] = args;
 	if (!runId || !field || value === undefined) {
 		fail("Usage: specflow-run update-field <run_id> <field> <value>");
@@ -267,16 +267,16 @@ function runUpdateField(args: readonly string[]): never {
 	const runStore = createLocalFsRunArtifactStore(root);
 	renderResult(
 		"run-state",
-		updateRunField({ runId, field, value }, { runs: runStore }),
+		await updateRunField({ runId, field, value }, { runs: runStore }),
 	);
 }
 
-function runGetField(args: readonly string[]): never {
+async function runGetField(args: readonly string[]): Promise<never> {
 	const [runId, field] = args;
 	if (!runId || !field) fail("Usage: specflow-run get-field <run_id> <field>");
 	const root = projectRoot();
 	const runStore = createLocalFsRunArtifactStore(root);
-	const result = getRunField({ runId, field }, { runs: runStore });
+	const result = await getRunField({ runId, field }, { runs: runStore });
 	if (result.ok) {
 		process.stdout.write(`${JSON.stringify(result.value, null, 2)}\n`);
 		process.exit(0);
@@ -285,30 +285,30 @@ function runGetField(args: readonly string[]): never {
 	process.exit(1);
 }
 
-function main(): void {
+async function main(): Promise<void> {
 	const [subcommand, ...args] = process.argv.slice(2);
 
 	switch (subcommand) {
 		case "start":
-			runStart(args);
+			await runStart(args);
 			break;
 		case "advance":
-			runAdvance(args);
+			await runAdvance(args);
 			break;
 		case "suspend":
-			runSuspend(args);
+			await runSuspend(args);
 			break;
 		case "resume":
-			runResume(args);
+			await runResume(args);
 			break;
 		case "status":
-			runStatus(args);
+			await runStatus(args);
 			break;
 		case "update-field":
-			runUpdateField(args);
+			await runUpdateField(args);
 			break;
 		case "get-field":
-			runGetField(args);
+			await runGetField(args);
 			break;
 		case undefined:
 			fail(
@@ -322,4 +322,7 @@ function main(): void {
 	}
 }
 
-main();
+main().catch((err: unknown) => {
+	process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+	process.exit(1);
+});

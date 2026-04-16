@@ -264,9 +264,32 @@ External runtimes should depend only on the documented contract surfaces (render
 
 Adapter contract categories define the seams where core delegates to runtime-specific implementations:
 
+**Defined** (canonical contract is specified; external runtimes can implement):
+
+- **Persistence** — reading/writing run-state JSON via the async `RunArtifactStore` and `ChangeArtifactStore` interfaces in `src/lib/artifact-store.ts`. All interface methods return `Promise<T>`. Errors are communicated via `ArtifactStoreError` (typed error with `kind` discriminant: `not_found`, `write_failed`, `read_failed`, `conflict`) defined in `src/lib/artifact-types.ts`. The `RunState` type in `src/types/contracts.ts` is partitioned at the type level into `CoreRunState` (fields every runtime must persist — `run_id`, `change_name`, `current_phase`, `status`, `allowed_events`, `agents`, `history`, `source`, `created_at`, `updated_at`, `previous_run_id`, `run_kind`) and `LocalRunState` (local-adapter-only fields — `project_id`, `repo_name`, `repo_path`, `branch_name`, `worktree_path`, `last_summary_path`). External runtimes MUST persist `CoreRunState`; they SHOULD NOT persist `LocalRunState` fields as-is because those are derived from local filesystem and git state. The compile-time drift guard at `src/tests/run-state-partition.test.ts` enforces that the two halves remain disjoint and exhaustively cover `RunState`. A conformance test suite is exported from the npm package under `src/conformance/` for external runtimes to validate their adapter implementations. The matching JSON-schema-level split (so external runtimes have a machine-readable contract) is deferred to a follow-up proposal; the `run-state` validator in `src/lib/schemas.ts` still validates the full combined payload today.
+
+**BREAKING (v-next):** The `RunArtifactStore` and `ChangeArtifactStore` interfaces changed from synchronous to asynchronous (Promise-based) signatures. All method calls must now use `await`. The `ArtifactNotFoundError` class has been replaced by `ArtifactStoreError` with a typed `kind` field. External consumers must update their adapter implementations and call sites accordingly.
+
+#### CoreRunState → DB Schema Mapping Guidance
+
+> **Non-normative.** This table is informational guidance for external runtime implementors. External runtimes may choose different column types provided they preserve the field semantics.
+
+| CoreRunState Field | Recommended SQL Type | Notes |
+|---|---|---|
+| `run_id` | `TEXT PRIMARY KEY` | Natural key, `<changeId>-<N>` format |
+| `change_name` | `TEXT` | Nullable for synthetic runs |
+| `current_phase` | `TEXT` | Constrained to workflow state machine states |
+| `status` | `TEXT` | One of: `active`, `suspended`, `terminal` |
+| `allowed_events` | `JSON` / `JSONB` | String array |
+| `agents` | `JSON` / `JSONB` | `{main, review}` object |
+| `history` | `JSON` / `JSONB` | Array of history entry objects |
+| `source` | `JSON` / `JSONB` | Nullable source metadata object |
+| `created_at` | `TIMESTAMP WITH TIME ZONE` | ISO 8601 string in JSON |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | ISO 8601 string in JSON |
+| `previous_run_id` | `TEXT` | Nullable FK to `run_id` |
+| `run_kind` | `TEXT` | `change` or `synthetic` |
 **Deferred-required** (every runtime will eventually need to implement, but the canonical contract is not yet fully defined):
 
-- **Persistence** — reading/writing run-state JSON. The `RunState` type in `src/types/contracts.ts` is partitioned at the type level into `CoreRunState` (fields every runtime must persist — `run_id`, `change_name`, `current_phase`, `status`, `allowed_events`, `agents`, `history`, `source`, `created_at`, `updated_at`, `previous_run_id`, `run_kind`) and `LocalRunState` (local-adapter-only fields — `project_id`, `repo_name`, `repo_path`, `branch_name`, `worktree_path`, `last_summary_path`). External runtimes MUST persist `CoreRunState`; they SHOULD NOT persist `LocalRunState` fields as-is because those are derived from local filesystem and git state. The compile-time drift guard at `src/tests/run-state-partition.test.ts` enforces that the two halves remain disjoint and exhaustively cover `RunState`. The matching JSON-schema-level split (so external runtimes have a machine-readable contract) is deferred to a follow-up proposal; the `run-state` validator in `src/lib/schemas.ts` still validates the full combined payload today.
 - **Review transport** — sending review requests and receiving review responses. The current local adapter uses subprocess-based codex invocation, but this is an implementation detail. The canonical review transport contract (request/response payload schema, lifecycle protocol) is deferred to a follow-up proposal. External runtimes must not depend on the current subprocess-based mechanism.
 
 **Local-runtime-only** (external runtimes use alternative mechanisms):

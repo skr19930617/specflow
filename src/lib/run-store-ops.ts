@@ -29,8 +29,11 @@ export function extractSequence(
 /**
  * Read a run state from the store with backward-compatible fallback for missing fields.
  */
-export function readRunState(store: RunArtifactStore, runId: string): RunState {
-	const content = store.read(runRef(runId));
+export async function readRunState(
+	store: RunArtifactStore,
+	runId: string,
+): Promise<RunState> {
+	const content = await store.read(runRef(runId));
 	const raw = JSON.parse(content) as Record<string, unknown>;
 	const resolvedRunId = typeof raw.run_id === "string" ? raw.run_id : runId;
 	const previousRunId =
@@ -63,11 +66,11 @@ export function readRunState(store: RunArtifactStore, runId: string): RunState {
  * Find all runs for a change, sorted by numeric sequence ascending.
  * Store.list() returns lexicographic order; this function re-sorts by parsed sequence.
  */
-export function findRunsForChange(
+export async function findRunsForChange(
 	store: RunArtifactStore,
 	changeId: string,
-): RunState[] {
-	const refs = store.list({ changeId });
+): Promise<RunState[]> {
+	const refs = await store.list({ changeId });
 	const runsWithSeq = refs
 		.map((ref) => {
 			const seq = extractSequence(ref.runId, changeId);
@@ -78,18 +81,22 @@ export function findRunsForChange(
 
 	runsWithSeq.sort((a, b) => a.seq - b.seq);
 
-	return runsWithSeq.map((entry) => readRunState(store, entry.ref.runId));
+	const results: RunState[] = [];
+	for (const entry of runsWithSeq) {
+		results.push(await readRunState(store, entry.ref.runId));
+	}
+	return results;
 }
 
 /**
  * Find the most recent run for a change by computing the maximum sequence number.
  * Does not rely on store.list() ordering or findRunsForChange() array position.
  */
-export function findLatestRun(
+export async function findLatestRun(
 	store: RunArtifactStore,
 	changeId: string,
-): RunState | null {
-	const refs = store.list({ changeId });
+): Promise<RunState | null> {
+	const refs = await store.list({ changeId });
 	if (refs.length === 0) return null;
 
 	let maxSeq = -1;
@@ -109,11 +116,11 @@ export function findLatestRun(
  * Generate the next run_id for a change by computing max(sequence) + 1.
  * Does not rely on store.list() ordering or list length.
  */
-export function generateRunId(
+export async function generateRunId(
 	store: RunArtifactStore,
 	changeId: string,
-): string {
-	const refs = store.list({ changeId });
+): Promise<string> {
+	const refs = await store.list({ changeId });
 	let maxSeq = 0;
 	for (const ref of refs) {
 		const seq = extractSequence(ref.runId, changeId);
