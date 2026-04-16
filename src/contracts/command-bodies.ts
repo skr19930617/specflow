@@ -3,7 +3,23 @@ import {
 	PLANNING_HEADINGS,
 } from "../lib/design-planning-headings.js";
 import type { CommandBody } from "../types/contracts.js";
+import {
+	type PhaseContract,
+	phaseContractRegistry,
+	renderPhaseMarkdown,
+} from "./phase-contract.js";
 import { buildOpenspecPrereq } from "./prerequisites.js";
+
+/**
+ * Render structured PhaseContract metadata as a Markdown block for a phase.
+ * Returns empty string if the phase has no contract or no renderable metadata.
+ * Used to augment prose templates with generated structured sections.
+ */
+export function renderPhaseSection(phase: string): string {
+	const contract: PhaseContract | undefined = phaseContractRegistry.get(phase);
+	if (!contract) return "";
+	return renderPhaseMarkdown(contract);
+}
 
 /**
  * Build the design artifact special-handling instruction block.

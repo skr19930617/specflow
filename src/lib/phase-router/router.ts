@@ -223,6 +223,19 @@ export class PhaseRouter {
 				`phase "${contract.phase}" has both terminal=true and gated=true`,
 			);
 		}
+		// Validate execution fields are present (even if empty arrays).
+		if (!Array.isArray(contract.requiredInputs)) {
+			throw new InconsistentRunStateError(
+				runId,
+				`phase "${contract.phase}" missing requiredInputs array`,
+			);
+		}
+		if (!Array.isArray(contract.producedOutputs)) {
+			throw new InconsistentRunStateError(
+				runId,
+				`phase "${contract.phase}" missing producedOutputs array`,
+			);
+		}
 	}
 
 	private currentEntryAt(run: RunState): string {

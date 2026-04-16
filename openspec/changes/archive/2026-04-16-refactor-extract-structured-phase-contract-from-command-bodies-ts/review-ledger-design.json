@@ -1,0 +1,49 @@
+{
+  "feature_id": "refactor-extract-structured-phase-contract-from-command-bodies-ts",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Task 4.4 validation scope narrower than spec",
+      "detail": "The phase-router spec requires fail-fast on missing contract, malformed contract (missing next_action/gated/terminal), missing execution fields, AND inconsistent state (terminal + pending gated decision). Task 4.4 only mentions requiredInputs/producedOutputs presence validation. The inconsistent-state check and malformed-contract check should be explicitly listed as subtasks or merged into 4.4 to ensure the spec scenarios for 'Malformed contract throws' and 'Inconsistent run state throws' are covered.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "granularity",
+      "title": "Task 2.1 audit step may be unnecessary as a tracked task",
+      "detail": "Auditing command-bodies.ts is research, not a deliverable. Consider merging 2.1 into 2.3 as a prerequisite activity rather than a standalone tracked task.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 1
+      }
+    }
+  ]
+}
