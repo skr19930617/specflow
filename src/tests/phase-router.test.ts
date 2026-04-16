@@ -199,6 +199,9 @@ const FIXTURE_CONTRACTS: Record<string, PhaseContract> = {
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		requiredInputs: [],
+		producedOutputs: [],
+		cliCommands: [],
 	},
 	advance_phase: {
 		phase: "advance_phase",
@@ -206,6 +209,9 @@ const FIXTURE_CONTRACTS: Record<string, PhaseContract> = {
 		gated: false,
 		terminal: false,
 		advance_event: "continue",
+		requiredInputs: [],
+		producedOutputs: [],
+		cliCommands: [],
 	},
 	gated_phase: {
 		phase: "gated_phase",
@@ -215,6 +221,9 @@ const FIXTURE_CONTRACTS: Record<string, PhaseContract> = {
 		gated_event_kind: "approval_requested",
 		gated_event_type: "accept_spec",
 		next_phase: "design_draft",
+		requiredInputs: [],
+		producedOutputs: [],
+		cliCommands: [],
 	},
 	terminal_phase: {
 		phase: "terminal_phase",
@@ -222,6 +231,9 @@ const FIXTURE_CONTRACTS: Record<string, PhaseContract> = {
 		gated: false,
 		terminal: true,
 		terminal_reason: "done",
+		requiredInputs: [],
+		producedOutputs: [],
+		cliCommands: [],
 	},
 };
 
@@ -391,6 +403,9 @@ test("PhaseRouter.nextAction derives event_kind and event_type from the contract
 				gated_event_kind: "design_approval",
 				gated_event_type: "accept_design",
 				next_phase: "apply_draft",
+				requiredInputs: [],
+				producedOutputs: [],
+				cliCommands: [],
 			},
 		}),
 	});
@@ -670,10 +685,12 @@ test("deriveAction throws MalformedContractError on missing next_action", () => 
 		() =>
 			deriveAction({
 				phase: "bad",
-				// @ts-expect-error intentional malformed fixture
-				next_action: undefined,
+				next_action: undefined as never,
 				gated: false,
 				terminal: false,
+				requiredInputs: [],
+				producedOutputs: [],
+				cliCommands: [],
 			}),
 		MalformedContractError,
 	);
@@ -688,6 +705,9 @@ test("deriveAction throws MalformedContractError on unrecognized next_action", (
 				next_action: "whatever",
 				gated: false,
 				terminal: false,
+				requiredInputs: [],
+				producedOutputs: [],
+				cliCommands: [],
 			}),
 		MalformedContractError,
 	);
@@ -701,6 +721,9 @@ test("deriveAction throws when invoke_agent is missing the agent field", () => {
 				next_action: "invoke_agent",
 				gated: false,
 				terminal: false,
+				requiredInputs: [],
+				producedOutputs: [],
+				cliCommands: [],
 			}),
 		MalformedContractError,
 	);
@@ -734,6 +757,9 @@ test("PhaseRouter.nextAction does not emit when the contract is malformed", () =
 				gated: true,
 				terminal: false,
 				// gated_event_kind missing
+				requiredInputs: [],
+				producedOutputs: [],
+				cliCommands: [],
 			},
 		}),
 	});
@@ -771,6 +797,9 @@ test("PhaseRouter.nextAction throws MalformedContractError when gated_event_type
 				terminal: false,
 				gated_event_kind: "approval_requested",
 				// gated_event_type missing
+				requiredInputs: [],
+				producedOutputs: [],
+				cliCommands: [],
 			},
 		}),
 	});
@@ -851,6 +880,9 @@ test("PhaseRouter throws InconsistentRunStateError when terminal + gated contrac
 				terminal: true,
 				terminal_reason: "impossible",
 				gated_event_kind: "also_impossible",
+				requiredInputs: [],
+				producedOutputs: [],
+				cliCommands: [],
 			},
 		}),
 	});

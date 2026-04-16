@@ -1,63 +1,27 @@
 // PhaseRouter public types.
 //
-// PhaseContract is owned by a separate change (#129). Until that lands,
-// this module defines the minimal shape that the router consumes.
+// PhaseContract and related types are now defined in the canonical contract
+// module (src/contracts/phase-contract.ts) per #129. This module re-exports
+// them for backward compatibility.
 //
-// Surface event types are now imported from the canonical contract module
+// Surface event types are imported from the canonical contract module
 // (src/contracts/surface-events.ts), which satisfies #100.
 
 import type {
 	ActorIdentity,
 	CorrelationContext,
-	EventType,
-	SurfaceEventEnvelope,
 	SurfaceIdentity,
 } from "../../contracts/surface-events.js";
 
-// Re-export canonical types so existing consumers that import from
-// phase-router/types still work.
+// Re-export canonical types from the phase-contract module.
+export type {
+	PhaseContract,
+	PhaseContractRegistry,
+	PhaseNextAction,
+} from "../../contracts/phase-contract.js";
+
+// Re-export canonical surface event types.
 export type { SurfaceEventEnvelope as SurfaceEvent } from "../../contracts/surface-events.js";
-
-/** The four kinds of action the router can direct the orchestrator to take. */
-export type PhaseNextAction =
-	| "invoke_agent"
-	| "await_user"
-	| "advance"
-	| "terminal";
-
-/**
- * Structured metadata attached to a single workflow phase.
- * A `PhaseContract` is the router's only authoritative source for how a
- * phase should route — the router never maintains a parallel mapping.
- */
-export interface PhaseContract {
-	readonly phase: string;
-	readonly next_action: PhaseNextAction;
-	readonly gated: boolean;
-	readonly terminal: boolean;
-	/** Agent name — required iff next_action === "invoke_agent". */
-	readonly agent?: string;
-	/** Name of the event to fire — required iff next_action === "advance". */
-	readonly advance_event?: string;
-	/** Surface event kind — required iff gated === true. */
-	readonly gated_event_kind?: string;
-	/** Concrete event type for the gated envelope — required iff gated === true. */
-	readonly gated_event_type?: EventType;
-	/** Phase the workflow transitions to upon approval — used in envelope payload. */
-	readonly next_phase?: string;
-	/** Terminal reason — required iff terminal === true. */
-	readonly terminal_reason?: string;
-}
-
-/**
- * Registry of PhaseContracts keyed by phase name.
- * Kept interface-only so production registries and test fixtures can both
- * implement it.
- */
-export interface PhaseContractRegistry {
-	get(phase: string): PhaseContract | undefined;
-	phases(): readonly string[];
-}
 
 /**
  * Discriminated union of actions the router returns to the orchestrator.
@@ -91,5 +55,7 @@ export interface SurfaceEventContext {
  * production event bus and in-memory recorders used by tests.
  */
 export interface SurfaceEventSink {
-	emit(event: SurfaceEventEnvelope): void;
+	emit(
+		event: import("../../contracts/surface-events.js").SurfaceEventEnvelope,
+	): void;
 }

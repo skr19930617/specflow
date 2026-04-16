@@ -1,0 +1,249 @@
+{
+  "version": "1.0",
+  "change_id": "refactor-extract-structured-phase-contract-from-command-bodies-ts",
+  "bundles": [
+    {
+      "id": "phase-contract-types",
+      "title": "Define PhaseContract types and sub-types",
+      "goal": "Create the canonical PhaseContract type, sub-types, and PhaseContractRegistry interface in src/contracts/phase-contract.ts",
+      "depends_on": [],
+      "inputs": [
+        "src/lib/phase-router/types.ts",
+        "src/contracts/phase-contract.ts",
+        "src/types/contracts.ts"
+      ],
+      "outputs": [
+        "src/contracts/phase-contract.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define ArtifactRef, CliStep, AgentTaskSpec, GatedDecisionSpec, and PhaseNextAction sub-types",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Define the unified PhaseContract interface merging routing and execution fields",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Define PhaseContractRegistry interface with get() and phases() methods",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Implement createPhaseContractRegistry factory function",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add unit tests verifying type shape, registry construction, and frozen readonly semantics",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-router"
+      ]
+    },
+    {
+      "id": "phase-contract-registry",
+      "title": "Populate PhaseContract registry for all 18 phases",
+      "goal": "Build the production PhaseContractRegistry with a PhaseContract entry for every workflow state, extracting structured data from command-bodies.ts",
+      "depends_on": [
+        "phase-contract-types"
+      ],
+      "inputs": [
+        "src/contracts/phase-contract.ts",
+        "src/contracts/command-bodies.ts",
+        "src/lib/workflow-machine.ts"
+      ],
+      "outputs": [
+        "src/contracts/phase-contract.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Audit command-bodies.ts to identify structurable fields (CLI commands, artifact refs, gates) per phase",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Extract routing fields from existing phase-router test fixtures for each phase",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Define PhaseContract entries for all 18 workflow phases as const data",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Wire entries into createPhaseContractRegistry and export the production registry",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add cross-check test asserting registry.phases() matches workflowStates from workflow-machine.ts",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-router",
+        "slash-command-guides"
+      ]
+    },
+    {
+      "id": "phase-markdown-renderer",
+      "title": "Implement PhaseContract to Markdown renderer",
+      "goal": "Create renderPhaseMarkdown pure function that generates Markdown from structured PhaseContract fields",
+      "depends_on": [
+        "phase-contract-types"
+      ],
+      "inputs": [
+        "src/contracts/phase-contract.ts"
+      ],
+      "outputs": [
+        "src/contracts/phase-contract.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement renderPhaseMarkdown function rendering CLI commands as fenced code blocks",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Render artifact refs as bullet lists grouped by input/output role",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Render gated decisions as option blocks with advance events",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Render agent task specs as structured sections",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add semantic comparison tests validating output against current command-bodies.ts structured sections",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides"
+      ]
+    },
+    {
+      "id": "phase-router-migration",
+      "title": "Migrate phase-router imports to canonical module",
+      "goal": "Update all phase-router files to import PhaseContract from src/contracts/phase-contract.ts and add execution field validation",
+      "depends_on": [
+        "phase-contract-types"
+      ],
+      "inputs": [
+        "src/contracts/phase-contract.ts",
+        "src/lib/phase-router/types.ts",
+        "src/lib/phase-router/router.ts",
+        "src/lib/phase-router/index.ts"
+      ],
+      "outputs": [
+        "src/lib/phase-router/types.ts",
+        "src/lib/phase-router/router.ts",
+        "src/lib/phase-router/index.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Convert phase-router/types.ts to re-export PhaseContract, PhaseContractRegistry, PhaseNextAction from src/contracts/phase-contract.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Remove local PhaseContract type definition from phase-router/types.ts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Update import paths in router.ts and other phase-router modules",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add requiredInputs/producedOutputs presence validation in assertConsistent method",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Update phase-router/index.ts re-exports",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Verify all existing phase-router tests pass without modification",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-router"
+      ]
+    },
+    {
+      "id": "command-bodies-refactor",
+      "title": "Refactor command-bodies.ts to use registry and renderer",
+      "goal": "Replace structurable sections in command-bodies.ts with PhaseContract registry lookups and renderPhaseMarkdown calls while preserving prose templates",
+      "depends_on": [
+        "phase-contract-registry",
+        "phase-markdown-renderer"
+      ],
+      "inputs": [
+        "src/contracts/command-bodies.ts",
+        "src/contracts/phase-contract.ts"
+      ],
+      "outputs": [
+        "src/contracts/command-bodies.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Import PhaseContract registry and renderPhaseMarkdown into command-bodies.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Replace structurable sections with registry lookup + renderer calls for each applicable phase",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Preserve prose template strings for non-structurable content",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add semantic equivalence tests comparing pre-refactor and post-refactor generated guides",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run full build pipeline to verify slash-command guide generation is unchanged",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "phase-router"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-16T07:59:31.898Z",
+  "generated_from": "design.md"
+}

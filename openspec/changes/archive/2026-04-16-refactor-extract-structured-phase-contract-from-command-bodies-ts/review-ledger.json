@@ -1,0 +1,79 @@
+{
+  "feature_id": "refactor-extract-structured-phase-contract-from-command-bodies-ts",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/contracts/command-bodies.ts",
+      "title": "renderPhaseSection defined but not called in command-bodies templates",
+      "detail": "The spec says 'Markdown ガイド生成を PhaseContract ベースに切り替え。構造化データ部分は PhaseContract から動的生成し、散文テンプレートと合成する'. renderPhaseSection is exported but the diff shows no call site within commandBodies templates. The prose templates in command-bodies.ts still contain hardcoded CLI commands rather than calling renderPhaseSection() to generate them. This is the 'slash-command-guides' capability in the spec. The function exists and is tested but integration into the actual templates appears incomplete — this may be intentional for a follow-up PR, but the spec implies it should happen in this change.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/phase-router/types.ts",
+      "title": "Inline import in SurfaceEventSink.emit signature",
+      "detail": "The emit method uses `import('../../contracts/surface-events.js').SurfaceEventEnvelope` as an inline dynamic import type. This works but is less readable than adding SurfaceEventEnvelope to the existing static import at the top of the file. The old code had it as a proper import; the refactor dropped it. Consider restoring the static import.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/lib/phase-router/index.ts",
+      "title": "Re-exported sub-types may be premature",
+      "detail": "ArtifactRef, AgentTaskSpec, CliStep, GatedDecisionSpec are re-exported from phase-router/index.ts for convenience, but no consumer in the diff imports them via this path. This is harmless but adds public surface area. Consumers can import directly from contracts/phase-contract.ts.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "low",
+      "category": "testing",
+      "file": "src/tests/phase-router.test.ts",
+      "title": "No test for the new requiredInputs/producedOutputs validation in router.ts",
+      "detail": "router.ts adds two new validation checks (lines throwing InconsistentRunStateError when requiredInputs/producedOutputs are not arrays), but the test file only adds the fields to existing fixtures to satisfy the type. There is no test that exercises the negative path — e.g., a fixture with requiredInputs missing to verify the error is thrown. Consider adding a dedicated test.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 3
+      }
+    }
+  ]
+}
