@@ -164,7 +164,10 @@ test("ChangeArtifactStore: list singleton returns 0 or 1", async () => {
 		});
 		assert.equal(results.length, 0);
 
-		await store.write(changeRef("my-change", ChangeArtifactType.Proposal), "content");
+		await store.write(
+			changeRef("my-change", ChangeArtifactType.Proposal),
+			"content",
+		);
 		results = await store.list({
 			changeId: "my-change",
 			type: ChangeArtifactType.Proposal,
@@ -335,7 +338,10 @@ test("RunArtifactStore: list({ changeId }) filters only valid <changeId>-<N> run
 		const store = createLocalFsRunArtifactStore(root);
 		await store.write(runRef("my-change-1"), '{"run_id":"my-change-1"}');
 		await store.write(runRef("my-change-2"), '{"run_id":"my-change-2"}');
-		await store.write(runRef("my-change-extra-1"), '{"run_id":"my-change-extra-1"}');
+		await store.write(
+			runRef("my-change-extra-1"),
+			'{"run_id":"my-change-extra-1"}',
+		);
 		await store.write(runRef("other-1"), '{"run_id":"other-1"}');
 
 		const results = await store.list({ changeId: "my-change" });

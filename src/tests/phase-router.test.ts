@@ -260,7 +260,10 @@ test("PhaseRouter.currentPhase returns the contract for the run's phase", async 
 	const contracts = createRegistry(FIXTURE_CONTRACTS);
 	const router = new PhaseRouter({ store, eventSink: sink, contracts });
 
-	assert.deepEqual(await router.currentPhase("r-1"), FIXTURE_CONTRACTS.advance_phase);
+	assert.deepEqual(
+		await router.currentPhase("r-1"),
+		FIXTURE_CONTRACTS.advance_phase,
+	);
 });
 
 // --- 6.2 nextAction returns a value whose kind is in the PhaseAction union --
@@ -608,7 +611,7 @@ test("PhaseRouter.nextAction returns the advance event name from the contract", 
 		contracts: createRegistry(FIXTURE_CONTRACTS),
 	});
 
-	const action = await router.nextAction("r-evt") as Extract<
+	const action = (await router.nextAction("r-evt")) as Extract<
 		PhaseAction,
 		{ kind: "advance" }
 	>;

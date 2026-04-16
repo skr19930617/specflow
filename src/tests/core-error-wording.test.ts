@@ -83,7 +83,10 @@ test("invalid_run_id wording matches fixture", async () => {
 
 test("run_not_found wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
-	const r = await getRunField({ runId: "ghost-1", field: "current_phase" }, { runs });
+	const r = await getRunField(
+		{ runId: "ghost-1", field: "current_phase" },
+		{ runs },
+	);
 	const e = expectError(r, "run_not_found");
 	assert.equal(e.message, fixture.run_not_found);
 });
@@ -156,15 +159,17 @@ test("run_not_suspended wording matches fixture", async () => {
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-nsw");
 	assert.equal(
-		(await startChangeRun(
-			{
-				changeId: "feat-nsw",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-				retry: false,
-			},
-			{ runs, changes, workspace },
-		)).ok,
+		(
+			await startChangeRun(
+				{
+					changeId: "feat-nsw",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+					retry: false,
+				},
+				{ runs, changes, workspace },
+			)
+		).ok,
 		true,
 	);
 	const r = await resumeRun({ runId: "feat-nsw-1" }, { runs });
@@ -176,10 +181,12 @@ test("run_already_exists wording matches fixture", async () => {
 	const runs = createInMemoryRunArtifactStore();
 	const workspace = createFakeWorkspaceContext();
 	assert.equal(
-		(await startSyntheticRun(
-			{ runId: "synth-x", source: null, agents: { main: "c", review: "x" } },
-			{ runs, workspace },
-		)).ok,
+		(
+			await startSyntheticRun(
+				{ runId: "synth-x", source: null, agents: { main: "c", review: "x" } },
+				{ runs, workspace },
+			)
+		).ok,
 		true,
 	);
 	const r = await startSyntheticRun(
@@ -196,15 +203,17 @@ test("run_active_exists wording matches fixture", async () => {
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-one");
 	assert.equal(
-		(await startChangeRun(
-			{
-				changeId: "feat-one",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-				retry: false,
-			},
-			{ runs, changes, workspace },
-		)).ok,
+		(
+			await startChangeRun(
+				{
+					changeId: "feat-one",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+					retry: false,
+				},
+				{ runs, changes, workspace },
+			)
+		).ok,
 		true,
 	);
 	const r = await startChangeRun(
@@ -226,15 +235,17 @@ test("run_suspended_exists wording matches fixture", async () => {
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-one");
 	assert.equal(
-		(await startChangeRun(
-			{
-				changeId: "feat-one",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-				retry: false,
-			},
-			{ runs, changes, workspace },
-		)).ok,
+		(
+			await startChangeRun(
+				{
+					changeId: "feat-one",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+					retry: false,
+				},
+				{ runs, changes, workspace },
+			)
+		).ok,
 		true,
 	);
 	assert.equal((await suspendRun({ runId: "feat-one-1" }, { runs })).ok, true);
@@ -382,15 +393,17 @@ test("already_suspended wording matches fixture", async () => {
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-as");
 	assert.equal(
-		(await startChangeRun(
-			{
-				changeId: "feat-as",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-				retry: false,
-			},
-			{ runs, changes, workspace },
-		)).ok,
+		(
+			await startChangeRun(
+				{
+					changeId: "feat-as",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+					retry: false,
+				},
+				{ runs, changes, workspace },
+			)
+		).ok,
 		true,
 	);
 	assert.equal((await suspendRun({ runId: "feat-as-1" }, { runs })).ok, true);
@@ -405,15 +418,17 @@ test("field_not_found wording matches fixture", async () => {
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-fn");
 	assert.equal(
-		(await startChangeRun(
-			{
-				changeId: "feat-fn",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-				retry: false,
-			},
-			{ runs, changes, workspace },
-		)).ok,
+		(
+			await startChangeRun(
+				{
+					changeId: "feat-fn",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+					retry: false,
+				},
+				{ runs, changes, workspace },
+			)
+		).ok,
 		true,
 	);
 	const r = await getRunField({ runId: "feat-fn-1", field: "nope" }, { runs });
@@ -427,15 +442,17 @@ test("field_not_updatable wording matches fixture", async () => {
 	const workspace = createFakeWorkspaceContext();
 	seedProposal(changes, "feat-fu");
 	assert.equal(
-		(await startChangeRun(
-			{
-				changeId: "feat-fu",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-				retry: false,
-			},
-			{ runs, changes, workspace },
-		)).ok,
+		(
+			await startChangeRun(
+				{
+					changeId: "feat-fu",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+					retry: false,
+				},
+				{ runs, changes, workspace },
+			)
+		).ok,
 		true,
 	);
 	const r = await updateRunField(

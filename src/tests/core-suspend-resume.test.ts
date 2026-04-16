@@ -37,10 +37,12 @@ test("suspendRun sets status=suspended and preserves current_phase", async () =>
 	const { runs, runId } = await bootstrap("feat-suspend");
 	// Advance to proposal_draft first
 	assert.equal(
-		(await advanceRun(
-			{ runId, event: "propose" },
-			{ runs, workflow: testWorkflowDefinition },
-		)).ok,
+		(
+			await advanceRun(
+				{ runId, event: "propose" },
+				{ runs, workflow: testWorkflowDefinition },
+			)
+		).ok,
 		true,
 	);
 
@@ -55,17 +57,21 @@ test("suspendRun sets status=suspended and preserves current_phase", async () =>
 test("suspendRun rejects terminal runs", async () => {
 	const { runs, runId } = await bootstrap("feat-suspend-terminal");
 	assert.equal(
-		(await advanceRun(
-			{ runId, event: "propose" },
-			{ runs, workflow: testWorkflowDefinition },
-		)).ok,
+		(
+			await advanceRun(
+				{ runId, event: "propose" },
+				{ runs, workflow: testWorkflowDefinition },
+			)
+		).ok,
 		true,
 	);
 	assert.equal(
-		(await advanceRun(
-			{ runId, event: "reject" },
-			{ runs, workflow: testWorkflowDefinition },
-		)).ok,
+		(
+			await advanceRun(
+				{ runId, event: "reject" },
+				{ runs, workflow: testWorkflowDefinition },
+			)
+		).ok,
 		true,
 	);
 
@@ -88,10 +94,12 @@ test("suspendRun rejects already-suspended runs", async () => {
 test("resumeRun restores allowed_events for the preserved phase", async () => {
 	const { runs, runId } = await bootstrap("feat-resume");
 	assert.equal(
-		(await advanceRun(
-			{ runId, event: "propose" },
-			{ runs, workflow: testWorkflowDefinition },
-		)).ok,
+		(
+			await advanceRun(
+				{ runId, event: "propose" },
+				{ runs, workflow: testWorkflowDefinition },
+			)
+		).ok,
 		true,
 	);
 	assert.equal((await suspendRun({ runId }, { runs })).ok, true);

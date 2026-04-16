@@ -244,14 +244,16 @@ test("startSyntheticRun rejects collisions", async () => {
 	const workspace = createFakeWorkspaceContext();
 
 	assert.equal(
-		(await startSyntheticRun(
-			{
-				runId: "synth-dup",
-				source: null,
-				agents: { main: "claude", review: "codex" },
-			},
-			{ runs, workspace },
-		)).ok,
+		(
+			await startSyntheticRun(
+				{
+					runId: "synth-dup",
+					source: null,
+					agents: { main: "claude", review: "codex" },
+				},
+				{ runs, workspace },
+			)
+		).ok,
 		true,
 	);
 	const dup = await startSyntheticRun(

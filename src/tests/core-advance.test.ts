@@ -63,7 +63,10 @@ test("advanceRun rejects events when run is suspended", async () => {
 	// Directly mutate stored state to suspended for this branch.
 	const ref = { runId, type: "run-state" as const };
 	const state = JSON.parse(await runs.read(ref));
-	await runs.write(ref, `${JSON.stringify({ ...state, status: "suspended" })}\n`);
+	await runs.write(
+		ref,
+		`${JSON.stringify({ ...state, status: "suspended" })}\n`,
+	);
 
 	const result = await advanceRun(
 		{ runId, event: "propose" },
