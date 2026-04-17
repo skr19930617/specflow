@@ -1,0 +1,62 @@
+{
+  "feature_id": "split-runstate-into-core-workflow-state-and-local-adapter-state",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "priorRecords precondition not listed in spec's start precondition set",
+      "detail": "The design (D2) introduces priorRecords as a precondition input to advanceRun, but the spec's 'Start precondition inputs' requirement explicitly lists an exhaustive set (proposalExists, priorRuns, nextRunId, nowIso, existingRunExists?) and states 'No other store or workspace lookups SHALL be performed inside the core start functions.' The advance preconditions (priorRecords for interaction records) are not enumerated in the spec with the same rigor. Task 2.1 correctly passes priorRecords to advanceRun, but the spec's 'Workflow core commands share an adapter-parameterized signature' requirement only mentions 'state: CoreRunState & TAdapter as its first argument' without mentioning priorRecords. Consider adding a brief spec scenario under the advance requirement that enumerates the advance-specific precondition inputs (priorRecords, artifactExistence booleans for the gate matrix) to match the rigor given to start preconditions.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "consistency",
+      "title": "TransitionOk envelope not mentioned in spec scenarios",
+      "detail": "The design introduces TransitionOk<TAdapter> = { state, recordMutations } as the return envelope (D2), but the spec scenarios consistently say 'return type SHALL be Result<CoreRunState & TAdapter, CoreRuntimeError>'. The design's richer envelope is a sound decision that enables record-mutation purity, but the spec text does not reflect it. Since the spec is the source of intent, either the spec should be updated to mention TransitionOk, or the design should note this as a deliberate deviation. This is low severity because the implementation will follow the design, and the spec can be updated during the apply phase.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "granularity",
+      "title": "Task 1 bundles too many concerns",
+      "detail": "Task 1 combines AdapterFields addition, RecordMutation/TransitionOk type creation, RunStateCoreFields deletion, *Deps rewriting, and re-export updates. The Deps rewrite (1.7) is particularly large — it changes every command's type contract and will cause every core module to fail typecheck until the core refactor tasks (2–5) land. Consider splitting 1.7 into its own task or noting that typecheck at 1.8 is expected to have errors in core modules (not just contracts). This is low because the ordering note in the design already acknowledges the coupling.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 2
+      }
+    }
+  ]
+}

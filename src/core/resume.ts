@@ -1,47 +1,47 @@
-// Core runtime: mark a suspended run active again.
+// Core runtime: mark a suspended run active again. Pure function — no I/O.
 
-import type { RunArtifactStore } from "../lib/artifact-store.js";
 import { deriveAllowedEvents } from "../lib/workflow-machine.js";
-import type { CoreRunState, RunState, RunStatus } from "../types/contracts.js";
-import { loadRunState, nowIso, writeRunState } from "./_helpers.js";
-import type { CoreRuntimeError, Result, ResumeInput } from "./types.js";
+import type { RunStatus } from "../types/contracts.js";
+import type {
+	CoreRuntimeError,
+	Result,
+	RunStateOf,
+	TransitionOk,
+} from "./types.js";
 import { err, ok } from "./types.js";
 
-export interface ResumeDeps {
-	readonly runs: RunArtifactStore;
+export interface ResumeInput<TAdapter> {
+	readonly state: RunStateOf<TAdapter>;
+	readonly nowIso: string;
 }
 
-export async function resumeRun<T extends CoreRunState = RunState>(
-	input: ResumeInput,
-	deps: ResumeDeps,
-): Promise<Result<T, CoreRuntimeError>> {
-	const loaded = await loadRunState<T>(deps.runs, input.runId);
-	if (!loaded.ok) return loaded;
-	const runState = loaded.value;
+export function resumeRun<TAdapter extends object>(
+	input: ResumeInput<TAdapter>,
+): Result<TransitionOk<TAdapter>, CoreRuntimeError> {
+	const { state, nowIso } = input;
 
-	if (runState.status !== "suspended") {
+	if (state.status !== "suspended") {
 		return err({
 			kind: "run_not_suspended",
 			message: "Error: Run is not suspended",
 		});
 	}
 
-	const updated: T = {
-		...runState,
+	const updated: RunStateOf<TAdapter> = {
+		...state,
 		status: "active" as RunStatus,
-		updated_at: nowIso(),
-		allowed_events: deriveAllowedEvents("active", runState.current_phase),
+		updated_at: nowIso,
+		allowed_events: deriveAllowedEvents("active", state.current_phase),
 		history: [
-			...runState.history,
+			...state.history,
 			{
-				from: runState.current_phase,
-				to: runState.current_phase,
+				from: state.current_phase,
+				to: state.current_phase,
 				event: "resume",
-				timestamp: nowIso(),
+				timestamp: nowIso,
 			},
 		],
 	};
 
-	await writeRunState<T>(deps.runs, input.runId, updated);
-	return ok(updated);
+	return ok({ state: updated, recordMutations: [] });
 }

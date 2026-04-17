@@ -295,19 +295,40 @@ export interface LocalRunState {
  * keeps compiling unchanged. Kept as a strict literal-key intersection (no
  * `JsonMap` index signature) so the compile-time drift guard at
  * `src/tests/run-state-partition.test.ts` can verify that
- * `keyof CoreRunState | keyof LocalRunState === keyof RunState`. Callers
- * that previously relied on `RunState extends JsonMap` structurally do not
- * exist today; the one dynamic-field reader (`src/core/get-field.ts`)
- * casts to `JsonMap` explicitly.
+ * `keyof CoreRunState | keyof LocalRunState === keyof RunState`.
  */
 export type RunState = CoreRunState & LocalRunState;
 
 /**
- * Backward-compatible alias for the full RunState type.
- * Code from the runstate-adapter-extension spec that imports RunStateCoreFields
- * continues to work — it sees the full RunState (core + local adapter fields).
+ * Compile-time constraint for adapter type parameters used by the workflow
+ * core runtime. `TAdapter` must be an object type AND its keys must be
+ * disjoint from `CoreRunState` keys. If an adapter type shadows a core
+ * field (e.g. `{ run_id: number }`), this resolves to `never` and the
+ * TypeScript compiler rejects the instantiation site.
+ *
+ * **If you see a `Type '...' is not assignable to type 'never'` error at a
+ * call site that instantiates a core command with a custom adapter**:
+ * inspect the adapter shape — one of its keys is colliding with a
+ * `CoreRunState` field. Rename the adapter key.
+ *
+ * `object` (not `Record<string, unknown>`) is the outer bound because the
+ * `readonly` fields on adapter interfaces like `LocalRunState` do not
+ * widen cleanly to a mutable index signature. Primitives are still
+ * rejected: `string`, `number`, `boolean`, etc. do not extend `object`.
  */
-export type RunStateCoreFields = RunState;
+export type AdapterFields<TAdapter> = TAdapter extends object
+	? keyof TAdapter & keyof CoreRunState extends never
+		? TAdapter
+		: never
+	: never;
+
+/**
+ * Adapter-parameterized run-state. `CoreRunState` always present; the
+ * adapter slice contributes additional runtime-specific fields. Used by the
+ * generic core runtime signatures in `src/core/**`. For the concrete
+ * local-FS persisted shape, use the non-generic `RunState` alias above.
+ */
+export type RunStateOf<TAdapter> = CoreRunState & AdapterFields<TAdapter>;
 
 export interface DiffExcludedEntry extends JsonMap {
 	readonly file: string;

@@ -5,14 +5,14 @@
 // MUST NOT throw for known failure modes, MUST NOT call process.exit /
 // stdout / stderr, and MUST NOT touch the filesystem or git directly.
 
-import type { ActorIdentity } from "../contracts/surface-events.js";
 import type {
+	AdapterFields,
 	CoreRunState,
 	RunKind,
 	RunState,
-	RunStateCoreFields,
-	SourceMetadata,
+	RunStateOf,
 } from "../types/contracts.js";
+import type { InteractionRecord } from "../types/interaction-records.js";
 
 // --- Result type -----------------------------------------------------------
 
@@ -68,59 +68,30 @@ export interface CoreRuntimeError {
 	readonly details?: Readonly<Record<string, unknown>>;
 }
 
-// --- Command inputs --------------------------------------------------------
+// --- Record mutations and transition envelope ------------------------------
 
-export interface StartChangeInput {
-	readonly changeId: string;
-	readonly source: SourceMetadata | null;
-	readonly agents: { readonly main: string; readonly review: string };
-	readonly retry: boolean;
-}
+/**
+ * A record-store mutation computed by a pure core transition. The wiring
+ * layer applies these against `InteractionRecordStore` after persisting the
+ * new run state. Keeping mutations as data lets core stay pure while
+ * preserving the existing record/state write ordering.
+ */
+export type RecordMutation =
+	| { readonly kind: "create"; readonly record: InteractionRecord }
+	| { readonly kind: "update"; readonly record: InteractionRecord }
+	| { readonly kind: "delete"; readonly recordId: string };
 
-export interface StartSyntheticInput {
-	readonly runId: string;
-	readonly source: SourceMetadata | null;
-	readonly agents: { readonly main: string; readonly review: string };
-}
-
-export interface AdvanceInput {
-	readonly runId: string;
-	readonly event: string;
-	/** Optional actor identity for provenance tracking. */
-	readonly actor?: ActorIdentity;
-	/** Optional event_id to associate with interaction records. */
-	readonly eventId?: string;
-	/** Optional clarify data for creating/resolving ClarifyRecords. */
-	readonly clarify?: {
-		readonly question?: string;
-		readonly questionContext?: string;
-		readonly answer?: string;
-	};
-}
-
-export interface SuspendInput {
-	readonly runId: string;
-}
-
-export interface ResumeInput {
-	readonly runId: string;
-}
-
-export interface StatusInput {
-	readonly runId: string;
-}
-
-export interface UpdateFieldInput {
-	readonly runId: string;
-	readonly field: string;
-	readonly value: string;
-}
-
-export interface GetFieldInput {
-	readonly runId: string;
-	readonly field: string;
+/**
+ * Envelope returned by every core transition. `state` is the new run state
+ * (typed as `RunStateOf<TAdapter>` = `CoreRunState & AdapterFields<TAdapter>`).
+ * `recordMutations` is empty for commands that do not touch interaction
+ * records and populated (in deterministic order) for `advanceRun`.
+ */
+export interface TransitionOk<TAdapter> {
+	readonly state: RunStateOf<TAdapter>;
+	readonly recordMutations: readonly RecordMutation[];
 }
 
 // --- Re-exports used by command signatures ---------------------------------
 
-export type { CoreRunState, RunKind, RunState, RunStateCoreFields };
+export type { AdapterFields, CoreRunState, RunKind, RunState, RunStateOf };

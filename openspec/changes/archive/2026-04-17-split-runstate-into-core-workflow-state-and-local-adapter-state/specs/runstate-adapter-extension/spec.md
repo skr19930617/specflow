@@ -1,8 +1,5 @@
-# runstate-adapter-extension Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change phase-1-core-runstate-core-adapter-field-split-phase-contract. Update Purpose after archive.
-## Requirements
 ### Requirement: RunState type separates core fields from adapter-extensible fields
 
 The system SHALL define two disjoint run-state partitions in
@@ -82,3 +79,28 @@ The `AdapterFields<TAdapter>` type bound SHALL be a conditional type that requir
 - **AND** the TypeScript compiler SHALL reject the
   instantiation site
 
+## REMOVED Requirements
+
+### Requirement: RunStateCoreFields is independently importable
+
+**Reason**: The `RunStateCoreFields` type was a historical alias
+that accumulated two contradictory meanings — (1) the full
+run-state field set including local-adapter fields (original
+definition) and (2) an alias for `RunState` after the
+core/local partition landed. The new `CoreRunState` and
+`LocalRunState` partitions supersede both meanings and are
+already the canonical way to import either the runtime-agnostic
+partition or the local-adapter partition independently.
+
+**Migration**: Delete `RunStateCoreFields` from
+`src/types/contracts.ts` and replace every internal reference:
+- Consumers that need only the runtime-agnostic core fields
+  SHALL import `CoreRunState`.
+- Consumers that need the combined local-FS persisted shape
+  SHALL import `RunState` (unchanged export, now defined as
+  `CoreRunState & LocalRunState`).
+- Consumers that need adapter-parameterized combinations SHALL
+  use the generic `RunState<TAdapter>` form.
+No external (out-of-repo) consumers of `RunStateCoreFields`
+exist; the symbol was never exported from a published package
+boundary, so no deprecation cycle is required.
