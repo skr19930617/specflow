@@ -1,0 +1,64 @@
+{
+  "feature_id": "add-spec-verify-phase-validate-delta-spec-consistency-against-baseline-specs",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "error_handling",
+      "file": "src/lib/spec-verify.ts",
+      "title": "Missing proposal.md error uses wrong error code",
+      "detail": "When proposal.md is not found (line 383), the error code is `missing_baseline` with capability `<proposal.md>`. This conflates a missing proposal with a missing baseline spec. Consider using a distinct error code (e.g. `missing_proposal`) or at minimum documenting that this is an intentional reuse. The spec only defines `missing_baseline` and `unparseable_baseline` as error codes, so this is technically out-of-spec but harmless since a missing proposal.md would be caught earlier in the workflow.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/spec-verify.ts",
+      "title": "findRippleCandidates uses string.includes for title matching",
+      "detail": "Line 349 uses `lines[i].includes(title)` which can produce false positives if a requirement title is a common substring (e.g. title 'State' would match any line containing that word). This is acceptable since the spec says the agent judges whether each candidate is actually broken, but a word-boundary check would reduce noise. Low priority since the agent filters results.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "completeness",
+      "file": "src/contracts/phase-contract.ts",
+      "title": "spec_verify phase contract has gated: false",
+      "detail": "The spec_verify phase contract sets `gated: false` while the proposal describes it as a blocking gate. The semantic gating is enforced by the agent workflow (command body), not the phase contract field, so this is consistent with how spec_validate works. No action needed unless the project's convention for `gated` means something different.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 3
+      }
+    }
+  ]
+}

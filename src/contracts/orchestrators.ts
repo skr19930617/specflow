@@ -120,4 +120,12 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
 		stdoutSchemaId: "run-state",
 		references: [],
 	},
+	{
+		id: "specflow-spec-verify",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-spec-verify",
+		entryModule: "dist/bin/specflow-spec-verify.js",
+		stdoutSchemaId: "spec-verify-result",
+		references: [],
+	},
 ];

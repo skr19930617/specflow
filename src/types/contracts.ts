@@ -181,6 +181,7 @@ export type SchemaId =
 	| "create-sub-issues-result"
 	| "generate-task-graph-result"
 	| "advance-bundle-result"
+	| "spec-verify-result"
 	| "profile";
 
 export type ReviewSeverity = "high" | "medium" | "low" | string;

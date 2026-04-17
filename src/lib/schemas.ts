@@ -1079,6 +1079,28 @@ function advanceBundleResultValidator(
 	}
 }
 
+function specVerifyResultValidator(
+	value: unknown,
+	path: string,
+	errors: ValidationErrors,
+): void {
+	const record = expectRecord(value, path, errors);
+	if (!record) {
+		return;
+	}
+	numberValidator(record.schema_version, `${path}.schema_version`, errors);
+	stringValidator(record.change_id, `${path}.change_id`, errors);
+	if (!Array.isArray(record.modified_capabilities)) {
+		errors.push(`${path}.modified_capabilities: expected array`);
+	}
+	if (!Array.isArray(record.pairings)) {
+		errors.push(`${path}.pairings: expected array`);
+	}
+	if (!Array.isArray(record.ripple_candidates)) {
+		errors.push(`${path}.ripple_candidates: expected array`);
+	}
+}
+
 export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"issue-metadata": issueMetadataValidator,
 	"source-metadata": sourceMetadataValidator,
@@ -1097,6 +1119,7 @@ export const schemaValidators: Readonly<Record<SchemaId, SchemaValidator>> = {
 	"create-sub-issues-result": createSubIssuesResultValidator,
 	"generate-task-graph-result": generateTaskGraphResultValidator,
 	"advance-bundle-result": advanceBundleResultValidator,
+	"spec-verify-result": specVerifyResultValidator,
 	profile: profileValidator,
 };
 

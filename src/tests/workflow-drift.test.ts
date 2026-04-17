@@ -57,7 +57,8 @@ test("workflow OpenSpec stays aligned with current workflow, run-state, and revi
 		"utf8",
 	);
 
-	assert.ok(workflowSpec.includes("version `4.0`"));
+	assert.ok(workflowSpec.includes("version `4.1`"));
+	assert.ok(workflowSpec.includes("spec_verify"));
 	assert.ok(workflowSpec.includes("update-field <run_id> last_summary_path"));
 	assert.ok(workflowSpec.includes("run_kind"));
 	assert.ok(workflowSpec.includes("--run-kind synthetic"));

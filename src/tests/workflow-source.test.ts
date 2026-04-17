@@ -12,7 +12,7 @@ import {
 } from "../lib/workflow-machine.js";
 
 test("workflow machine exports the exact detailed state graph", () => {
-	assert.equal(workflowVersion, "6.0");
+	assert.equal(workflowVersion, "6.1");
 	assert.deepEqual(workflowStates, [
 		"start",
 		"proposal_draft",
@@ -22,6 +22,7 @@ test("workflow machine exports the exact detailed state graph", () => {
 		"proposal_reclarify",
 		"spec_draft",
 		"spec_validate",
+		"spec_verify",
 		"spec_ready",
 		"design_draft",
 		"design_review",
@@ -46,6 +47,7 @@ test("workflow machine exports the exact detailed state graph", () => {
 		"validate_spec",
 		"revise_spec",
 		"spec_validated",
+		"spec_verified",
 		"accept_spec",
 		"review_design",
 		"revise_design",
@@ -111,9 +113,20 @@ test("workflow machine exports the exact detailed state graph", () => {
 		{
 			from: "spec_validate",
 			event: "spec_validated",
-			to: "spec_ready",
+			to: "spec_verify",
 		},
 		{ from: "spec_validate", event: "reject", to: "rejected" },
+		{
+			from: "spec_verify",
+			event: "revise_spec",
+			to: "spec_draft",
+		},
+		{
+			from: "spec_verify",
+			event: "spec_verified",
+			to: "spec_ready",
+		},
+		{ from: "spec_verify", event: "reject", to: "rejected" },
 		{
 			from: "spec_ready",
 			event: "accept_spec",

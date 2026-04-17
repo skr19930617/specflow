@@ -1,6 +1,6 @@
 import { createMachine } from "xstate";
 
-export const workflowVersion = "6.0";
+export const workflowVersion = "6.1";
 
 const workflowMachineConfig = {
 	id: "specflow-workflow",
@@ -54,7 +54,14 @@ const workflowMachineConfig = {
 		spec_validate: {
 			on: {
 				revise_spec: { target: "spec_draft" },
-				spec_validated: { target: "spec_ready" },
+				spec_validated: { target: "spec_verify" },
+				reject: { target: "rejected" },
+			},
+		},
+		spec_verify: {
+			on: {
+				revise_spec: { target: "spec_draft" },
+				spec_verified: { target: "spec_ready" },
 				reject: { target: "rejected" },
 			},
 		},
@@ -135,6 +142,7 @@ const workflowEventOrder = [
 	"validate_spec",
 	"revise_spec",
 	"spec_validated",
+	"spec_verified",
 	"accept_spec",
 	"review_design",
 	"revise_design",

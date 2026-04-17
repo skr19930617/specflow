@@ -272,8 +272,11 @@ stateDiagram-v2
   spec_draft --> spec_validate: validate_spec
   spec_draft --> rejected: reject
   spec_validate --> spec_draft: revise_spec
-  spec_validate --> spec_ready: spec_validated
+  spec_validate --> spec_verify: spec_validated
   spec_validate --> rejected: reject
+  spec_verify --> spec_draft: revise_spec
+  spec_verify --> spec_ready: spec_verified
+  spec_verify --> rejected: reject
   spec_ready --> design_draft: accept_spec
   spec_ready --> rejected: reject
   design_draft --> design_review: review_design
