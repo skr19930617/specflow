@@ -1,0 +1,48 @@
+{
+  "feature_id": "add-spec-verify-phase-validate-delta-spec-consistency-against-baseline-specs",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "completeness",
+      "title": "Empty Modified Capabilities short-circuit prose not explicitly tasked",
+      "detail": "The slash-command-guides spec requires the generated specflow.md to contain prose stating that when specflow-spec-verify reports reason:no_modified_capabilities the guide advances with spec_verified immediately. Task 4.2–4.6 cover the verify step prose generically but do not call out this short-circuit path as a distinct sub-task. The existing task granularity likely covers it implicitly via 4.6 (advance with spec_verified), but explicitly mentioning the no_modified_capabilities branch in 4.6 or as a sub-bullet would reduce ambiguity.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "completeness",
+      "title": "Mermaid diagram refresh not tasked",
+      "detail": "Completion condition C6 mentions refreshing the Mermaid diagram if one exists in docs/. No task covers this. If a diagram exists it should be updated; if not, the condition is vacuous. Adding a conditional task or noting it in Task 1 would be cleaner, but this is non-blocking since the completion condition already flags it.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 2
+      }
+    }
+  ]
+}

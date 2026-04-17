@@ -100,6 +100,7 @@ const TO_SPEC_READY = [
 	{ event: "accept_proposal" },
 	{ event: "validate_spec" },
 	{ event: "spec_validated" },
+	{ event: "spec_verified" },
 ] as const;
 
 test("entering spec_ready creates a pending ApprovalRecord", () => {

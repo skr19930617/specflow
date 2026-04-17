@@ -219,7 +219,7 @@ Run structural validation only after spec delta files are drafted:
    openspec validate "<CHANGE_ID>" --type change --json
    ```
 3. Parse the JSON response:
-   - If `valid: true`, advance to `spec_ready`:
+   - If `valid: true`, advance into the semantic-verification gate (`spec_verify`):
      ```bash
      specflow-run advance "<RUN_ID>" spec_validated
      ```
@@ -234,6 +234,54 @@ Strict gate rules:
 - Reuse `max_autofix_rounds` from `openspec/config.yaml` as the maximum spec validation loop count
 - When spec validation returns `max_rounds_reached` or `no_progress`, stop in the current state without bypassing the gate
 
+## Step 8.5: Spec Verify — delta vs. baseline consistency
+
+Once the run is in `spec_verify`, run the hybrid CLI + agent verification that compares the delta's clauses against the baseline specs referenced by `Modified Capabilities`.
+
+1. Run the deterministic helper:
+   ```bash
+   specflow-spec-verify "<CHANGE_ID>" --json
+   ```
+2. Parse the JSON. Handle errors first:
+   - If the JSON contains `error.code == "missing_baseline"`, display the offending capability and advance back to `spec_draft` so the user can fix `Modified Capabilities`:
+     ```bash
+     specflow-run advance "<RUN_ID>" revise_spec
+     ```
+   - If the JSON contains `error.code == "unparseable_baseline"`, display the offending capability and `parse_reason`, ask the user to repair the broken baseline spec, then advance:
+     ```bash
+     specflow-run advance "<RUN_ID>" revise_spec
+     ```
+3. Handle the empty-capabilities short-circuit:
+   - If the JSON contains `reason: "no_modified_capabilities"` (and no `error`), no baseline specs need to be compared. Advance immediately without prompting the user:
+     ```bash
+     specflow-run advance "<RUN_ID>" spec_verified
+     ```
+4. Otherwise, read each pairing in `pairings` and each candidate in `ripple_candidates`, and judge whether each represents a **genuine incompatibility** with the baseline. Compatible tightening (e.g. baseline `SHALL respond within 24 hours` vs. delta `SHALL respond within 30 minutes`) is NOT a conflict; only contradictions are.
+5. For every pairing or ripple candidate you judge as a conflict, surface it to the user via `AskUserQuestion` (one at a time) with four outcomes:
+   - **fix delta** — the new delta should be rewritten to match the baseline rule.
+   - **fix baseline** — the existing baseline spec is stale and should be corrected (separate change).
+   - **fix both** — both sides need adjustment.
+   - **accept-as-is** — the divergence is intentional; record it in `design.md`.
+6. Handle the user's answers:
+   - Any of `fix delta` / `fix baseline` / `fix both` → send the run back to `spec_draft` without touching `design.md`:
+     ```bash
+     specflow-run advance "<RUN_ID>" revise_spec
+     ```
+   - `accept-as-is` → append a row to the `## Accepted Spec Conflicts` section of `openspec/changes/<CHANGE_ID>/design.md` (creating the file if it does not yet exist) using the six-column schema:
+     ```
+     | id | capability | delta_clause | baseline_clause | rationale | accepted_at |
+     ```
+     `id` is monotonic per change (`AC1`, `AC2`, …); `accepted_at` is an ISO-8601 UTC timestamp; `rationale` is the user-supplied reason.
+7. Once every conflict has a recorded outcome and zero fix-choices remain, advance to `spec_ready`:
+   ```bash
+   specflow-run advance "<RUN_ID>" spec_verified
+   ```
+
+Strict gate rules:
+- Do NOT advance with `spec_verified` while any candidate conflict remains unaccepted.
+- The agent's judgement is advisory; the user's outcome selection is authoritative.
+- The helper reads only the baseline specs listed in `Modified Capabilities` plus REMOVED-clause ripple grep excerpts — do NOT inject any other baseline spec into the prompt.
+
 ## Step 9: Design Handoff
 
 Only when the run is in `spec_ready`, offer the next action.
@@ -242,7 +290,7 @@ Recommended handoff:
 - **Design に進む** → `/specflow.design`
 - **中止** → `/specflow.reject`
 
-Do not offer `/specflow.design` from `proposal_clarify`, `proposal_challenge`, `proposal_reclarify`, `spec_draft`, or `spec_validate`.
+Do not offer `/specflow.design` from `proposal_clarify`, `proposal_challenge`, `proposal_reclarify`, `spec_draft`, `spec_validate`, or `spec_verify`.
 
 ## Important Rules
 

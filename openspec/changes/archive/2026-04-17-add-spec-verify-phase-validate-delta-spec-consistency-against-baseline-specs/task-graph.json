@@ -1,0 +1,330 @@
+{
+  "version": "1.0",
+  "change_id": "add-spec-verify-phase-validate-delta-spec-consistency-against-baseline-specs",
+  "bundles": [
+    {
+      "id": "workflow-machine-and-phase-contract",
+      "title": "Workflow Machine State + Phase Contract Registration",
+      "goal": "Add spec_verify state/events/transitions to the workflow machine (v6.0→6.1) and register the spec_verify phase contract entry so downstream template rendering can resolve the new step.",
+      "depends_on": [],
+      "inputs": [
+        "src/lib/workflow-machine.ts",
+        "src/contracts/phase-contract.ts"
+      ],
+      "outputs": [
+        "src/lib/workflow-machine.ts",
+        "src/contracts/phase-contract.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add spec_verify state with spec_verified→spec_ready and revise_spec→spec_draft transitions in workflow-machine.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Retarget spec_validate's spec_validated edge from spec_ready to spec_verify",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Bump workflowVersion from 6.0 to 6.1",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add spec_verified to workflowEventOrder between spec_validated and accept_spec",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add spec_verify entry to phase-contract.ts with requiredInputs, cliCommands, and producedOutputs per D9",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Verify deriveTransitions and deriveAllowedEvents still validate with the new state",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Write transition unit tests: spec_validated→spec_verify, spec_verified→spec_ready, revise_spec→spec_draft",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Write phase-contract registry test confirming spec_verify entry and type check",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "phase-contract-types",
+        "phase-contract-structure"
+      ]
+    },
+    {
+      "id": "spec-verify-cli",
+      "title": "Deterministic CLI: specflow-spec-verify",
+      "goal": "Build the specflow-spec-verify CLI that resolves impacted baselines, parses delta clauses, greps for REMOVED ripple candidates, and emits structured JSON (schema v1).",
+      "depends_on": [],
+      "inputs": [
+        "openspec/specs/**/spec.md",
+        "openspec/changes/<id>/proposal.md",
+        "openspec/changes/<id>/specs/*/spec.md"
+      ],
+      "outputs": [
+        "src/bin/specflow-spec-verify.ts",
+        "src/lib/spec-verify.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create src/lib/spec-verify.ts with proposal parser to extract Modified Capabilities list",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement baseline path resolution: capability name → openspec/specs/<name>/spec.md",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Implement missing-baseline and unparseable-baseline detection with structured error codes",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Implement delta clause parser (SHALL/MUST lines + Scenario WHEN/THEN anchors)",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Implement baseline clause parser with requirement-name normalisation",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Implement pairing enumeration: delta clause × baseline clause alignment",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Implement REMOVED-clause grep across all baseline specs bounded to ±3 context lines",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Implement JSON report assembly with schema_version:1 and all documented fields",
+          "status": "done"
+        },
+        {
+          "id": "9",
+          "title": "Create src/bin/specflow-spec-verify.ts thin runner with <CHANGE_ID> --json interface and exit codes",
+          "status": "done"
+        },
+        {
+          "id": "10",
+          "title": "Write unit tests: empty-capabilities case returns reason:no_modified_capabilities",
+          "status": "done"
+        },
+        {
+          "id": "11",
+          "title": "Write unit tests: single-capability happy path produces correct pairings",
+          "status": "done"
+        },
+        {
+          "id": "12",
+          "title": "Write unit tests: REMOVED-ripple case produces ripple_candidates",
+          "status": "done"
+        },
+        {
+          "id": "13",
+          "title": "Write unit tests: missing-baseline error exits non-zero",
+          "status": "done"
+        },
+        {
+          "id": "14",
+          "title": "Write unit tests: unparseable-baseline error exits non-zero with parse_reason",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "utility-cli-suite"
+      ]
+    },
+    {
+      "id": "accepted-conflict-writer",
+      "title": "design.md Accepted-Conflict Writer Helper",
+      "goal": "Create a helper that appends or creates the Accepted Spec Conflicts table in design.md with the six-column schema (id, capability, delta_clause, baseline_clause, rationale, accepted_at).",
+      "depends_on": [],
+      "inputs": [
+        "openspec/changes/<id>/design.md"
+      ],
+      "outputs": [
+        "src/lib/spec-verify.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add appendAcceptedConflict function to src/lib/spec-verify.ts that creates design.md if missing and appends a table row",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement monotonic AC-id generation (AC1, AC2, …) within a change",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Ensure the writer only touches the ## Accepted Spec Conflicts section and never other sections",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Write unit tests: create design.md from scratch with one accepted conflict row",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Write unit tests: append to existing design.md preserving other sections",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification"
+      ]
+    },
+    {
+      "id": "command-body-template",
+      "title": "Command Body Template Update for spec_verify Step",
+      "goal": "Extend specflow.md.tmpl with a new Step that drives the hybrid CLI+agent verify flow, surfaces conflicts via AskUserQuestion, writes accepted conflicts to design.md, and advances the run.",
+      "depends_on": [
+        "workflow-machine-and-phase-contract",
+        "spec-verify-cli",
+        "accepted-conflict-writer"
+      ],
+      "inputs": [
+        "assets/commands/specflow.md.tmpl",
+        "src/contracts/phase-contract.ts",
+        "src/lib/spec-verify.ts"
+      ],
+      "outputs": [
+        "assets/commands/specflow.md.tmpl"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Insert new Step (between existing Step 8 Spec Validate and Step 9 Design Handoff) in specflow.md.tmpl",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add prose for CLI invocation: specflow-spec-verify <CHANGE_ID> --json",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add prose for blocking on missing_baseline / unparseable_baseline errors with revise_spec advance",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add prose for AskUserQuestion per conflict with four outcomes: fix delta, fix baseline, fix both, accept-as-is",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add prose for writing accepted conflicts to design.md via the writer helper",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Add prose for advancing run with spec_verified (all resolved) or revise_spec (any fix chosen)",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Renumber all trailing steps after the insertion",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Regenerate global/commands/specflow.md from the updated template",
+          "status": "done"
+        },
+        {
+          "id": "9",
+          "title": "Write golden-file test verifying generated specflow.md includes the verify step with literal CLI invocations",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "command-template-authoring",
+        "slash-command-guides"
+      ]
+    },
+    {
+      "id": "integration-tests",
+      "title": "End-to-End Integration Tests",
+      "goal": "Exercise the full spec_validate→spec_validated→spec_verify→spec_verified→spec_ready path and the revise_spec back-edge, confirming all components work together.",
+      "depends_on": [
+        "command-body-template"
+      ],
+      "inputs": [
+        "src/lib/workflow-machine.ts",
+        "src/bin/specflow-spec-verify.ts",
+        "src/lib/spec-verify.ts",
+        "assets/commands/specflow.md.tmpl",
+        "src/contracts/phase-contract.ts"
+      ],
+      "outputs": [
+        "src/tests/spec-verify/"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create fixture change with delta specs that produce pairings and ripple candidates",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Write integration test: validate_spec→spec_validated→spec_verify→spec_verified→spec_ready happy path",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Write integration test: spec_verify→revise_spec→spec_draft back-edge path",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Write integration test: accept-as-is produces design.md with correct six-column table and row count",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Verify openspec validate still reports the change as valid:true",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Verify full test suite is green with all new tests in place",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "spec-consistency-verification"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-17T13:07:02.619Z",
+  "generated_from": "design.md"
+}

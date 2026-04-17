@@ -399,6 +399,38 @@ const phaseContractData: readonly PhaseContract[] = [
 		],
 	},
 	{
+		phase: "spec_verify",
+		next_action: "invoke_agent",
+		gated: false,
+		terminal: false,
+		agent: "claude",
+		requiredInputs: [
+			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
+			{
+				path: "openspec/changes/<CHANGE_ID>/specs/*/spec.md",
+				role: "input",
+			},
+		],
+		producedOutputs: [
+			{ path: "openspec/changes/<CHANGE_ID>/design.md", role: "output" },
+		],
+		cliCommands: [
+			{
+				command: 'specflow-spec-verify "<CHANGE_ID>" --json',
+				description: "Run hybrid CLI + agent spec consistency verification",
+			},
+			{
+				command: 'specflow-run advance "<RUN_ID>" spec_verified',
+				description: "Mark spec as verified and enter spec_ready",
+			},
+			{
+				command: 'specflow-run advance "<RUN_ID>" revise_spec',
+				description:
+					"Return to spec draft on conflict or missing/unparseable baseline",
+			},
+		],
+	},
+	{
 		phase: "spec_ready",
 		next_action: "await_user",
 		gated: true,
