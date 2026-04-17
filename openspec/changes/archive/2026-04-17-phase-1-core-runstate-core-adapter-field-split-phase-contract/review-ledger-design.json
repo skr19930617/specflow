@@ -1,0 +1,62 @@
+{
+  "feature_id": "phase-1-core-runstate-core-adapter-field-split-phase-contract",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "GateCondition spec requires discriminated union but design uses single interface",
+      "detail": "The spec (phase-contract-structure) requires GateCondition to be a 'discriminated union on the kind field' where 'any other string value SHALL cause a compile-time error'. The design defines it as a single interface with `kind: 'artifact_exists' | 'approval_required' | 'validation_passed'` — this is technically a string literal union on the kind field, which does satisfy the compile-time constraint. However, the tasks (2.2) say 'Define GateCondition interface with kind union type' — if implemented as a single interface this works, but consider whether individual discriminated union members (e.g., `ArtifactExistsCondition`, `ApprovalRequiredCondition`, `ValidationPassedCondition`) would better support future pattern matching in Phase 2. Current approach is acceptable but worth noting.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "granularity",
+      "title": "Task 3.2 combines implementation of core logic with Result wiring",
+      "detail": "Task 3.2 ('Implement resolveRunId using findLatestRun and status filtering, returning Result') bundles the store query logic, status filtering, and Result wrapping into one task. This is acceptable given the function's expected size (~20-30 lines), but if the existing run-store-ops API for enumerating runs by changeId is unclear, this task may need exploratory work first. The implementer should verify that RunArtifactStore exposes a way to list all runs for a changeId (or that findLatestRun can be adapted).",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "completeness",
+      "title": "PhaseContract type tests not explicitly tasked",
+      "detail": "Section 4 covers RunState generic type tests thoroughly, but there are no explicit compile-time type tests for PhaseContract extensions (e.g., verifying that a PhaseContract without input/output still compiles, or that GateCondition rejects invalid kind values). Task 2.5 runs typecheck and existing tests, which provides implicit coverage. Consider adding a brief type-test task if the team wants explicit coverage of spec scenarios for GateCondition.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 2
+      }
+    }
+  ]
+}

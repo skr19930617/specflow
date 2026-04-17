@@ -22,9 +22,12 @@ export {
 export type { PhaseRouterDeps } from "./router.js";
 export { PhaseRouter } from "./router.js";
 export type {
+	GateCondition,
+	GateConditionKind,
 	PhaseAction,
 	PhaseContract,
 	PhaseContractRegistry,
+	PhaseIODescriptor,
 	PhaseNextAction,
 	SurfaceEvent,
 	SurfaceEventSink,

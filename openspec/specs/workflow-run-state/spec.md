@@ -38,6 +38,8 @@ All `RunArtifactStore` operations SHALL be asynchronous (returning `Promise`). T
 
 Repository metadata SHALL be obtained via the injected `WorkspaceContext` interface rather than being passed as direct parameters or resolved internally.
 
+The created run state SHALL conform to `RunState<Record<string, never>>` (the default empty adapter), with all fields belonging to `RunStateCoreFields`.
+
 #### Scenario: Change runs require an existing local proposal artifact
 
 - **WHEN** `specflow-run start <change_id>` is invoked with the default run kind
@@ -88,6 +90,13 @@ Repository metadata SHALL be obtained via the injected `WorkspaceContext` interf
 - **WHEN** `specflow-run start` is invoked from a CLI entry point
 - **THEN** the CLI entry point SHALL construct a `WorkspaceContext` implementation and pass it to the run start function
 - **AND** the run start function SHALL NOT resolve workspace metadata independently
+
+#### Scenario: Created run state conforms to RunStateCoreFields
+
+- **WHEN** a new run is created via `specflow-run start`
+- **THEN** the persisted run state SHALL contain only fields defined in `RunStateCoreFields`
+- **AND** no adapter-specific fields SHALL be present in the initial state
+- **AND** the state SHALL be assignable to `RunState<Record<string, never>>`
 
 ### Requirement: `specflow-run advance` validates and records transitions
 

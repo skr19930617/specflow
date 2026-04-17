@@ -1,10 +1,23 @@
 // High-level run operations built on RunArtifactStore.
 // Replaces run-identity.ts filesystem helpers with store-backed equivalents.
 
+import type { Result } from "../core/types.js";
 import type { RunState, RunStatus } from "../types/contracts.js";
 import type { RunArtifactStore } from "./artifact-store.js";
 import { runRef } from "./artifact-types.js";
 import { isTerminalPhase } from "./workflow-machine.js";
+
+// --- resolveRunId error types ------------------------------------------------
+
+export type ResolveRunIdErrorKind =
+	| "no_active_run"
+	| "change_not_found"
+	| "multiple_active_runs";
+
+export interface ResolveRunIdError {
+	readonly kind: ResolveRunIdErrorKind;
+	readonly message: string;
+}
 
 /**
  * Extract the sequence number from a run_id in `<changeId>-<N>` format.
@@ -129,4 +142,48 @@ export async function generateRunId(
 		}
 	}
 	return `${changeId}-${maxSeq + 1}`;
+}
+
+/**
+ * Resolve a Change ID to the run_id of its single non-terminal run.
+ * Relies on the "one non-terminal run per change" invariant from run-identity-model.
+ */
+export async function resolveRunId(
+	store: RunArtifactStore,
+	changeId: string,
+): Promise<Result<string, ResolveRunIdError>> {
+	const runs = await findRunsForChange(store, changeId);
+	if (runs.length === 0) {
+		return {
+			ok: false,
+			error: {
+				kind: "change_not_found",
+				message: `No runs found for change '${changeId}'`,
+			},
+		};
+	}
+
+	const nonTerminal = runs.filter((r) => r.status !== "terminal");
+
+	if (nonTerminal.length === 0) {
+		return {
+			ok: false,
+			error: {
+				kind: "no_active_run",
+				message: `No active or suspended run for change '${changeId}'`,
+			},
+		};
+	}
+
+	if (nonTerminal.length > 1) {
+		return {
+			ok: false,
+			error: {
+				kind: "multiple_active_runs",
+				message: `Invariant violation: multiple non-terminal runs for change '${changeId}'`,
+			},
+		};
+	}
+
+	return { ok: true, value: nonTerminal[0].run_id };
 }
