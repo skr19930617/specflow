@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { commandBodies } from "../contracts/command-bodies.js";
 import { contracts } from "../contracts/install.js";
+import { resolveAllTemplates } from "../contracts/template-resolver.js";
 import {
 	mergeProjectGitignore,
 	renderProjectGitignore,
@@ -11,12 +12,17 @@ import type { InstallPlan, Manifest } from "../types/contracts.js";
 
 /**
  * Flatten all section contents of a commandBodies entry into a single string.
- * Used by source-level assertions that must stay independent of dist freshness.
+ * Resolves templates so assertions see the authoritative rendered text.
  */
+const resolvedCommandsById = new Map(
+	resolveAllTemplates(contracts.commands).map((c) => [c.id, c]),
+);
+
 function commandBodyText(key: string): string {
-	const body = commandBodies[key];
-	assert.ok(body, `commandBodies['${key}'] is missing`);
-	return body.sections.map((section) => section.content).join("\n");
+	assert.ok(commandBodies[key], `commandBodies['${key}'] is missing`);
+	const command = resolvedCommandsById.get(key);
+	assert.ok(command, `resolved command '${key}' is missing`);
+	return command.body.sections.map((section) => section.content).join("\n");
 }
 
 test("generated manifest and install plan reflect contracts", () => {
@@ -70,7 +76,10 @@ test("generated slash commands include run-state hook injections", () => {
 
 test("command contracts render without legacy command source paths", async () => {
 	const { contracts } = await import("../contracts/install.js");
-	for (const command of contracts.commands) {
+	const { resolveAllTemplates: resolve } = await import(
+		"../contracts/template-resolver.js"
+	);
+	for (const command of resolve(contracts.commands)) {
 		assert.ok(command.body.sections.length > 0);
 		assert.equal(
 			"legacySourcePath" in (command as unknown as Record<string, unknown>),

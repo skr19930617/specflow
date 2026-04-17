@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-	commandBodies,
-	renderPhaseSection,
-} from "../contracts/command-bodies.js";
+import { renderPhaseSection } from "../contracts/inserts.js";
+import { contracts } from "../contracts/install.js";
 import { phaseContractRegistry } from "../contracts/phase-contract.js";
+import { resolveAllTemplates } from "../contracts/template-resolver.js";
+
+const resolvedCommands = resolveAllTemplates(contracts.commands);
 
 // ---------------------------------------------------------------------------
 // Semantic equivalence: PhaseContract CLI commands appear in command-bodies
@@ -16,9 +17,9 @@ import { phaseContractRegistry } from "../contracts/phase-contract.js";
  * This catches drift between the structured contract and the prose guide.
  */
 test("PhaseContract CLI commands appear in command-bodies Markdown", () => {
-	// Collect all Markdown content from command bodies
-	const allMarkdown = Object.values(commandBodies)
-		.flatMap((body) => body.sections.map((s) => s.content))
+	// Collect all Markdown content from resolved command bodies
+	const allMarkdown = resolvedCommands
+		.flatMap((c) => c.body.sections.map((s) => s.content))
 		.join("\n");
 
 	const driftErrors: string[] = [];

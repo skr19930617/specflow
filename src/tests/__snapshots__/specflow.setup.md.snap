@@ -1,0 +1,148 @@
+---
+description: Repository profile を生成・更新し、CLAUDE.md の managed セクションを再レンダリング
+---
+## Overview
+
+
+リポジトリのエコシステムを検出し、構造化された project profile (`.specflow/profile.json`) を生成する。
+生成後、Claude adapter が profile から CLAUDE.md の managed セクションを自動レンダリングする。
+
+## Prerequisites
+
+
+1. Run `ls CLAUDE.md` via Bash to confirm CLAUDE.md exists.
+   - If missing: "`CLAUDE.md` が見つかりません。先に `specflow-init` を実行してください。" → **STOP**.
+
+2. Read the current `CLAUDE.md` file to understand existing content.
+
+## Step 1: Scope & Ecosystem Detection
+
+
+リポジトリルートでエコシステム検出を実行する。
+
+**検出マトリクス（優先順）:**
+1. `package.json` → JavaScript/TypeScript（lockfile で toolchain 判定: npm/pnpm/yarn/bun）
+2. `Cargo.toml`（`[workspace]` なし）→ Rust / cargo
+3. `go.mod` → Go / go
+4. `pyproject.toml` → Python（uv.lock/poetry.lock で toolchain 判定: uv/poetry/pip）
+
+**Out-of-scope 判定:**
+- Primary indicator が2つ以上 → エラー終了
+- Workspace 定義あり（`pnpm-workspace.yaml`, `Cargo.toml [workspace]`, `lerna.json`）→ エラー終了
+- Primary indicator なし → エラー終了
+- 同一エコシステム内で toolchain 曖昧 → ユーザーに選択を求める
+
+Out-of-scope の場合:
+```
+このリポジトリ構成は現在のバージョンではサポートされていません。
+単一言語・単一ルートのリポジトリで setup を実行してください。
+```
+→ **STOP**.
+
+検出結果を報告:
+```
+[1/5] エコシステム検出完了
+
+言語: typescript
+ツールチェーン: npm
+ビルド: npm run build
+テスト: npm test
+リント: npm run lint
+フォーマット: npm run format
+ソース: src/
+テスト: tests/
+生成物: dist/
+```
+
+ユーザーに確認: 「検出結果を確認してください。修正があれば教えてください。」
+
+## Step 2: Profile Load / Migration / Diff-and-Resolve
+
+
+**初回生成（`.specflow/profile.json` なし）:**
+Step 1 の検出結果からプロファイルを組み立て、ユーザーに確認する。
+
+追加で以下を質問:
+- 「編集禁止ゾーン（生成ファイル等）はありますか？」→ `forbiddenEditZones`
+- 「contract-sensitive なモジュールはありますか？」→ `contractSensitiveModules`
+- 「コーディング規約はありますか？」→ `codingConventions`
+- 「変更後の検証期待事項はありますか？」→ `verificationExpectations`
+
+スキップ可能（null として記録）。
+
+**再実行（既存 profile あり）:**
+`loadProfileForSetup()` で読み込む:
+- 古い schemaVersion → 自動 migration → ユーザー確認
+- 現在の schemaVersion → field-level diff
+  - 変更なし → 「変更は検出されませんでした。」で終了
+  - 差分あり → 各差分をユーザーに提示し、accept/reject を選択
+
+Required 項目（`languages`, `toolchain`）が検出できない場合は対話的に入力を求め、入力完了までブロックする。
+
+## Step 3: Schema Validation & Profile Write
+
+
+確定したプロファイルを schema validation にかける。
+
+Validation 失敗時:
+- エラー詳細を表示
+- ユーザーに修正を促す
+- 再度 validation を実行
+
+Validation 成功時:
+- `.specflow/profile.json` に atomic write で書き出す
+- 書き出し完了を報告:
+```
+[3/5] Profile 生成完了: .specflow/profile.json
+```
+
+## Step 4: Claude Adapter Render Planning
+
+
+Profile から CLAUDE.md の managed セクションをレンダリングする。
+
+Renderer は `RenderResult` を返す:
+- `nextContent`: 提案される CLAUDE.md の内容
+- `warning`: 警告メッセージ（あれば）
+- `diffPreview`: 変更の diff プレビュー
+- `writeDisposition`: `safe-write` | `confirmation-required` | `abort`
+
+## Step 5: CLAUDE.md Write Gate
+
+
+Renderer の `writeDisposition` に基づいて分岐する:
+
+**`safe-write`（マーカーあり、通常更新）:**
+- diff を表示して自動書き込み
+- 完了報告
+
+**`confirmation-required`（legacy migration）:**
+- warning を表示
+- diff プレビューを表示
+- ユーザーに accept/reject を求める
+- accept → CLAUDE.md を書き込み
+- reject → ファイルを変更しない
+
+**`abort`（マーカー異常 or version mismatch）:**
+- エラーメッセージを表示
+- CLAUDE.md を変更しない
+
+最終報告:
+```
+[5/5] Setup 完了
+
+生成されたファイル:
+  .specflow/profile.json
+  CLAUDE.md (updated)
+```
+
+## Important Rules
+
+
+- Schema validation は profile 書き出し前に必ず実行する。
+- 検出結果を鵜呑みにせず、必ずユーザーに確認してから書き込む。
+- 検出できない項目は silent guess せず、`null` として記録するかユーザーに入力を求める。
+- Required 項目（languages, toolchain）は検出失敗時にブロックし、ユーザー入力を必須とする。
+- Setup のみが古い profile の schema migration を実行する。他の reader は version mismatch で中断する。
+- CLAUDE.md の書き込みは renderer の `writeDisposition` に従う。`confirmation-required` 時はユーザー確認なしに書き込まない。
+- `## MANUAL ADDITIONS` や managed マーカー外のコンテンツは一切変更しない。

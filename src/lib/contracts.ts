@@ -82,16 +82,38 @@ function validateCommandContracts(
 	);
 
 	for (const command of commands) {
-		if (command.body.sections.length > 0) {
-			continue;
+		const hasTemplate = command.body.templatePath !== undefined;
+		if (hasTemplate) {
+			// Validate template file exists
+			if (!existsSync(fromRepo(command.body.templatePath!))) {
+				errors.push({
+					id: command.id,
+					type: AssetType.Command,
+					check: "command-template-exists",
+					filePath: command.filePath,
+					message: `Template file "${command.body.templatePath}" does not exist.`,
+				});
+			}
+			// Commands with templatePath should have empty sections (populated by resolver)
+			if (command.body.sections.length > 0) {
+				errors.push({
+					id: command.id,
+					type: AssetType.Command,
+					check: "command-template-sections-empty",
+					filePath: command.filePath,
+					message:
+						"Command with templatePath must have empty sections (populated by template resolver at build time).",
+				});
+			}
+		} else if (command.body.sections.length === 0) {
+			errors.push({
+				id: command.id,
+				type: AssetType.Command,
+				check: "command-sections-present",
+				filePath: command.filePath,
+				message: "Command contract must include at least one markdown section.",
+			});
 		}
-		errors.push({
-			id: command.id,
-			type: AssetType.Command,
-			check: "command-sections-present",
-			filePath: command.filePath,
-			message: "Command contract must include at least one markdown section.",
-		});
 	}
 
 	return errors;

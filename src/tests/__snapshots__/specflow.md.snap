@@ -1,0 +1,298 @@
+---
+description: URL またはインライン仕様記述から local proposal entry → scope → clarify → proposal review → spec delta draft → validate を厳格に実行
+---
+## User Input
+
+
+```text
+$ARGUMENTS
+```
+
+## Prerequisites
+
+
+Before starting, verify the project is initialized:
+
+1. Run `openspec list --json > /dev/null 2>&1` via Bash to confirm OpenSpec is ready.
+   - If exit 127 (command not found):
+     ```
+     ❌ openspec CLI が見つかりません。
+
+     次のステップで解消してください:
+     1. `specflow-install` を実行
+     2. `/specflow` を再実行してください
+     ```
+     → **STOP**.
+   - If any other non-zero exit:
+     ```
+     ❌ OpenSpec が初期化されていません。
+
+     次のステップで解消してください:
+     1. `specflow-init` を実行
+     2. `/specflow` を再実行してください
+     ```
+     → **STOP**.
+
+## Step 1: Setup — 入力取得と分類
+
+
+<!-- Input modes:
+  (1) /specflow <issue-url>  → 引数が issue URL → プロンプトなしで issue 取得
+  (2) /specflow <text>       → 引数が URL 以外 → プロンプトなしでインライン仕様記述
+  (3) /specflow              → 引数なし → テキスト案内を表示しユーザー入力を待つ
+-->
+
+1. **入力テキストの取得（共通エントリポイント）:**
+   - If `$ARGUMENTS` is non-empty, use it as `INPUT_TEXT` (do NOT display a prompt).
+   - If `$ARGUMENTS` is empty, display the following message and **wait for the user's next message**:
+     ```
+     GitHub issue URL を入力するか、仕様をテキストで記述してください。
+     例:
+     - Issue URL: https://github.com/OWNER/REPO/issues/123
+     - インライン仕様: 「ユーザー認証機能を追加する」
+     ```
+     Use the user's response as `INPUT_TEXT`.
+
+2. **入力分類（統一ロジック — 引数・プロンプト両方に適用）:**
+   - If `INPUT_TEXT` is empty or whitespace-only → re-display the prompt message above and wait again (loop until non-empty input is received).
+   - If `INPUT_TEXT` matches the pattern `https://<HOST>/<OWNER>/<REPO>/issues/<NUMBER>` (i.e., a URL containing `/issues/` followed by a number) → set `MODE = issue_url` and store `INPUT_TEXT` as the issue URL.
+   - Otherwise → set `MODE = inline_spec` and store `INPUT_TEXT` as the feature description.
+
+## Step 2: Fetch Issue (MODE = issue_url のみ)
+
+
+**If `MODE = inline_spec`**: Remove any stale issue context by running `rm -f /tmp/specflow-issue.json` via Bash, then skip this step entirely and proceed to Step 3.
+
+**If `MODE = issue_url`**:
+
+Run via Bash:
+```bash
+specflow-fetch-issue "<ISSUE_URL>" > /tmp/specflow-issue.json
+```
+
+If the command fails (non-zero exit code, empty output, or the JSON contains an error):
+- Display the error: `"Issue 取得に失敗しました: <error details>。URL を確認して再入力してください。"`
+- Re-display the text prompt from Step 1 and **wait for the user's next message**.
+- Use the new response as `INPUT_TEXT` and re-run the classification logic from Step 1 point 2 (the user may enter a different URL or switch to inline spec).
+
+If successful, read `/tmp/specflow-issue.json` and extract: title, body, url, number, state, author login, label names.
+
+Report to the user:
+```
+Step 2: Issue fetched — #<number> — <title>
+Author: <author> | State: <state> | Labels: <labels>
+```
+
+Show a brief summary of the issue body.
+
+## Step 2.5: Baseline Spec 存在チェック
+
+
+Glob ツールで `openspec/specs/*/spec.md` パターンに一致するファイルを検索する。
+
+- **1つ以上のファイルが見つかった場合**: Report `Step 2.5: <N> baseline spec(s) found` → Step 3 に進む。
+- **ファイルが見つからない場合**（ディレクトリのみ存在・空ディレクトリ・`openspec/specs/` 自体が欠落のいずれでも）:
+
+  `AskUserQuestion` で誘導する:
+
+  ```
+  AskUserQuestion:
+    question: "⚠️ openspec/specs/ にベースライン spec が見つかりません。\n既存プロジェクトに specflow を導入する場合、先に `/specflow.spec` でベースライン spec を生成することを推奨します。"
+    options:
+      - label: "specflow.spec を実行 (Recommended)"
+        description: "コードベースを解析してベースライン spec を生成する"
+      - label: "スキップして続行"
+        description: "spec なしで proposal 作成に進む（後で spec delta エラーが発生する可能性あり）"
+  ```
+
+  - 「specflow.spec を実行」 → `/specflow.spec` を起動し、その完全なワークフローに従って実行する → **STOP**（spec 生成後にユーザーが `/specflow` を再実行する）。
+  - 「スキップして続行」 → Step 3 に進む。
+
+## Step 3: Proposal Creation
+
+
+Pass raw input directly to the local entry helper. Source normalization is handled internally by `specflow-prepare-change`.
+
+1. Determine `RAW_INPUT` from the classified input:
+   - **`MODE = issue_url`**: `RAW_INPUT` is the issue URL from Step 2.
+   - **`MODE = inline_spec`**: `RAW_INPUT` is the `INPUT_TEXT` from Step 1.
+2. Run the shared local entry helper:
+   ```bash
+   specflow-prepare-change [<CHANGE_ID>] <RAW_INPUT>
+   ```
+   - If you already know the desired `CHANGE_ID`, pass it explicitly as the first argument.
+   - Otherwise let the helper derive it from the normalized source.
+   - The helper auto-detects the input mode (issue URL vs inline text) and normalizes internally.
+3. The helper performs the canonical entry sequence:
+   - classifies and normalizes the raw input (fetching the issue if URL mode)
+   - creates or reuses `openspec/changes/<CHANGE_ID>/`
+   - creates or switches the local branch `<CHANGE_ID>`
+   - writes `openspec/changes/<CHANGE_ID>/proposal.md` from OpenSpec proposal instructions plus the normalized source
+   - runs `specflow-run start "<CHANGE_ID>"` with the normalized source metadata
+   - runs `specflow-run advance "<RUN_ID>" propose`
+4. Parse the returned run-state JSON. Set `CHANGE_ID = RUN_STATE.change_name` and `RUN_ID = RUN_STATE.run_id`. `RUN_ID` has the format `<CHANGE_ID>-<N>` (e.g., `my-feature-1`). All subsequent `specflow-run` subcommands require `RUN_ID`.
+5. Read `openspec/changes/<CHANGE_ID>/proposal.md`.
+6. If the seeded draft clearly misses obvious scope/details from the source, refine `proposal.md` immediately before moving on.
+
+Report: `Step 3 complete — proposal created and run entered proposal_draft`
+
+## Step 4: Scope Check
+
+
+1. Move the run into `proposal_scope`:
+   ```bash
+   specflow-run advance "<RUN_ID>" check_scope
+   ```
+2. Analyze `openspec/changes/<CHANGE_ID>/proposal.md` for independent functional areas.
+3. If the proposal should be decomposed, confirm with the user.
+4. On confirmed decomposition:
+   - If issue-linked, invoke `/specflow.decompose`.
+   - Record the terminal branch state:
+     ```bash
+     specflow-run advance "<RUN_ID>" decompose
+     ```
+   - **STOP** in `decomposed`.
+5. If continuing as a single proposal, move into `proposal_clarify`:
+   ```bash
+   specflow-run advance "<RUN_ID>" continue_proposal
+   ```
+
+Report: `Step 4 complete — proposal entered proposal_scope and selected continue or decompose`
+
+## Step 5: Clarify
+
+
+Run the clarify workflow on `openspec/changes/<CHANGE_ID>/proposal.md`.
+
+Requirements:
+- Ask clarification questions one at a time with `AskUserQuestion`
+- Integrate answers back into proposal.md
+- Keep the run in `proposal_clarify` while proposal revisions continue
+
+Report: `Step 5 complete — clarify finished for the current proposal round`
+
+## Step 6: Proposal Challenge + Reclarify
+
+
+This step runs a linear challenge-reclarify flow (no loop). A separate agent identifies ambiguous points, and the user answers them.
+
+### 6a. Challenge
+
+1. Enter the challenge phase:
+   ```bash
+   specflow-run advance "<RUN_ID>" challenge_proposal
+   ```
+2. Run the challenge agent:
+   ```bash
+   specflow-challenge-proposal challenge <CHANGE_ID>
+   ```
+3. Parse the result JSON.
+   - If `status == "error"`, display the error and **STOP**.
+   - If `parse_error == true`, display the raw response and note a parse failure, but continue to reclarify.
+4. Display the challenge results:
+   ```
+   ### Proposal Challenge Results
+
+   **Summary:** <RESULT_JSON.summary>
+
+   | # | Category | Question | Context |
+   |---|----------|----------|---------|
+   | C1 | clarity | ... | ... |
+   ```
+
+### 6b. Reclarify
+
+5. Enter the reclarify phase:
+   ```bash
+   specflow-run advance "<RUN_ID>" reclarify
+   ```
+6. For each challenge item, present the question to the user via `AskUserQuestion` (one at a time).
+7. Integrate answers back into `openspec/changes/<CHANGE_ID>/proposal.md`.
+8. If the challenges array was empty, skip user interaction and proceed directly.
+9. Accept the proposal and move to `spec_draft`:
+   ```bash
+   specflow-run advance "<RUN_ID>" accept_proposal
+   ```
+
+Report: `Step 6 complete — proposal challenge + reclarify finished, entering spec_draft`
+
+## Step 7: Spec Delta Draft
+
+
+Generate spec delta placeholders only after proposal challenge + reclarify.
+
+1. Run:
+   ```bash
+   openspec instructions specs --change "<CHANGE_ID>" --json
+   ```
+2. Read `openspec/changes/<CHANGE_ID>/proposal.md` and parse the `Capabilities` section as the source of truth for spec targets.
+3. For each capability entry:
+   - `New Capabilities` → create or refresh `openspec/changes/<CHANGE_ID>/specs/<capability>/spec.md`
+   - `Modified Capabilities` → first confirm `openspec/specs/<capability>/spec.md` exists, then create or refresh `openspec/changes/<CHANGE_ID>/specs/<capability>/spec.md`
+4. Use the OpenSpec `template` and `instruction` from Step 1 to scaffold each spec delta file, then fill it with actual delta content.
+5. If the `Capabilities` section still contains placeholders, unresolved entries, or a modified capability without a matching baseline spec, return to `proposal_reclarify` instead of continuing:
+   ```bash
+   specflow-run advance "<RUN_ID>" reclarify
+   ```
+6. Report which spec delta files were created or refreshed.
+
+Report: `Step 7 complete — spec delta drafts created under openspec/changes/<CHANGE_ID>/specs/`
+
+## Step 8: Spec Validate
+
+
+Run structural validation only after spec delta files are drafted:
+
+1. Enter the spec validation gate:
+   ```bash
+   specflow-run advance "<RUN_ID>" validate_spec
+   ```
+2. Run:
+   ```bash
+   openspec validate "<CHANGE_ID>" --type change --json
+   ```
+3. Parse the JSON response:
+   - If `valid: true`, advance to `spec_ready`:
+     ```bash
+     specflow-run advance "<RUN_ID>" spec_validated
+     ```
+   - If `valid: false`, display the issues table, fix only the spec delta files under `openspec/changes/<CHANGE_ID>/specs/`, and loop back to `spec_draft`:
+     ```bash
+     specflow-run advance "<RUN_ID>" revise_spec
+     ```
+
+Strict gate rules:
+- Do **not** continue despite validation errors
+- Do **not** hand off to `/specflow.design` while validation issues remain
+- Reuse `max_autofix_rounds` from `openspec/config.yaml` as the maximum spec validation loop count
+- When spec validation returns `max_rounds_reached` or `no_progress`, stop in the current state without bypassing the gate
+
+## Step 9: Design Handoff
+
+
+Only when the run is in `spec_ready`, offer the next action.
+
+Recommended handoff:
+- **Design に進む** → `/specflow.design`
+- **中止** → `/specflow.reject`
+
+Do not offer `/specflow.design` from `proposal_clarify`, `proposal_challenge`, `proposal_reclarify`, `spec_draft`, or `spec_validate`.
+
+## Important Rules
+
+
+- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
+- All artifacts (proposal, specs, design, tasks) are managed in `openspec/changes/<change-id>/`.
+- If any tool call fails, report the error and ask the user how to proceed.
+- When reading specflow command files, follow their instructions faithfully.
+
+
+## Run State Hooks
+
+### Proposal Entry
+
+Use the shared local helper to materialize proposal.md and enter proposal_draft.
+
+```bash
+specflow-prepare-change [<CHANGE_ID>] <raw-input>
+```

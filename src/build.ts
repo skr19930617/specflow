@@ -1,4 +1,5 @@
 import { contracts } from "./contracts/install.js";
+import { resolveAllTemplates } from "./contracts/template-resolver.js";
 import { renderCommands } from "./generators/commands.js";
 import { renderInstallPlan } from "./generators/install-plan.js";
 import { renderPrompts } from "./generators/prompts.js";
@@ -32,29 +33,34 @@ function main(): void {
 		process.exit(1);
 	}
 
-	renderWorkflow(contracts.workflow);
+	const resolvedContracts = {
+		...contracts,
+		commands: resolveAllTemplates(contracts.commands),
+	} as const;
+
+	renderWorkflow(resolvedContracts.workflow);
 	renderReadmeWorkflowDiagram(renderWorkflowReadmeBlock());
-	renderPrompts(contracts.prompts);
-	renderCommands(contracts.commands);
-	renderTemplates(contracts.templates);
+	renderPrompts(resolvedContracts.prompts);
+	renderCommands(resolvedContracts.commands);
+	renderTemplates(resolvedContracts.templates);
 	renderStaticAssets();
 
 	const installPlan = {
-		copies: contracts.installCopies,
-		links: contracts.installLinks,
-		settingsMerge: contracts.installSettingsMerge,
+		copies: resolvedContracts.installCopies,
+		links: resolvedContracts.installLinks,
+		settingsMerge: resolvedContracts.installSettingsMerge,
 	} as const;
 	renderInstallPlan(installPlan);
 
 	const generatedAt = new Date().toISOString();
-	const manifest = createManifest(contracts, generatedAt, gitCommit());
+	const manifest = createManifest(resolvedContracts, generatedAt, gitCommit());
 	writeText(
 		fromRepo("dist/manifest.json"),
 		`${JSON.stringify(manifest, null, 2)}\n`,
 	);
 	writeText(
 		fromRepo("dist/contracts.json"),
-		`${JSON.stringify(contracts, null, 2)}\n`,
+		`${JSON.stringify(resolvedContracts, null, 2)}\n`,
 	);
 }
 
