@@ -1,36 +1,32 @@
-// Core runtime: patch a single allowed field on run state.
+// Core runtime: patch a single allowed field on run state. Pure — no I/O.
+// The wiring layer is responsible for validating that `field` is in the
+// adapter-specific allowed-fields whitelist before invoking this function.
 
-import type { RunArtifactStore } from "../lib/artifact-store.js";
-import type { RunState } from "../types/contracts.js";
-import { loadRunState, nowIso, writeRunState } from "./_helpers.js";
-import type { CoreRuntimeError, Result, UpdateFieldInput } from "./types.js";
-import { err, ok } from "./types.js";
+import type {
+	CoreRuntimeError,
+	Result,
+	RunStateOf,
+	TransitionOk,
+} from "./types.js";
+import { ok } from "./types.js";
 
-export interface UpdateFieldDeps {
-	readonly runs: RunArtifactStore;
+export interface UpdateFieldInput<TAdapter> {
+	readonly state: RunStateOf<TAdapter>;
+	readonly field: string;
+	readonly value: string;
+	readonly nowIso: string;
 }
 
-export async function updateRunField(
-	input: UpdateFieldInput,
-	deps: UpdateFieldDeps,
-): Promise<Result<RunState, CoreRuntimeError>> {
-	const { field, value } = input;
-	if (field !== "last_summary_path") {
-		return err({
-			kind: "field_not_updatable",
-			message: `Error: field '${field}' is not updatable. Allowed fields: last_summary_path`,
-		});
-	}
+export function updateRunField<TAdapter extends object>(
+	input: UpdateFieldInput<TAdapter>,
+): Result<TransitionOk<TAdapter>, CoreRuntimeError> {
+	const { state, field, value, nowIso } = input;
 
-	const loaded = await loadRunState(deps.runs, input.runId);
-	if (!loaded.ok) return loaded;
-	const runState = loaded.value;
-
-	const updated: RunState = {
-		...runState,
+	const updated = {
+		...state,
 		[field]: value,
-		updated_at: nowIso(),
-	};
-	await writeRunState(deps.runs, input.runId, updated);
-	return ok(updated);
+		updated_at: nowIso,
+	} as RunStateOf<TAdapter>;
+
+	return ok({ state: updated, recordMutations: [] });
 }

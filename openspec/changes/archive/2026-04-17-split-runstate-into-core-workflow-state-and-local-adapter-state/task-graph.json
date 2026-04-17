@@ -1,0 +1,461 @@
+{
+  "version": "1.0",
+  "change_id": "split-runstate-into-core-workflow-state-and-local-adapter-state",
+  "bundles": [
+    {
+      "id": "type-contracts-update",
+      "title": "Add AdapterFields and delete RunStateCoreFields",
+      "goal": "Establish the generic adapter type constraint and remove the deprecated RunStateCoreFields alias from the type surface.",
+      "depends_on": [],
+      "inputs": [
+        "src/types/contracts.ts",
+        "src/core/types.ts"
+      ],
+      "outputs": [
+        "src/types/contracts.ts",
+        "src/core/types.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add AdapterFields<TAdapter> conditional type to src/types/contracts.ts with doc comment explaining collision errors",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add RecordMutation type and TransitionOk<TAdapter> type to src/core/types.ts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Rewrite RunState<TAdapter> to use CoreRunState & AdapterFields<TAdapter>",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Delete RunStateCoreFields from src/types/contracts.ts and remove from re-exports",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Migrate all internal references from RunStateCoreFields to CoreRunState or RunState",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run bun run typecheck to confirm type changes compile",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "runstate-adapter-extension"
+      ]
+    },
+    {
+      "id": "core-advance-refactor",
+      "title": "Refactor advanceRun to pure transition with record mutations",
+      "goal": "Convert advanceRun from an I/O-performing command to a pure function that returns state and RecordMutation[] without touching any store.",
+      "depends_on": [
+        "type-contracts-update"
+      ],
+      "inputs": [
+        "src/core/advance.ts",
+        "src/core/types.ts"
+      ],
+      "outputs": [
+        "src/core/advance.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite advanceRun signature to accept state, preconditions (priorRecords, nowIso, event) and return Result<TransitionOk<TAdapter>>",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Replace InteractionRecordStore.write/list/delete calls with computed RecordMutation[] in return value",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Remove deps.runs, deps.records, deps.changes from advanceRun's Deps type",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Remove all WorkspaceContext and store imports from advance.ts",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run bun run typecheck to confirm advance.ts compiles",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "phase-contract-structure"
+      ]
+    },
+    {
+      "id": "core-start-refactor",
+      "title": "Refactor startChangeRun and startSyntheticRun to pure functions",
+      "goal": "Convert start commands to accept precondition inputs and adapter seed, returning state without performing any I/O.",
+      "depends_on": [
+        "type-contracts-update"
+      ],
+      "inputs": [
+        "src/core/start.ts",
+        "src/core/types.ts"
+      ],
+      "outputs": [
+        "src/core/start.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite startChangeRun signature to accept preconditions (nextRunId, proposalExists, existingRunExists, adapterSeed, nowIso) and return Result<TransitionOk<TAdapter>>",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Rewrite startSyntheticRun signature with same pattern",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Remove WorkspaceContext imports and calls (projectRoot, worktreePath, branchName, projectDisplayName, projectIdentity)",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Remove deps.runs, deps.changes, deps.workspace from start Deps type",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run bun run typecheck to confirm start.ts compiles",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "run-identity-model"
+      ]
+    },
+    {
+      "id": "core-remaining-commands-refactor",
+      "title": "Refactor suspend, resume, updateField and delete status/getField/helpers",
+      "goal": "Convert remaining core commands to pure functions and remove read-only wrapper modules that belong in wiring.",
+      "depends_on": [
+        "type-contracts-update"
+      ],
+      "inputs": [
+        "src/core/suspend.ts",
+        "src/core/resume.ts",
+        "src/core/update-field.ts",
+        "src/core/status.ts",
+        "src/core/get-field.ts",
+        "src/core/_helpers.ts"
+      ],
+      "outputs": [
+        "src/core/suspend.ts",
+        "src/core/resume.ts",
+        "src/core/update-field.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite suspendRun to accept state and return Result<TransitionOk<TAdapter>> without store access",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Rewrite resumeRun to accept state and return Result<TransitionOk<TAdapter>> without store access",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Rewrite updateField to accept state and return Result<TransitionOk<TAdapter>> without store access",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Delete src/core/status.ts",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Delete src/core/get-field.ts",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Delete src/core/_helpers.ts and migrate any needed logic inline",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Remove all store and workspace imports from remaining core Deps types",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Run bun run typecheck to confirm all core modules compile",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "wiring-rewrite",
+      "title": "Rewrite CLI wiring to gather-invoke-apply pattern",
+      "goal": "Move all I/O into the CLI wiring layer following the three-phase gather/invoke/apply pattern for every subcommand.",
+      "depends_on": [
+        "core-advance-refactor",
+        "core-start-refactor",
+        "core-remaining-commands-refactor"
+      ],
+      "inputs": [
+        "src/bin/specflow-run.ts",
+        "src/bin/specflow-prepare-change.ts"
+      ],
+      "outputs": [
+        "src/bin/specflow-run.ts",
+        "src/bin/specflow-prepare-change.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite start subcommand: gather LocalRunState seed from WorkspaceContext + preconditions, invoke pure startChangeRun/startSyntheticRun, persist state",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Rewrite advance subcommand: read state + records, invoke pure advanceRun, persist state then apply RecordMutation[] in order",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Rewrite suspend subcommand: read state, invoke pure suspendRun, persist state",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Rewrite resume subcommand: read state, invoke pure resumeRun, persist state",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Rewrite update-field subcommand: read state, invoke pure updateField, persist state",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Inline status subcommand: read run.json via store, write to stdout, exit",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Inline get-field subcommand: read run.json, extract field, write to stdout or stderr on missing",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Update specflow-prepare-change.ts if it calls any refactored core functions",
+          "status": "done"
+        },
+        {
+          "id": "9",
+          "title": "Verify record-mutation ordering preserves existing compensation semantic (state write first, then record writes)",
+          "status": "done"
+        },
+        {
+          "id": "10",
+          "title": "Run bun run typecheck to confirm wiring compiles",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "runstate-adapter-extension",
+        "utility-cli-suite"
+      ]
+    },
+    {
+      "id": "test-migration",
+      "title": "Migrate core and CLI tests to match pure function signatures",
+      "goal": "Rewrite core tests to call pure functions with explicit state/preconditions and reduce CLI tests to smoke-level assertions.",
+      "depends_on": [
+        "wiring-rewrite"
+      ],
+      "inputs": [
+        "src/tests/core/*.test.ts",
+        "src/tests/cli/*.test.ts"
+      ],
+      "outputs": [
+        "src/tests/core/*.test.ts",
+        "src/tests/cli/*.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite core advance tests to pass state + priorRecords and assert returned TransitionOk including recordMutations",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Rewrite core start tests to pass preconditions and adapter seed, assert returned state",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Rewrite core suspend/resume/updateField tests to pass state and assert returned TransitionOk",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add record-mutation compensation test: verify wiring-layer ordering matches prior best-effort cleanup behavior",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Reduce CLI tests to smoke-level: argv → stdout/stderr/exit code assertions only",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Remove any test mocks for stores or WorkspaceContext that are no longer needed in core tests",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Run bun test to confirm all tests pass",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "run-artifact-store-conformance"
+      ]
+    },
+    {
+      "id": "drift-guard-extension",
+      "title": "Extend drift-guard test with static-grep and type-level assertions",
+      "goal": "Add compile-time and grep-based assertions that prevent future re-introduction of I/O or adapter knowledge into src/core/.",
+      "depends_on": [
+        "wiring-rewrite"
+      ],
+      "inputs": [
+        "src/tests/run-state-partition.test.ts"
+      ],
+      "outputs": [
+        "src/tests/run-state-partition.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add static-grep assertions on src/core/**/*.ts for banned import strings (workspace-context, deps.runs.*, deps.changes.*, deps.records.*)",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add static-grep assertions for banned object-property-key tokens (repo_path, worktree_path, project_id, branch_name, last_summary_path, repo_name)",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add type-level assertion: every *Deps type in src/core/types.ts excludes workspace | runs | changes | records members",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add type-level assertion: AdapterFields<{ run_id: string }> resolves to never",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add type-level assertion: AdapterFields<LocalRunState> resolves to LocalRunState",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run bun test to confirm drift-guard test passes",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "runstate-adapter-extension"
+      ]
+    },
+    {
+      "id": "final-verification",
+      "title": "Run full verification suite and confirm completion conditions",
+      "goal": "Confirm all completion conditions from the design are met: typecheck, tests, openspec validate, grep checks, and CLI regression parity.",
+      "depends_on": [
+        "test-migration",
+        "drift-guard-extension"
+      ],
+      "inputs": [
+        "src/**"
+      ],
+      "outputs": [],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run bun run format and fix any formatting issues",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Run bun run typecheck and confirm green",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Run bun test and confirm all tests pass",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run openspec validate split-runstate-into-core-workflow-state-and-local-adapter-state --type change and confirm green",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run grep -R 'RunStateCoreFields' src/ and confirm no results",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run grep -R 'workspace-context\\|deps.runs\\.\\|deps.changes\\.\\|deps.records\\.' src/core/ and confirm no results",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Verify CLI regression parity: status, start, advance, suspend, resume, update-field, get-field produce identical output to pre-refactor baseline",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "runstate-adapter-extension",
+        "run-artifact-store-conformance"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-17T08:33:54.396Z",
+  "generated_from": "design.md"
+}

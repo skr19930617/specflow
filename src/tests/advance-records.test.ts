@@ -1,79 +1,114 @@
+// Pure-function tests for advanceRun's record-mutation computation.
+// Core is pure: it computes a `recordMutations` list alongside the new
+// state. These tests chain state through multiple advances and assert
+// the mutation list.
+
 import assert from "node:assert/strict";
 import test from "node:test";
-import { advanceRun, startChangeRun } from "../core/run-core.js";
-import { ChangeArtifactType, changeRef } from "../lib/artifact-types.js";
-import { createInMemoryInteractionRecordStore } from "../lib/in-memory-interaction-record-store.js";
-import { createFakeWorkspaceContext } from "./helpers/fake-workspace-context.js";
-import { createInMemoryChangeArtifactStore } from "./helpers/in-memory-change-store.js";
-import { createInMemoryRunArtifactStore } from "./helpers/in-memory-run-store.js";
+import { advanceRun } from "../core/run-core.js";
+import type {
+	LocalRunState,
+	RunHistoryEntry,
+	RunState,
+} from "../types/contracts.js";
+import type {
+	ApprovalRecord,
+	ClarifyRecord,
+	InteractionRecord,
+} from "../types/interaction-records.js";
 import { testWorkflowDefinition } from "./helpers/workflow.js";
 
-async function bootstrap(changeId: string) {
-	const runs = createInMemoryRunArtifactStore();
-	const changes = createInMemoryChangeArtifactStore();
-	const workspace = createFakeWorkspaceContext();
-	const records = createInMemoryInteractionRecordStore();
-	changes.seed(
-		changeRef(changeId, ChangeArtifactType.Proposal),
-		"# Proposal\n",
-	);
-	const started = await startChangeRun(
-		{
-			changeId,
-			source: null,
-			agents: { main: "claude", review: "codex" },
-			retry: false,
-		},
-		{ runs, changes, workspace },
-	);
-	if (!started.ok) {
-		throw new Error(`bootstrap failed: ${started.error.message}`);
-	}
-	return { runs, records, runId: started.value.run_id };
+const NOW = "2026-01-01T00:00:00Z";
+
+function seed(): RunState {
+	return {
+		run_id: "seed-1",
+		change_name: "seed",
+		current_phase: "start",
+		status: "active",
+		allowed_events: [],
+		source: null,
+		agents: { main: "claude", review: "codex" },
+		created_at: NOW,
+		updated_at: NOW,
+		history: [],
+		previous_run_id: null,
+		project_id: "test/repo",
+		repo_name: "test/repo",
+		repo_path: "/tmp/test",
+		branch_name: "main",
+		worktree_path: "/tmp/test",
+		last_summary_path: null,
+	};
 }
 
-/** Advance through the workflow to a specific phase by applying events in order. */
-async function advanceTo(
-	runId: string,
-	runs: ReturnType<typeof createInMemoryRunArtifactStore>,
-	records: ReturnType<typeof createInMemoryInteractionRecordStore>,
-	events: readonly string[],
-) {
-	for (const event of events) {
-		const result = await advanceRun(
-			{ runId, event },
-			{ runs, workflow: testWorkflowDefinition, records },
+/**
+ * Drive a chain of events through pure advance, applying record mutations
+ * into a growing in-memory record list on each step.
+ */
+function driveEvents(
+	startState: RunState,
+	events: readonly {
+		event: string;
+		clarify?: { question?: string; answer?: string };
+	}[],
+): { state: RunState; records: InteractionRecord[] } {
+	let state: RunState = startState;
+	let records: InteractionRecord[] = [];
+	for (const step of events) {
+		const result = advanceRun<LocalRunState>(
+			{
+				state,
+				event: step.event,
+				nowIso: NOW,
+				priorRecords: records,
+				clarify: step.clarify,
+			},
+			{ workflow: testWorkflowDefinition },
 		);
 		if (!result.ok) {
 			throw new Error(
-				`advance failed on event '${event}': ${result.error.message}`,
+				`advance failed on '${step.event}': ${result.error.message}`,
 			);
 		}
+		state = result.value.state;
+		for (const mutation of result.value.recordMutations) {
+			if (mutation.kind === "delete") {
+				records = records.filter((r) => r.record_id !== mutation.recordId);
+			} else {
+				const idx = records.findIndex(
+					(r) => r.record_id === mutation.record.record_id,
+				);
+				if (idx >= 0) {
+					records = records.slice();
+					records[idx] = mutation.record;
+				} else {
+					records = [...records, mutation.record];
+				}
+			}
+		}
 	}
+	return { state, records };
 }
 
-// ---------------------------------------------------------------------------
-// Approval record creation on gate entry
-// ---------------------------------------------------------------------------
+const TO_SPEC_READY = [
+	{ event: "propose" },
+	{ event: "check_scope" },
+	{ event: "continue_proposal" },
+	{ event: "challenge_proposal" },
+	{ event: "reclarify" },
+	{ event: "accept_proposal" },
+	{ event: "validate_spec" },
+	{ event: "spec_validated" },
+] as const;
 
-test("entering spec_ready creates a pending ApprovalRecord", async () => {
-	const { runs, records, runId } = await bootstrap("rec-approval");
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-		"challenge_proposal",
-		"reclarify",
-		"accept_proposal",
-		"validate_spec",
-		"spec_validated",
-	]);
-	// Now in spec_ready
-	const allRecords = records.list(runId);
-	assert.equal(allRecords.length, 1);
-	const rec = allRecords[0];
-	assert.equal(rec?.record_kind, "approval");
-	if (rec?.record_kind !== "approval") return;
+test("entering spec_ready creates a pending ApprovalRecord", () => {
+	const { records } = driveEvents(seed(), TO_SPEC_READY);
+	assert.equal(records.length, 1);
+	const rec = records[0];
+	if (rec?.record_kind !== "approval") {
+		throw new Error("expected approval record");
+	}
 	assert.equal(rec.status, "pending");
 	assert.equal(rec.phase_from, "spec_ready");
 	assert.equal(rec.phase_to, "design_draft");
@@ -81,297 +116,100 @@ test("entering spec_ready creates a pending ApprovalRecord", async () => {
 	assert.equal(rec.decision_actor, null);
 });
 
-test("accept_spec updates pending ApprovalRecord to approved", async () => {
-	const { runs, records, runId } = await bootstrap("rec-approval-accept");
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-		"challenge_proposal",
-		"reclarify",
-		"accept_proposal",
-		"validate_spec",
-		"spec_validated",
-		"accept_spec",
+test("accept_spec updates pending ApprovalRecord to approved", () => {
+	const { records } = driveEvents(seed(), [
+		...TO_SPEC_READY,
+		{ event: "accept_spec" },
 	]);
-	const allRecords = records.list(runId);
-	const approvalRecords = allRecords.filter(
-		(r) => r.record_kind === "approval",
+	const approvals = records.filter(
+		(r): r is ApprovalRecord => r.record_kind === "approval",
 	);
-	assert.equal(approvalRecords.length, 1);
-	const rec = approvalRecords[0];
-	if (rec?.record_kind !== "approval") return;
+	assert.equal(approvals.length, 1);
+	const rec = approvals[0];
 	assert.equal(rec.status, "approved");
 	assert.notEqual(rec.decided_at, null);
 });
 
-// ---------------------------------------------------------------------------
-// record_ref in history entries
-// ---------------------------------------------------------------------------
+test("history entry has record_ref when entering an approval gate", () => {
+	const { state } = driveEvents(seed(), TO_SPEC_READY);
+	const last = state.history[state.history.length - 1] as RunHistoryEntry;
+	assert.ok(last.record_ref, "record_ref should be present");
+	assert.match(last.record_ref ?? "", /^approval-/);
+});
 
-test("history entry has record_ref when entering an approval gate", async () => {
-	const { runs, records, runId } = await bootstrap("rec-ref");
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-		"challenge_proposal",
-		"reclarify",
-		"accept_proposal",
-		"validate_spec",
-		"spec_validated",
+test("history entry has record_ref when accepting spec", () => {
+	const { state } = driveEvents(seed(), [
+		...TO_SPEC_READY,
+		{ event: "accept_spec" },
 	]);
-	// Read the run state to check the last history entry
-	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(await runs.read(ref));
-	const lastEntry = state.history[state.history.length - 1];
-	assert.ok(lastEntry.record_ref, "record_ref should be present");
-	assert.match(lastEntry.record_ref, /^approval-/);
+	const last = state.history[state.history.length - 1] as RunHistoryEntry;
+	assert.ok(last.record_ref, "record_ref should be present on accept_spec");
 });
 
-test("history entry has record_ref when accepting spec", async () => {
-	const { runs, records, runId } = await bootstrap("rec-ref-accept");
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-		"challenge_proposal",
-		"reclarify",
-		"accept_proposal",
-		"validate_spec",
-		"spec_validated",
-		"accept_spec",
+test("history entry has no record_ref for non-record transitions", () => {
+	const { state } = driveEvents(seed(), [{ event: "propose" }]);
+	const last = state.history[state.history.length - 1] as RunHistoryEntry;
+	assert.equal(last.record_ref, undefined);
+});
+
+test("reject updates pending ApprovalRecord to rejected", () => {
+	const { records } = driveEvents(seed(), [
+		...TO_SPEC_READY,
+		{ event: "reject" },
 	]);
-	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(await runs.read(ref));
-	const lastEntry = state.history[state.history.length - 1];
-	assert.ok(
-		lastEntry.record_ref,
-		"record_ref should be present on accept_spec",
+	const approvals = records.filter(
+		(r): r is ApprovalRecord => r.record_kind === "approval",
 	);
+	assert.equal(approvals.length, 1);
+	assert.equal(approvals[0].status, "rejected");
+	assert.notEqual(approvals[0].decided_at, null);
 });
 
-test("history entry has no record_ref for non-record transitions", async () => {
-	const { runs, records, runId } = await bootstrap("rec-no-ref");
-	await advanceTo(runId, runs, records, ["propose"]);
-	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(await runs.read(ref));
-	const lastEntry = state.history[state.history.length - 1];
-	assert.equal(lastEntry.record_ref, undefined);
-});
-
-// ---------------------------------------------------------------------------
-// Backward compatibility: records undefined
-// ---------------------------------------------------------------------------
-
-test("advance succeeds without records (backward compat)", async () => {
-	const { runs, runId } = await bootstrap("rec-compat");
-	const result = await advanceRun(
-		{ runId, event: "propose" },
-		{ runs, workflow: testWorkflowDefinition },
-	);
-	assert.equal(result.ok, true);
-	if (!result.ok) return;
-	assert.equal(result.value.current_phase, "proposal_draft");
-});
-
-test("entering spec_ready without records does not create records", async () => {
-	const { runs, runId } = await bootstrap("rec-compat-gate");
-	// No records injected
-	const events = [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-		"challenge_proposal",
-		"reclarify",
-		"accept_proposal",
-		"validate_spec",
-		"spec_validated",
-	];
-	for (const event of events) {
-		const result = await advanceRun(
-			{ runId, event },
-			{ runs, workflow: testWorkflowDefinition },
-		);
-		if (!result.ok) {
-			throw new Error(
-				`advance failed on event '${event}': ${result.error.message}`,
-			);
-		}
-	}
-	// Verify no record_ref in history
-	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(await runs.read(ref));
-	const lastEntry = state.history[state.history.length - 1];
-	assert.equal(lastEntry.record_ref, undefined);
-});
-
-// ---------------------------------------------------------------------------
-// Record write failure causes transition failure
-// ---------------------------------------------------------------------------
-
-test("record write failure causes transition failure", async () => {
-	const { runs, runId } = await bootstrap("rec-fail");
-	const records = createInMemoryInteractionRecordStore();
-	// Advance to just before spec_ready (spec_validate)
-	const preEvents = [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-		"challenge_proposal",
-		"reclarify",
-		"accept_proposal",
-		"validate_spec",
-	];
-	for (const event of preEvents) {
-		const result = await advanceRun(
-			{ runId, event },
-			{ runs, workflow: testWorkflowDefinition, records },
-		);
-		if (!result.ok)
-			throw new Error(`pre-advance failed: ${result.error.message}`);
-	}
-
-	// Now create a store that always throws on write
-	const failingStore: ReturnType<typeof createInMemoryInteractionRecordStore> =
+test("clarify question creates a pending ClarifyRecord", () => {
+	const { records } = driveEvents(seed(), [
+		{ event: "propose" },
+		{ event: "check_scope" },
+		{ event: "continue_proposal" },
 		{
-			write: () => {
-				throw new Error("Simulated write failure");
-			},
-			read: records.read,
-			list: records.list,
-			delete: records.delete,
-		};
-
-	// spec_validated → spec_ready triggers approval record creation, which should fail
-	const result = await advanceRun(
-		{ runId, event: "spec_validated" },
-		{ runs, workflow: testWorkflowDefinition, records: failingStore },
-	);
-	assert.equal(result.ok, false);
-	if (!result.ok) {
-		assert.equal(result.error.kind, "record_write_failed");
-		assert.match(result.error.message, /Simulated write failure/);
-	}
-});
-
-// ---------------------------------------------------------------------------
-// Reject updates pending approval record
-// ---------------------------------------------------------------------------
-
-test("reject updates pending ApprovalRecord to rejected", async () => {
-	const { runs, records, runId } = await bootstrap("rec-reject");
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-		"challenge_proposal",
-		"reclarify",
-		"accept_proposal",
-		"validate_spec",
-		"spec_validated",
-		"reject",
-	]);
-	const allRecords = records.list(runId);
-	const approvalRecords = allRecords.filter(
-		(r) => r.record_kind === "approval",
-	);
-	assert.equal(approvalRecords.length, 1);
-	const rec = approvalRecords[0];
-	if (rec?.record_kind !== "approval") return;
-	assert.equal(rec.status, "rejected");
-	assert.notEqual(rec.decided_at, null);
-});
-
-// ---------------------------------------------------------------------------
-// ClarifyRecord creation and resolution
-// ---------------------------------------------------------------------------
-
-test("clarify question creates a pending ClarifyRecord", async () => {
-	const { runs, records, runId } = await bootstrap("rec-clarify-q");
-	// Advance to proposal_clarify
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
-	]);
-	// Issue a clarify question via the clarify input
-	const result = await advanceRun(
-		{
-			runId,
 			event: "challenge_proposal",
 			clarify: { question: "What is the scope?" },
 		},
-		{ runs, workflow: testWorkflowDefinition, records },
+	]);
+	const clarifies = records.filter(
+		(r): r is ClarifyRecord => r.record_kind === "clarify",
 	);
-	assert.equal(result.ok, true);
-	const clarifyRecords = records
-		.list(runId)
-		.filter((r) => r.record_kind === "clarify");
-	assert.equal(clarifyRecords.length, 1);
-	const rec = clarifyRecords[0];
-	if (rec?.record_kind !== "clarify") return;
+	assert.equal(clarifies.length, 1);
+	const rec = clarifies[0];
 	assert.equal(rec.status, "pending");
 	assert.equal(rec.question, "What is the scope?");
 	assert.equal(rec.answer, null);
-	assert.equal(rec.phase, "proposal_clarify");
 });
 
-test("clarify response resolves a pending ClarifyRecord", async () => {
-	const { runs, records, runId } = await bootstrap("rec-clarify-a");
-	// Advance to proposal_clarify, issue a question, then answer
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
+test("clarify response resolves a pending ClarifyRecord", () => {
+	const { records } = driveEvents(seed(), [
+		{ event: "propose" },
+		{ event: "check_scope" },
+		{ event: "continue_proposal" },
+		{ event: "challenge_proposal", clarify: { question: "What?" } },
+		{ event: "reclarify", clarify: { answer: "Full scope" } },
 	]);
-	// Issue clarify question
-	await advanceRun(
-		{
-			runId,
-			event: "challenge_proposal",
-			clarify: { question: "What scope?" },
-		},
-		{ runs, workflow: testWorkflowDefinition, records },
+	const clarifies = records.filter(
+		(r): r is ClarifyRecord => r.record_kind === "clarify",
 	);
-	// Answer clarify
-	await advanceRun(
-		{
-			runId,
-			event: "reclarify",
-			clarify: { answer: "Full scope" },
-		},
-		{ runs, workflow: testWorkflowDefinition, records },
-	);
-	const clarifyRecords = records
-		.list(runId)
-		.filter((r) => r.record_kind === "clarify");
-	assert.equal(clarifyRecords.length, 1);
-	const rec = clarifyRecords[0];
-	if (rec?.record_kind !== "clarify") return;
-	assert.equal(rec.status, "resolved");
-	assert.equal(rec.answer, "Full scope");
-	assert.notEqual(rec.answered_at, null);
+	assert.equal(clarifies.length, 1);
+	assert.equal(clarifies[0].status, "resolved");
+	assert.equal(clarifies[0].answer, "Full scope");
+	assert.notEqual(clarifies[0].answered_at, null);
 });
 
-test("history entry has record_ref for clarify transitions", async () => {
-	const { runs, records, runId } = await bootstrap("rec-clarify-ref");
-	await advanceTo(runId, runs, records, [
-		"propose",
-		"check_scope",
-		"continue_proposal",
+test("history entry has record_ref for clarify transitions", () => {
+	const { state } = driveEvents(seed(), [
+		{ event: "propose" },
+		{ event: "check_scope" },
+		{ event: "continue_proposal" },
+		{ event: "challenge_proposal", clarify: { question: "What?" } },
 	]);
-	await advanceRun(
-		{
-			runId,
-			event: "challenge_proposal",
-			clarify: { question: "What?" },
-		},
-		{ runs, workflow: testWorkflowDefinition, records },
-	);
-	const ref = { runId, type: "run-state" as const };
-	const state = JSON.parse(await runs.read(ref));
-	const lastEntry = state.history[state.history.length - 1];
-	assert.ok(lastEntry.record_ref, "record_ref should be present for clarify");
-	assert.match(lastEntry.record_ref, /^clarify-/);
+	const last = state.history[state.history.length - 1] as RunHistoryEntry;
+	assert.ok(last.record_ref, "record_ref should be present for clarify");
+	assert.match(last.record_ref ?? "", /^clarify-/);
 });

@@ -1,12 +1,13 @@
 // Compile-time assignability tests for RunState partition (CoreRunState + LocalRunState)
-// and RunStateCoreFields backward-compat alias.
+// and the adapter-parameterized RunStateOf<TAdapter> shape.
 
 import test from "node:test";
 import type {
+	AdapterFields,
 	CoreRunState,
 	LocalRunState,
 	RunState,
-	RunStateCoreFields,
+	RunStateOf,
 } from "../types/contracts.js";
 
 // --- Test fixtures ---
@@ -43,12 +44,6 @@ test("RunState is assignable from CoreRunState & LocalRunState", () => {
 	const _project: string = state.project_id;
 });
 
-test("RunStateCoreFields is a backward-compat alias for RunState", () => {
-	const state: RunStateCoreFields = fullSample;
-	const _id: string = state.run_id;
-	const _project: string = state.project_id;
-});
-
 test("CoreRunState is independently usable without LocalRunState fields", () => {
 	function processCoreOnly(state: CoreRunState): string {
 		return state.run_id;
@@ -62,4 +57,16 @@ test("LocalRunState contains only adapter-specific fields", () => {
 	const _project: string = local.project_id;
 	const _repo: string = local.repo_name;
 	const _path: string = local.repo_path;
+});
+
+test("RunStateOf<LocalRunState> equals RunState", () => {
+	const state: RunStateOf<LocalRunState> = fullSample;
+	const _id: string = state.run_id;
+	const _project: string = state.project_id;
+});
+
+test("AdapterFields<LocalRunState> resolves to LocalRunState", () => {
+	type Resolved = AdapterFields<LocalRunState>;
+	const local: Resolved = localSample;
+	const _project: string = local.project_id;
 });

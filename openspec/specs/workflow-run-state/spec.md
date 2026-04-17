@@ -32,145 +32,155 @@ exact states, events, and transitions declared in
 
 ### Requirement: `specflow-run start` initializes persisted run state
 
-`specflow-run start` SHALL create run state via the `RunArtifactStore` interface and SHALL populate the current workflow metadata for the new run. The run_id SHALL be auto-generated in `<change_id>-<sequence>` format. The run_id generation SHALL use `run-store-ops.generateRunId(store, changeId)` instead of direct filesystem enumeration.
-
-All `RunArtifactStore` operations SHALL be asynchronous (returning `Promise`). The `specflow-run start` function SHALL `await` each store operation.
-
-Repository metadata SHALL be obtained via the injected `WorkspaceContext` interface rather than being passed as direct parameters or resolved internally.
-
-The created run state SHALL conform to `RunState<Record<string, never>>` (the default empty adapter), with all fields belonging to `RunStateCoreFields`.
+`specflow-run start` SHALL orchestrate run creation by
+(1) verifying preconditions via `RunArtifactStore`,
+`ChangeArtifactStore`, and `WorkspaceContext` in the wiring
+layer, (2) invoking the pure core start function with explicit
+precondition inputs and a `LocalRunState` adapter seed, and
+(3) persisting the returned `CoreRunState & LocalRunState` value
+via `await RunArtifactStore.write()`. The persisted run state
+SHALL be identical in shape and content to the pre-existing
+`run.json` layout. The run_id generation SHALL continue to use
+`run-store-ops.generateRunId(store, changeId)`, invoked from the
+wiring layer.
 
 #### Scenario: Change runs require an existing local proposal artifact
 
-- **WHEN** `specflow-run start <change_id>` is invoked with the default run kind
-- **THEN** it SHALL use the `ChangeArtifactStore` to verify that `(change_id, proposal)` exists
-- **AND** it SHALL fail with a typed missing-artifact error if the proposal does not exist
+- **WHEN** `specflow-run start <change_id>` is invoked with the
+  default run kind
+- **THEN** the wiring layer SHALL use `ChangeArtifactStore` to
+  verify that `(change_id, proposal)` exists and SHALL pass
+  `proposalExists: boolean` to the core start function
+- **AND** the core function SHALL return a typed
+  `change_proposal_missing` error when `proposalExists` is
+  `false`
+- **AND** the CLI SHALL map that error to exit code `1` with the
+  pre-existing stderr text
 
 #### Scenario: Started runs capture repository metadata via WorkspaceContext
 
 - **WHEN** a run is started inside a valid workspace
-- **THEN** `run-state` SHALL include `run_id`, `change_name`, `project_id`,
-  `repo_name`, `repo_path`, `branch_name`, `worktree_path`, `agents`,
-  `allowed_events`, `created_at`, and `updated_at`
-- **AND** `repo_name` SHALL be obtained from `WorkspaceContext.projectDisplayName()`
-- **AND** `repo_path` SHALL be obtained from `WorkspaceContext.projectRoot()`
-- **AND** `branch_name` SHALL be obtained from `WorkspaceContext.branchName()`
-- **AND** `worktree_path` SHALL be obtained from `WorkspaceContext.worktreePath()`
-
-#### Scenario: Started runs persist optional normalized source metadata
-
-- **WHEN** `specflow-run start <run_id> --source-file <path>` succeeds
-- **THEN** the stored run state SHALL include a `source` object loaded from the
-  provided file
-- **AND** the stored object SHALL include `kind`, `provider`, `reference`, and
-  `title`
+- **THEN** the wiring layer SHALL construct the `LocalRunState`
+  slice from `WorkspaceContext.projectIdentity()`,
+  `projectDisplayName()`, `projectRoot()`, `branchName()`,
+  `worktreePath()`, and the literal `null` for
+  `last_summary_path`
+- **AND** it SHALL pass the slice as the adapter seed to
+  `startChangeRun<LocalRunState>`
+- **AND** the persisted `run.json` SHALL include `run_id`,
+  `change_name`, `project_id`, `repo_name`, `repo_path`,
+  `branch_name`, `worktree_path`, `agents`, `allowed_events`,
+  `created_at`, and `updated_at`
 
 #### Scenario: Synthetic runs bypass change-directory lookup
 
-- **WHEN** `specflow-run start <run_id> --run-kind synthetic` is invoked
-- **THEN** the run SHALL set `run_kind` to `synthetic`
-- **AND** `change_name` SHALL be `null`
+- **WHEN** `specflow-run start <run_id> --run-kind synthetic` is
+  invoked
+- **THEN** the wiring layer SHALL NOT call `ChangeArtifactStore`
+- **AND** it SHALL pass `existingRunExists` computed via
+  `await RunArtifactStore.exists(runRef(runId))`
+- **AND** the run_kind in the persisted state SHALL be
+  `synthetic` with `change_name` set to `null`
 
 #### Scenario: run_id is auto-generated from change_id and sequence
 
 - **WHEN** `specflow-run start <change_id>` is invoked
-- **THEN** the run_id SHALL be `<change_id>-<N>` where N is one greater
-  than the highest existing sequence number for that change_id
-- **AND** the run_id SHALL be stored explicitly in the run-state document
-- **AND** the sequence number SHALL be determined via `run-store-ops.generateRunId()` using the injected `RunArtifactStore`
+- **THEN** the wiring layer SHALL compute `nextRunId` via
+  `await generateRunId(store, changeId)` and SHALL pass it as
+  a precondition input to the core function
+- **AND** the resulting run_id SHALL be `<changeId>-<N>` where
+  N is one greater than the highest existing sequence number
 
-#### Scenario: Start writes run state through the store
+#### Scenario: Start writes run state through the store from the wiring layer
 
 - **WHEN** `specflow-run start` completes successfully
-- **THEN** it SHALL persist the initial run state via `await RunArtifactStore.write(ref, content)`
-- **AND** it SHALL NOT use `atomicWrite()` or any direct filesystem function
-
-#### Scenario: Run start receives WorkspaceContext via dependency injection
-
-- **WHEN** `specflow-run start` is invoked from a CLI entry point
-- **THEN** the CLI entry point SHALL construct a `WorkspaceContext` implementation and pass it to the run start function
-- **AND** the run start function SHALL NOT resolve workspace metadata independently
-
-#### Scenario: Created run state conforms to RunStateCoreFields
-
-- **WHEN** a new run is created via `specflow-run start`
-- **THEN** the persisted run state SHALL contain only fields defined in `RunStateCoreFields`
-- **AND** no adapter-specific fields SHALL be present in the initial state
-- **AND** the state SHALL be assignable to `RunState<Record<string, never>>`
+- **THEN** the wiring layer SHALL persist the returned state via
+  `await RunArtifactStore.write(runRef(run_id), JSON.stringify(state, null, 2))`
+- **AND** the core start function SHALL NOT call any store method
+- **AND** the atomic-replacement guarantee SHALL be provided by
+  `RunArtifactStore.write` — not by any new helper layer
 
 ### Requirement: `specflow-run advance` validates and records transitions
 
-`specflow-run advance <run_id> <event>` SHALL apply only declared transitions, validate required artifacts via the artifact-phase gate matrix, recompute allowed events, and append immutable history entries.
+`specflow-run advance <run_id> <event>` SHALL, in the wiring
+layer, (1) load the current run state via `await
+RunArtifactStore.read(runRef(runId))`, (2) invoke the pure
+`advanceRun<LocalRunState>` core function with the loaded state,
+the requested event, and `nowIso`, (3) persist the returned state
+via `await RunArtifactStore.write()` on success, and (4) map the
+`Result` to stdout / stderr / exit code. The core function SHALL
+apply only declared transitions, validate required artifacts via
+the artifact-phase gate matrix (using precondition inputs rather
+than store calls), recompute allowed events, and append immutable
+history entries.
 
 #### Scenario: Happy-path advancement reaches approved
 
-- **WHEN** the mainline events are applied in order from `propose` through
-  `accept_apply`
+- **WHEN** the mainline events are applied in order from
+  `propose` through `accept_apply`
 - **THEN** the run SHALL reach `approved`
 - **AND** `allowed_events` SHALL become an empty array
+- **AND** each transition SHALL read the prior state, invoke the
+  pure core function, and write the result via the store
 
-#### Scenario: Proposal acceptance enters the spec phase
+#### Scenario: Advance checks artifact-phase gate via precondition inputs
 
-- **WHEN** `accept_proposal` is applied in `proposal_reclarify`
-- **THEN** the run SHALL transition to `spec_draft`
-
-#### Scenario: Successful spec validation gates access to design work
-
-- **WHEN** `validate_spec` then `spec_validated` are applied in order
-- **THEN** the run SHALL transition from `spec_draft` to `spec_validate`
-- **AND** then to `spec_ready`
-- **AND** only then SHALL `accept_spec` be available to enter `design_draft`
-
-#### Scenario: Revision events return to the phase draft state
-
-- **WHEN** `reclarify`, `revise_spec`, `revise_design`, or
-  `revise_apply` is applied in an allowed review, challenge, or validation state
-- **THEN** the run SHALL transition back to the matching draft or reclarify phase
+- **WHEN** `specflow-run advance <run_id> <event>` is invoked
+- **AND** the gate matrix requires artifacts for the target
+  transition
+- **THEN** the wiring layer SHALL verify artifact existence via
+  the appropriate store interface and SHALL pass the resulting
+  boolean(s) to the core advance function
+- **AND** the core function SHALL return a typed
+  missing-artifact error when a required artifact is absent
 
 #### Scenario: Invalid transitions report allowed events
 
 - **WHEN** an event is not valid for the current phase
-- **THEN** the command SHALL fail
-- **AND** the error output SHALL list the allowed events for that phase
-
-#### Scenario: Advance is rejected when run is suspended
-
-- **WHEN** `specflow-run advance <run_id> <event>` is invoked
-- **AND** the run status is `suspended`
-- **AND** the event is not `resume`
-- **THEN** the command SHALL fail with error "Run is suspended -- resume first"
-
-#### Scenario: Advance checks artifact-phase gate before transition
-
-- **WHEN** `specflow-run advance <run_id> <event>` is invoked
-- **AND** the gate matrix requires artifacts for the target transition
-- **THEN** the command SHALL verify artifact existence via the appropriate store interface
-- **AND** it SHALL fail with a typed missing-artifact error if any required artifact is absent
+- **THEN** the core function SHALL return a typed
+  `invalid_event` error whose `details` list the allowed events
+  for that phase
+- **AND** the CLI SHALL map the error to exit code `1`
 
 ### Requirement: Run-state reads and writes are stable CLI operations
 
-The run-state CLI SHALL read and write run state through the `RunArtifactStore` interface, never through direct filesystem path construction. The `specflow-prepare-change` CLI SHALL also use the store for run enumeration. All store operations SHALL be asynchronous and the CLI SHALL `await` them.
+The run-state CLI SHALL read and write run state through the
+`RunArtifactStore` interface in the wiring layer, never through
+direct filesystem path construction and never from within the
+core runtime. The `specflow-prepare-change` CLI SHALL also use
+the store for run enumeration from its wiring layer. All store
+operations SHALL be asynchronous and the CLI SHALL `await` them.
 
 #### Scenario: `status` returns the stored run state
 
 - **WHEN** `specflow-run status <run_id>` is invoked
-- **THEN** it SHALL read from `await RunArtifactStore.read(runId, run-state)` and print the payload
+- **THEN** the CLI SHALL read from `await
+  RunArtifactStore.read(runId, run-state)` and print the payload
+- **AND** no core module SHALL participate in `status`
 
 #### Scenario: `get-field` returns a single field value
 
-- **WHEN** `specflow-run get-field <run_id> current_phase` is invoked
-- **THEN** it SHALL read from `await RunArtifactStore.read(runId, run-state)` and print the stored `current_phase` value as JSON
-
-#### Scenario: `update-field` persists targeted metadata
-
-- **WHEN** `specflow-run update-field <run_id> last_summary_path <value>` is
+- **WHEN** `specflow-run get-field <run_id> current_phase` is
   invoked
-- **THEN** it SHALL read from `await RunArtifactStore`, update the field, and write back via `await RunArtifactStore.write(runId, run-state, content)`
+- **THEN** the CLI SHALL read from `await
+  RunArtifactStore.read(runId, run-state)` and print the stored
+  `current_phase` value as JSON
+- **AND** no core module SHALL participate in `get-field`
+
+#### Scenario: `update-field` persists targeted metadata via wiring
+
+- **WHEN** `specflow-run update-field <run_id> last_summary_path
+  <value>` is invoked
+- **THEN** the CLI SHALL read from `await RunArtifactStore.read`,
+  invoke the pure `updateField<LocalRunState>` core function,
+  and write back via `await RunArtifactStore.write()`
 
 #### Scenario: No CLI binary contains hardcoded `.specflow/runs` paths
 
-- **WHEN** the source of `specflow-run.ts` and `specflow-prepare-change.ts` is inspected
-- **THEN** neither file SHALL contain the string literal `.specflow/runs`
+- **WHEN** the source of `specflow-run.ts` and
+  `specflow-prepare-change.ts` is inspected
+- **THEN** neither file SHALL contain the string literal
+  `.specflow/runs`
 
 ### Requirement: Run-state files are written atomically and resolved from the workflow definition
 
@@ -353,38 +363,37 @@ Each history entry appended to run-state SHALL include actor provenance, regardl
 
 ### Requirement: CLI entry points resolve and inject the RunArtifactStore
 
-CLI entry points (`specflow-run`, `specflow-prepare-change`) SHALL
-instantiate a `RunArtifactStore` implementation at startup and inject it
-into the core runtime. The default implementation SHALL be
-`LocalFsRunArtifactStore`. `specflow-run` SHALL additionally instantiate a
-`ChangeArtifactStore` (`LocalFsChangeArtifactStore`), a `WorkspaceContext`
-(`createLocalWorkspaceContext`), and load the `WorkflowDefinition` from
-`state-machine.json`, and SHALL pass all four into the core runtime. No
-runtime store-switching mechanism is provided by this change.
-
-All core runtime functions SHALL be `async` and CLI entry points SHALL `await` them. The CLI entry point SHALL handle rejected promises by mapping `ArtifactStoreError` kinds to appropriate stderr messages and exit codes.
+CLI entry points SHALL instantiate a `RunArtifactStore` implementation at startup. The entry points covered by this requirement SHALL be `specflow-run` and `specflow-prepare-change`. The CLI SHALL perform all workflow-related I/O — reads, writes, enumeration, and artifact existence checks — via the injected store and related collaborators `ChangeArtifactStore`, `WorkspaceContext`, and `WorkflowDefinition`. The CLI SHALL compute precondition inputs in the wiring layer and SHALL invoke pure core-runtime commands with those inputs. The default `RunArtifactStore` implementation SHALL be `LocalFsRunArtifactStore`. No runtime store-switching mechanism SHALL be provided by this change. The CLI SHALL map rejected promises by translating `ArtifactStoreError` kinds to appropriate stderr messages and exit codes.
 
 #### Scenario: specflow-run instantiates all collaborators at startup
 
-- **WHEN** `specflow-run` is invoked with any subcommand that needs them
+- **WHEN** `specflow-run` is invoked with any subcommand that
+  needs them
 - **THEN** it SHALL create a `LocalFsRunArtifactStore`, a
-  `LocalFsChangeArtifactStore` (for commands that read change artifacts),
-  and a `WorkspaceContext` using the repository root
+  `LocalFsChangeArtifactStore` (for commands that read change
+  artifacts), and a `WorkspaceContext` using the repository root
 - **AND** it SHALL load a `WorkflowDefinition` from
   `state-machine.json` (for commands that need it)
-- **AND** it SHALL pass all required collaborators into the core-runtime
-  command function as arguments
+- **AND** it SHALL compute precondition inputs (existing runs,
+  proposal existence, next run_id, current time) before invoking
+  the core command
+- **AND** it SHALL invoke the core command with those
+  precondition inputs and the `LocalRunState` adapter seed
 
 #### Scenario: specflow-prepare-change uses injected store for run lookup
 
-- **WHEN** `specflow-prepare-change` searches for existing non-terminal runs
-- **THEN** it SHALL use `await RunArtifactStore.list()` with a `changeId` query
+- **WHEN** `specflow-prepare-change` searches for existing
+  non-terminal runs
+- **THEN** it SHALL use `await RunArtifactStore.list()` with a
+  `changeId` query
 - **AND** it SHALL NOT construct `.specflow/runs/` paths directly
 
 #### Scenario: CLI maps ArtifactStoreError to stderr and exit codes
 
-- **WHEN** a core runtime function rejects with an `ArtifactStoreError`
-- **THEN** the CLI SHALL map the error `kind` to the appropriate stderr message
+- **WHEN** a core runtime function rejects with an
+  `ArtifactStoreError` surfaced by a wiring-layer read or write
+- **THEN** the CLI SHALL map the error `kind` to the appropriate
+  stderr message
 - **AND** it SHALL exit with code `1`
 
 ### Requirement: High-level run operations use RunArtifactStore
@@ -416,43 +425,6 @@ A `run-store-ops` module SHALL provide high-level run operations that accept a `
 - **WHEN** `extractSequence(runId, changeId)` is invoked
 - **THEN** it SHALL return the integer N from the `<changeId>-<N>` format
 - **AND** it SHALL throw if the run_id does not match the expected format
-
-### Requirement: Workflow commands are exposed as a CLI-independent core runtime
-
-The system SHALL implement the workflow-run commands as a core runtime
-module under `src/core/` that is callable without `process.argv`, without
-filesystem discovery, and without git calls. The commands covered SHALL
-be `start`, `advance`, `suspend`, `resume`, `status`, `update-field`, and
-`get-field`. Every collaborator the core runtime needs SHALL be passed in
-as an argument rather than resolved internally: `RunArtifactStore`,
-`ChangeArtifactStore`, `WorkspaceContext`, and a pre-parsed
-`WorkflowDefinition`. All core runtime command functions SHALL be `async` (returning `Promise<Result<Ok, CoreRuntimeError>>`).
-
-#### Scenario: Core runtime is reachable from library code
-
-- **WHEN** test code or a non-CLI caller imports the core runtime module
-- **THEN** it SHALL be able to invoke `start`, `advance`, `suspend`,
-  `resume`, `status`, `update-field`, and `get-field` as plain `async` functions
-- **AND** it SHALL NOT be required to read `process.argv`, construct an
-  `LocalFs*ArtifactStore`, discover `state-machine.json`, or invoke git
-
-#### Scenario: Core runtime accepts a pre-parsed WorkflowDefinition
-
-- **WHEN** a core-runtime command that depends on the state machine (e.g.
-  `start`, `advance`) is invoked
-- **THEN** it SHALL receive the parsed `WorkflowDefinition` object as an
-  argument
-- **AND** it SHALL NOT call `readFileSync` or otherwise touch the
-  filesystem to load `state-machine.json`
-
-#### Scenario: Core runtime uses injected stores and workspace context
-
-- **WHEN** a core-runtime command needs to read or write run state, read a
-  change artifact, or resolve repository metadata
-- **THEN** it SHALL use the injected `RunArtifactStore`,
-  `ChangeArtifactStore`, or `WorkspaceContext` — never a freshly
-  constructed local filesystem implementation and never a direct git
-  invocation
 
 ### Requirement: Core runtime returns typed Results instead of writing to process I/O
 
@@ -518,30 +490,40 @@ mapping its `Result` to `process.stdout`, `process.stderr`, and
 
 ### Requirement: Core-runtime tests exercise the runtime without the CLI
 
-The `src/tests/` suite SHALL include tests that drive the core runtime
-directly with an in-memory `RunArtifactStore`, an in-memory
-`ChangeArtifactStore`, and a fake `WorkspaceContext` — without spawning
-`specflow-run` and without relying on a real filesystem or git repository.
-The behavioral assertions previously carried by the CLI test layer SHALL
-be migrated into these core-runtime tests; the CLI test layer SHALL keep
-only smoke tests for argv parsing and stderr/exit mapping.
+The `src/tests/` suite SHALL include tests that drive the core
+runtime directly as pure function invocations — supplying an
+explicit current state, precondition inputs, and adapter seed —
+without spawning `specflow-run`, without instantiating any
+`RunArtifactStore` or `ChangeArtifactStore`, and without
+touching a real filesystem or git repository. The behavioral
+assertions previously carried by the CLI test layer SHALL be
+migrated into these core-runtime tests; the CLI test layer SHALL
+keep only smoke tests for argv parsing, store wiring, and
+stderr/exit mapping.
 
 #### Scenario: Core tests cover every command branch
 
 - **WHEN** the core-runtime test suite runs
-- **THEN** it SHALL cover each command (`start`, `advance`, `suspend`,
-  `resume`, `status`, `update-field`, `get-field`) including every
-  currently-tested failure branch (e.g. `not_in_git_repo`, `run_not_found`,
-  invalid events, suspended-run guard, missing proposal)
+- **THEN** it SHALL cover each command (`startChangeRun`,
+  `startSyntheticRun`, `advanceRun`, `suspendRun`, `resumeRun`,
+  `updateField`) including every currently-tested failure branch
+  (e.g. `run_not_found` surfaced as a missing-state precondition,
+  `invalid_event`, `run_suspended_exists`,
+  `change_proposal_missing`)
+- **AND** each test SHALL invoke the core command as a plain
+  function without constructing any store
 
 #### Scenario: CLI smoke tests remain for wiring
 
 - **WHEN** the CLI test suite runs
-- **THEN** it SHALL assert that argv parsing routes to the expected core
-  command and that a representative success payload and a representative
-  typed error are mapped to the correct stdout/stderr/exit outputs
-- **AND** it SHALL NOT re-assert the full behavioral surface already
-  covered by the core-runtime tests
+- **THEN** it SHALL assert that argv parsing routes to the
+  expected core command, that precondition inputs are gathered
+  from the injected collaborators, that a representative success
+  payload is written back via the store, and that a
+  representative typed error maps to the correct
+  stdout/stderr/exit outputs
+- **AND** it SHALL NOT re-assert the full behavioral surface
+  already covered by the core-runtime tests
 
 ### Requirement: Run-state types are partitioned into core and local-adapter partitions
 
@@ -611,24 +593,33 @@ being disjoint or stop exhaustively covering `RunState`.
 
 ### Requirement: Core runtime signatures depend only on CoreRunState
 
-Core runtime function signatures SHALL depend only on `CoreRunState` when they do not read a local-adapter field; signatures that read or write a local-adapter field SHALL continue to accept `RunState` or `LocalRunState` explicitly. CLI wiring under `src/bin/**` and local filesystem adapters under `src/adapters/**` SHALL continue to produce and pass the combined `RunState` value.
+Every core runtime function SHALL depend only on `CoreRunState &
+TAdapter` where `TAdapter extends AdapterFields<TAdapter>`. No
+core function SHALL reference a `LocalRunState` field by name. The
+wiring layer under `src/bin/**` and the local filesystem adapter
+under `src/adapters/**` SHALL continue to produce and pass the
+combined `RunState` value by supplying `LocalRunState` as the
+adapter seed.
 
-#### Scenario: Core functions that ignore local-adapter fields accept CoreRunState
+#### Scenario: Core functions accept CoreRunState & TAdapter
 
-- **WHEN** a function under `src/core/**` is inspected
-- **AND** its body does not reference `project_id`, `repo_name`,
-  `repo_path`, `branch_name`, `worktree_path`, or
-  `last_summary_path`
-- **THEN** its parameter type SHALL be `CoreRunState` (or a narrower
-  subtype)
-- **AND** it SHALL NOT accept `RunState` directly
+- **WHEN** any function under `src/core/**` is inspected
+- **AND** its signature accepts a run-state argument
+- **THEN** the parameter type SHALL be `CoreRunState & TAdapter`
+  (or a narrower subtype parameterized the same way)
+- **AND** it SHALL NOT accept `RunState` directly, SHALL NOT
+  accept `LocalRunState` directly, and SHALL NOT reference any
+  `LocalRunState` field by name
 
-#### Scenario: Local-aware functions keep access to local-adapter fields
+#### Scenario: Wiring layer supplies LocalRunState as adapter seed
 
-- **WHEN** a function reads or writes any `LocalRunState` field
-- **THEN** its parameter type SHALL be `RunState` or `LocalRunState`
-- **AND** the mixed typing SHALL be called out in the change's
-  `tasks.md` survey
+- **WHEN** `src/bin/specflow-run.ts` invokes a core command
+- **THEN** it SHALL compute the `LocalRunState` slice from
+  `WorkspaceContext` (for start) or from the previously-read
+  state (for transitions) and pass it as the
+  `TAdapter = LocalRunState` seed or state
+- **AND** the persisted value SHALL be `CoreRunState &
+  LocalRunState`, preserving the pre-existing `run.json` shape
 
 ### Requirement: ArtifactStore interfaces are asynchronous
 
@@ -704,4 +695,97 @@ The system SHALL document a mapping table from `CoreRunState` fields to recommen
 - **WHEN** the mapping table is inspected
 - **THEN** it SHALL include a disclaimer that the mapping is informational guidance
 - **AND** external runtimes MAY choose different column types provided they preserve the semantics
+
+### Requirement: Core runtime commands are pure and perform no I/O
+
+Core runtime commands SHALL be pure transition functions. Production modules under `src/core/**/*.ts` SHALL NOT import `WorkspaceContext`, SHALL NOT accept a `RunArtifactStore` or `ChangeArtifactStore` in any `*Deps` parameter, and SHALL NOT call `read`, `write`, `exists`, or `list` on any store. All run-artifact and change-artifact I/O for the workflow commands SHALL happen exclusively in the CLI wiring layer under `src/bin/**`. Test files under `src/core/` are out of scope because the repository convention places every test file under `src/tests/`.
+
+#### Scenario: Core modules do not import WorkspaceContext
+
+- **WHEN** any file matching `src/core/**/*.ts` is inspected
+- **THEN** it SHALL NOT contain an import of
+  `../lib/workspace-context` or any re-export of the
+  `WorkspaceContext` interface
+
+#### Scenario: Core *Deps types omit stores and workspace
+
+- **WHEN** any `*Deps` type declared in `src/core/types.ts` is
+  inspected
+- **THEN** it SHALL NOT contain a `runs`, `changes`, or
+  `workspace` member
+
+#### Scenario: Core modules do not call store methods
+
+- **WHEN** any file matching `src/core/**/*.ts` is inspected
+- **THEN** it SHALL NOT contain `deps.runs.read`,
+  `deps.runs.write`, `deps.runs.exists`, `deps.runs.list`,
+  `deps.changes.read`, `deps.changes.exists`, or
+  `deps.changes.list`
+
+#### Scenario: Local-adapter field names are absent from core object literals
+
+- **WHEN** any file matching `src/core/**/*.ts` is inspected
+- **THEN** it SHALL NOT contain any of the `LocalRunState` keys
+  (`project_id:`, `repo_name:`, `repo_path:`, `branch_name:`,
+  `worktree_path:`, `last_summary_path:`) used as an object
+  property key
+
+### Requirement: Workflow core commands share an adapter-parameterized signature
+
+Every workflow core command SHALL be generic over `<TAdapter extends AdapterFields<TAdapter>>`. The type `AdapterFields<TAdapter>` SHALL resolve to `TAdapter` when `keyof TAdapter & keyof CoreRunState` is `never`, and SHALL resolve to `never` otherwise. Every transition command SHALL accept `state: CoreRunState & TAdapter` as its first argument and SHALL return `Result<CoreRunState & TAdapter, CoreRuntimeError>`. The commands covered by this requirement SHALL be `startChangeRun`, `startSyntheticRun`, `advanceRun`, `suspendRun`, `resumeRun`, and `updateField`.
+
+#### Scenario: AdapterFields rejects key collisions with CoreRunState
+
+- **WHEN** a caller instantiates a command with `TAdapter =
+  { run_id: number }` (a key that already exists in
+  `CoreRunState`)
+- **THEN** the TypeScript compiler SHALL report a type error at
+  the call site
+- **AND** no value of type `CoreRunState & TAdapter` SHALL be
+  assignable with a colliding `run_id` shape
+
+#### Scenario: Transition commands take state as input and return new state
+
+- **WHEN** `advanceRun`, `suspendRun`, `resumeRun`, or
+  `updateField` is inspected
+- **THEN** its first parameter SHALL be typed
+  `CoreRunState & TAdapter`
+- **AND** its return type SHALL be
+  `Result<CoreRunState & TAdapter, CoreRuntimeError>`
+- **AND** it SHALL NOT accept a `runId: string` parameter for the
+  purpose of loading state
+
+### Requirement: Start precondition inputs replace store and workspace deps
+
+`startChangeRun` and `startSyntheticRun` SHALL accept all
+previously-resolved information as plain precondition inputs
+instead of store or workspace dependencies. The exhaustive set of
+preconditions derived from the current start path SHALL be:
+`proposalExists: boolean`, `priorRuns: readonly CoreRunState[]`,
+`nextRunId: string`, `nowIso: string`, and
+`existingRunExists?: boolean`. No other store or workspace
+lookups SHALL be performed inside the core start functions.
+
+#### Scenario: Start functions accept explicit preconditions
+
+- **WHEN** `startChangeRun` is inspected
+- **THEN** its input type SHALL include `proposalExists`,
+  `priorRuns`, `nextRunId`, and `nowIso` fields
+- **AND** its `deps` parameter SHALL NOT contain `runs`,
+  `changes`, or `workspace`
+
+#### Scenario: Synthetic-run collision check is a precondition
+
+- **WHEN** `startSyntheticRun` is invoked with
+  `existingRunExists: true`
+- **THEN** the function SHALL return a typed
+  `run_already_exists` error without reading any store
+
+#### Scenario: Core start returns adapter-seeded state
+
+- **WHEN** `startChangeRun<TAdapter>` is invoked with an
+  `adapterSeed: TAdapter` argument
+- **THEN** the returned `Result.ok.value` SHALL equal
+  `{ ...coreFields, ...adapterSeed }` for the newly-created run
+- **AND** the value SHALL be typed `CoreRunState & TAdapter`
 

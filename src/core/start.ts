@@ -1,65 +1,64 @@
-// Core runtime: start a run (change run or synthetic run).
+// Core runtime: start a run (change run or synthetic run). Pure — no I/O.
+// The wiring layer computes preconditions (proposal existence, prior runs,
+// next run_id, now-iso, existing-run collision) and supplies the adapter
+// seed; this module only decides whether the start is permitted and, on
+// success, assembles the initial run state.
 
-import type {
-	ChangeArtifactStore,
-	RunArtifactStore,
-} from "../lib/artifact-store.js";
-import {
-	ChangeArtifactType,
-	changeRef,
-	runRef,
-} from "../lib/artifact-types.js";
-import { findRunsForChange, generateRunId } from "../lib/run-store-ops.js";
 import { deriveAllowedEvents } from "../lib/workflow-machine.js";
-import type { WorkspaceContext } from "../lib/workspace-context.js";
-import type { RunState, RunStatus } from "../types/contracts.js";
-import { checkRunId, nowIso, writeRunState } from "./_helpers.js";
+import type { RunKind, RunStatus, SourceMetadata } from "../types/contracts.js";
 import type {
+	CoreRunState,
 	CoreRuntimeError,
 	Result,
-	StartChangeInput,
-	StartSyntheticInput,
+	RunStateOf,
+	TransitionOk,
 } from "./types.js";
 import { err, ok } from "./types.js";
+import { checkRunId } from "./validation.js";
 
-export interface StartChangeDeps {
-	readonly runs: RunArtifactStore;
-	readonly changes: ChangeArtifactStore;
-	readonly workspace: WorkspaceContext;
+export interface StartChangeInput<TAdapter> {
+	readonly changeId: string;
+	readonly source: SourceMetadata | null;
+	readonly agents: { readonly main: string; readonly review: string };
+	readonly retry: boolean;
+	/** Whether `openspec/changes/<changeId>/proposal.md` exists. */
+	readonly proposalExists: boolean;
+	/** Existing runs for this change_id, oldest → newest. */
+	readonly priorRuns: readonly CoreRunState[];
+	/** The run_id to assign to the new run (format `<changeId>-<N>`). */
+	readonly nextRunId: string;
+	/** Deterministic ISO timestamp for created_at / updated_at. */
+	readonly nowIso: string;
+	/** Adapter-specific fields merged into the initial run state. */
+	readonly adapterSeed: TAdapter;
 }
 
-export interface StartSyntheticDeps {
-	readonly runs: RunArtifactStore;
-	readonly workspace: WorkspaceContext;
+export interface StartSyntheticInput<TAdapter> {
+	readonly runId: string;
+	readonly source: SourceMetadata | null;
+	readonly agents: { readonly main: string; readonly review: string };
+	/** Whether a run with `runId` already exists in the store. */
+	readonly existingRunExists: boolean;
+	readonly nowIso: string;
+	readonly adapterSeed: TAdapter;
 }
 
-/**
- * Start a change run. Requires an existing OpenSpec proposal for the
- * change id. Enforces the "one non-terminal run per change" invariant and
- * the --retry rule for prior terminal runs.
- */
-export async function startChangeRun(
-	input: StartChangeInput,
-	deps: StartChangeDeps,
-): Promise<Result<RunState, CoreRuntimeError>> {
-	const { changeId, retry } = input;
+export function startChangeRun<TAdapter extends object>(
+	input: StartChangeInput<TAdapter>,
+): Result<TransitionOk<TAdapter>, CoreRuntimeError> {
+	const { changeId, retry, priorRuns, nextRunId, nowIso, adapterSeed } = input;
+
 	const idCheck = checkRunId(changeId);
 	if (idCheck) return idCheck;
 
-	if (
-		!(await deps.changes.exists(
-			changeRef(changeId, ChangeArtifactType.Proposal),
-		))
-	) {
+	if (!input.proposalExists) {
 		return err({
 			kind: "change_proposal_missing",
 			message: `Error: no OpenSpec proposal found for '${changeId}'. Expected file: openspec/changes/${changeId}/proposal.md`,
 		});
 	}
 
-	const existingRuns = await findRunsForChange(deps.runs, changeId);
-
-	const nonTerminalRun = existingRuns.find((run) => run.status !== "terminal");
+	const nonTerminalRun = priorRuns.find((run) => run.status !== "terminal");
 	if (nonTerminalRun) {
 		if (nonTerminalRun.status === "suspended") {
 			return err({
@@ -73,7 +72,7 @@ export async function startChangeRun(
 		});
 	}
 
-	if (existingRuns.length > 0 && !retry) {
+	if (priorRuns.length > 0 && !retry) {
 		return err({
 			kind: "prior_runs_require_retry",
 			message:
@@ -86,7 +85,7 @@ export async function startChangeRun(
 	let agents = { ...input.agents };
 
 	if (retry) {
-		const latestRun = existingRuns[existingRuns.length - 1];
+		const latestRun = priorRuns[priorRuns.length - 1];
 		if (!latestRun) {
 			return err({
 				kind: "retry_without_prior",
@@ -107,72 +106,54 @@ export async function startChangeRun(
 		agents = { ...latestRun.agents };
 	}
 
-	const newRunId = await generateRunId(deps.runs, changeId);
-
-	const state: RunState = {
-		run_id: newRunId,
+	const core: CoreRunState = {
+		run_id: nextRunId,
 		change_name: changeId,
 		current_phase: "start",
 		status: "active" as RunStatus,
 		allowed_events: deriveAllowedEvents("active", "start"),
 		source,
-		project_id: deps.workspace.projectIdentity(),
-		repo_name: deps.workspace.projectDisplayName(),
-		repo_path: deps.workspace.projectRoot(),
-		branch_name: deps.workspace.branchName() ?? "HEAD",
-		worktree_path: deps.workspace.worktreePath(),
 		agents,
-		last_summary_path: null,
-		created_at: nowIso(),
-		updated_at: nowIso(),
+		created_at: nowIso,
+		updated_at: nowIso,
 		history: [],
 		previous_run_id: previousRunId,
 	};
 
-	await writeRunState(deps.runs, newRunId, state);
-	return ok(state);
+	const state = { ...core, ...adapterSeed } as RunStateOf<TAdapter>;
+	return ok({ state, recordMutations: [] });
 }
 
-/**
- * Start a synthetic run (no associated OpenSpec change). The caller owns
- * the run_id verbatim; no sequence number is generated.
- */
-export async function startSyntheticRun(
-	input: StartSyntheticInput,
-	deps: StartSyntheticDeps,
-): Promise<Result<RunState, CoreRuntimeError>> {
-	const { runId } = input;
+export function startSyntheticRun<TAdapter extends object>(
+	input: StartSyntheticInput<TAdapter>,
+): Result<TransitionOk<TAdapter>, CoreRuntimeError> {
+	const { runId, existingRunExists, nowIso, adapterSeed } = input;
+
 	const idCheck = checkRunId(runId);
 	if (idCheck) return idCheck;
 
-	if (await deps.runs.exists(runRef(runId))) {
+	if (existingRunExists) {
 		return err({
 			kind: "run_already_exists",
 			message: `Error: run '${runId}' already exists`,
 		});
 	}
 
-	const state: RunState = {
+	const core: CoreRunState = {
 		run_id: runId,
 		change_name: null,
 		current_phase: "start",
 		status: "active" as RunStatus,
 		allowed_events: deriveAllowedEvents("active", "start"),
 		source: input.source,
-		project_id: deps.workspace.projectIdentity(),
-		repo_name: deps.workspace.projectDisplayName(),
-		repo_path: deps.workspace.projectRoot(),
-		branch_name: deps.workspace.branchName() ?? "HEAD",
-		worktree_path: deps.workspace.worktreePath(),
 		agents: { ...input.agents },
-		last_summary_path: null,
-		created_at: nowIso(),
-		updated_at: nowIso(),
+		created_at: nowIso,
+		updated_at: nowIso,
 		history: [],
-		run_kind: "synthetic" as const,
+		run_kind: "synthetic" as RunKind,
 		previous_run_id: null,
 	};
 
-	await writeRunState(deps.runs, runId, state);
-	return ok(state);
+	const state = { ...core, ...adapterSeed } as RunStateOf<TAdapter>;
+	return ok({ state, recordMutations: [] });
 }

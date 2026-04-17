@@ -1,53 +1,53 @@
-// Core runtime: mark a run suspended.
+// Core runtime: mark a run suspended. Pure function — no I/O.
 
-import type { RunArtifactStore } from "../lib/artifact-store.js";
 import { deriveAllowedEvents } from "../lib/workflow-machine.js";
-import type { CoreRunState, RunState, RunStatus } from "../types/contracts.js";
-import { loadRunState, nowIso, writeRunState } from "./_helpers.js";
-import type { CoreRuntimeError, Result, SuspendInput } from "./types.js";
+import type { RunStatus } from "../types/contracts.js";
+import type {
+	CoreRuntimeError,
+	Result,
+	RunStateOf,
+	TransitionOk,
+} from "./types.js";
 import { err, ok } from "./types.js";
 
-export interface SuspendDeps {
-	readonly runs: RunArtifactStore;
+export interface SuspendInput<TAdapter> {
+	readonly state: RunStateOf<TAdapter>;
+	readonly nowIso: string;
 }
 
-export async function suspendRun<T extends CoreRunState = RunState>(
-	input: SuspendInput,
-	deps: SuspendDeps,
-): Promise<Result<T, CoreRuntimeError>> {
-	const loaded = await loadRunState<T>(deps.runs, input.runId);
-	if (!loaded.ok) return loaded;
-	const runState = loaded.value;
+export function suspendRun<TAdapter extends object>(
+	input: SuspendInput<TAdapter>,
+): Result<TransitionOk<TAdapter>, CoreRuntimeError> {
+	const { state, nowIso } = input;
 
-	if (runState.status === "terminal") {
+	if (state.status === "terminal") {
 		return err({
 			kind: "terminal_suspend",
 			message: "Error: Cannot suspend a terminal run",
 		});
 	}
-	if (runState.status === "suspended") {
+	if (state.status === "suspended") {
 		return err({
 			kind: "already_suspended",
 			message: "Error: Run is already suspended",
 		});
 	}
 
-	const updated: T = {
-		...runState,
+	const updated: RunStateOf<TAdapter> = {
+		...state,
 		status: "suspended" as RunStatus,
-		updated_at: nowIso(),
-		allowed_events: deriveAllowedEvents("suspended", runState.current_phase),
+		updated_at: nowIso,
+		allowed_events: deriveAllowedEvents("suspended", state.current_phase),
 		history: [
-			...runState.history,
+			...state.history,
 			{
-				from: runState.current_phase,
-				to: runState.current_phase,
+				from: state.current_phase,
+				to: state.current_phase,
 				event: "suspend",
-				timestamp: nowIso(),
+				timestamp: nowIso,
 			},
 		],
 	};
 
-	await writeRunState<T>(deps.runs, input.runId, updated);
-	return ok(updated);
+	return ok({ state: updated, recordMutations: [] });
 }
