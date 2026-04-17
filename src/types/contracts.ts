@@ -301,6 +301,13 @@ export interface LocalRunState {
  */
 export type RunState = CoreRunState & LocalRunState;
 
+/**
+ * Backward-compatible alias for the full RunState type.
+ * Code from the runstate-adapter-extension spec that imports RunStateCoreFields
+ * continues to work — it sees the full RunState (core + local adapter fields).
+ */
+export type RunStateCoreFields = RunState;
+
 export interface DiffExcludedEntry extends JsonMap {
 	readonly file: string;
 	readonly reason: string;

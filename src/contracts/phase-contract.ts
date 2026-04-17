@@ -34,6 +34,28 @@ export interface GatedDecisionSpec {
 	readonly advanceEvents: Readonly<Record<string, string>>;
 }
 
+/**
+ * Declarative descriptor for data flowing into or out of a phase.
+ * Compile-time only in Phase 1; runtime validation deferred to Phase 2.
+ */
+export interface PhaseIODescriptor {
+	readonly artifacts: readonly string[];
+}
+
+/**
+ * Declarative gate condition — describes what must hold before a phase
+ * transition is allowed. Evaluation logic is deferred to Phase 2.
+ */
+export type GateConditionKind =
+	| "artifact_exists"
+	| "approval_required"
+	| "validation_passed";
+
+export interface GateCondition {
+	readonly kind: GateConditionKind;
+	readonly target?: string;
+}
+
 // ---------------------------------------------------------------------------
 // PhaseNextAction (moved from phase-router/types.ts)
 // ---------------------------------------------------------------------------
@@ -83,6 +105,14 @@ export interface PhaseContract {
 	readonly cliCommands: readonly CliStep[];
 	readonly agentTask?: AgentTaskSpec;
 	readonly gatedDecision?: GatedDecisionSpec;
+
+	// --- structured phase descriptors (Phase 1: type-only, no evaluation) ---
+	/** Declarative input descriptor — artifacts expected before entering this phase. */
+	readonly input?: PhaseIODescriptor;
+	/** Declarative output descriptor — artifacts produced by this phase. */
+	readonly output?: PhaseIODescriptor;
+	/** Declarative gate conditions — requirements that must hold for transition. */
+	readonly gate_conditions?: readonly GateCondition[];
 }
 
 // ---------------------------------------------------------------------------

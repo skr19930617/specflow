@@ -1,0 +1,65 @@
+{
+  "feature_id": "phase-1-core-runstate-core-adapter-field-split-phase-contract",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/types/contracts.ts",
+      "title": "Default TAdapter differs from proposal",
+      "detail": "The proposal states 'Default TAdapter = Record<string, never> (empty adapter) preserves backward compatibility', but the implementation uses Record<string, unknown>. The code comment explains why (JsonMap has unknown index signature, making Record<string, never> incompatible), and the runstate-adapter-extension spec scenario says 'RunState<Record<string, never>> is assignable to the current RunState interface' — which still holds since the default is a supertype. The deviation is justified by the comment and does not break backward compatibility, but the proposal text should be updated to match.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "testing",
+      "file": "src/tests/runstate-generic.test.ts",
+      "title": "Compile-time-only tests have no runtime assertions",
+      "detail": "The RunState generic tests verify type-level correctness by compiling, but the test bodies contain no runtime assertions (assert.*). This is acceptable for type-level tests, but adding a trivial assertion (e.g., assert.ok(true)) in each test body would make test runners report them as explicitly passing rather than vacuously passing.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/tests/resolve-run-id.test.ts",
+      "title": "Test files are untracked, not in the diff",
+      "detail": "The two new test files (resolve-run-id.test.ts, runstate-generic.test.ts) are untracked per git status but not included in the staged diff. They should be staged and committed together with the implementation changes to ensure CI runs them.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 2
+      }
+    }
+  ]
+}

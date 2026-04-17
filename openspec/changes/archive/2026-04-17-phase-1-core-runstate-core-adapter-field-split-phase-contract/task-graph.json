@@ -1,0 +1,269 @@
+{
+  "version": "1.0",
+  "change_id": "phase-1-core-runstate-core-adapter-field-split-phase-contract",
+  "bundles": [
+    {
+      "id": "runstate-core-adapter-split",
+      "title": "RunState Core/Adapter Field Split",
+      "goal": "Extract RunStateCoreFields and redefine RunState as a generic intersection type with backward-compatible default.",
+      "depends_on": [],
+      "inputs": [
+        "src/types/contracts.ts"
+      ],
+      "outputs": [
+        "src/types/contracts.ts:RunStateCoreFields",
+        "src/types/contracts.ts:RunState<TAdapter>"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define RunStateCoreFields interface in src/types/contracts.ts extracting all fields from current RunState",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Redefine RunState as generic type alias: RunState<TAdapter extends Record<string, unknown> = Record<string, never>> = RunStateCoreFields & TAdapter",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Export RunStateCoreFields from src/types/contracts.ts and verify existing re-exports still work",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run npm run typecheck to confirm all existing consumers compile without changes",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "run-identity-model"
+      ]
+    },
+    {
+      "id": "phase-contract-structured-extension",
+      "title": "PhaseContract Structured Extension",
+      "goal": "Add declarative input, output, and gate_conditions optional fields to PhaseContract.",
+      "depends_on": [],
+      "inputs": [
+        "src/lib/phase-router/types.ts"
+      ],
+      "outputs": [
+        "src/lib/phase-router/types.ts:PhaseIODescriptor",
+        "src/lib/phase-router/types.ts:GateCondition",
+        "src/lib/phase-router/types.ts:PhaseContract"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define PhaseIODescriptor interface with readonly artifacts field in src/lib/phase-router/types.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Define GateCondition interface with kind union type and optional target field in src/lib/phase-router/types.ts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add optional input, output, and gate_conditions fields to existing PhaseContract interface",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Export PhaseIODescriptor and GateCondition from src/lib/phase-router/types.ts",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run npm run typecheck and existing phase-router tests to confirm backward compatibility",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "resolve-run-id",
+      "title": "resolveRunId Auto-Resolution",
+      "goal": "Implement resolveRunId function returning Result type for Change ID to Run ID resolution.",
+      "depends_on": [
+        "runstate-core-adapter-split"
+      ],
+      "inputs": [
+        "src/lib/run-store-ops.ts",
+        "src/core/types.ts:Result",
+        "src/types/contracts.ts:RunState"
+      ],
+      "outputs": [
+        "src/lib/run-store-ops.ts:resolveRunId",
+        "src/lib/run-store-ops.ts:ResolveRunIdError",
+        "src/lib/run-store-ops.ts:ResolveRunIdErrorKind"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define ResolveRunIdErrorKind type and ResolveRunIdError interface in src/lib/run-store-ops.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement resolveRunId(store, changeId) using findLatestRun and status filtering, returning Result<string, ResolveRunIdError>",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Handle all error cases: no_active_run, change_not_found, multiple_active_runs",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Export resolveRunId, ResolveRunIdError, and ResolveRunIdErrorKind",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "run-identity-model",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "type-tests-runstate",
+      "title": "RunState Generic Type Tests",
+      "goal": "Add compile-time assignability tests verifying RunState generic behavior and backward compatibility.",
+      "depends_on": [
+        "runstate-core-adapter-split"
+      ],
+      "inputs": [
+        "src/types/contracts.ts:RunStateCoreFields",
+        "src/types/contracts.ts:RunState<TAdapter>"
+      ],
+      "outputs": [
+        "src/tests/runstate-generic.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Write compile-time test: unparameterized RunState is assignable from existing RunState shape",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Write compile-time test: RunState<CustomAdapter> includes both core and adapter fields",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Write compile-time test: adapter fields that shadow core fields produce type errors",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Write compile-time test: RunStateCoreFields is independently importable and usable",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "unit-tests-resolve-run-id",
+      "title": "resolveRunId Unit Tests",
+      "goal": "Test all five resolveRunId scenarios using in-memory RunArtifactStore.",
+      "depends_on": [
+        "resolve-run-id"
+      ],
+      "inputs": [
+        "src/lib/run-store-ops.ts:resolveRunId"
+      ],
+      "outputs": [
+        "src/tests/resolve-run-id.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Write test: returns run_id for single active run",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Write test: returns run_id for suspended run when no active exists",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Write test: returns no_active_run error when all runs are terminal",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Write test: returns change_not_found error when changeId has no runs",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Write test: returns multiple_active_runs error when ambiguous",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "run-identity-model"
+      ]
+    },
+    {
+      "id": "regression-verification",
+      "title": "Existing Conformance Test Verification",
+      "goal": "Verify all existing tests pass and no workflow-machine.ts modifications occurred.",
+      "depends_on": [
+        "runstate-core-adapter-split",
+        "phase-contract-structured-extension",
+        "resolve-run-id"
+      ],
+      "inputs": [
+        "src/types/contracts.ts",
+        "src/lib/phase-router/types.ts",
+        "src/lib/run-store-ops.ts"
+      ],
+      "outputs": [
+        "verification-report"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run full test suite (npm test) and confirm all existing tests pass",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Run npm run typecheck and confirm zero type errors",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Verify workflow-machine.ts has zero modifications via git diff",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run biome format/lint checks if configured",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "run-identity-model"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-16T12:21:31.338Z",
+  "generated_from": "design.md"
+}

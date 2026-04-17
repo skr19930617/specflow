@@ -10,6 +10,7 @@ import type {
 	CoreRunState,
 	RunKind,
 	RunState,
+	RunStateCoreFields,
 	SourceMetadata,
 } from "../types/contracts.js";
 
@@ -122,4 +123,4 @@ export interface GetFieldInput {
 
 // --- Re-exports used by command signatures ---------------------------------
 
-export type { CoreRunState, RunKind, RunState };
+export type { CoreRunState, RunKind, RunState, RunStateCoreFields };

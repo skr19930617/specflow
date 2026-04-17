@@ -14,12 +14,15 @@ import type {
 } from "../../contracts/surface-events.js";
 
 // Re-export canonical types from the phase-contract module.
+// Re-export structured phase descriptor types from the canonical module.
 export type {
+	GateCondition,
+	GateConditionKind,
 	PhaseContract,
 	PhaseContractRegistry,
+	PhaseIODescriptor,
 	PhaseNextAction,
 } from "../../contracts/phase-contract.js";
-
 // Re-export canonical surface event types.
 export type { SurfaceEventEnvelope as SurfaceEvent } from "../../contracts/surface-events.js";
 
