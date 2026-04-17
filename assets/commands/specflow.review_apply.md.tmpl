@@ -1,0 +1,367 @@
+## User Input
+
+```text
+$ARGUMENTS
+```
+
+## Prerequisites
+{{insert: openspec_prereq(specflow.review_apply)}}
+2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
+
+## Setup
+
+Determine `CHANGE_ID`:
+- If `$ARGUMENTS` contains a change id, use it.
+- Otherwise, derive from the current branch name or prompt the user.
+
+Verify `openspec/changes/<CHANGE_ID>/proposal.md` exists via Bash. If missing → **STOP** with error.
+
+## Step 0.5: Read Current Phase Context
+
+1. Use `CHANGE_ID` resolved in Setup.
+2. Check if `openspec/changes/<CHANGE_ID>/current-phase.md` exists (via Read tool — if not found, proceed silently).
+3. If the file exists: read it and display as a summary block:
+   ```
+   Current Phase Context:
+   <contents of current-phase.md>
+   ```
+4. If the file does not exist: proceed without error. Optionally note: "No prior phase context found (first run)."
+
+## Step 1: Run Orchestrator
+
+Run the Bash orchestrator:
+```bash
+specflow-review-apply review <CHANGE_ID>
+```
+
+Capture stdout as `RESULT_JSON`. If the command fails (non-zero exit), display the error and **STOP**.
+
+Parse `RESULT_JSON` as JSON. If parse fails, display raw output and **STOP**.
+
+## Step 2: Handle Error Results
+
+If `RESULT_JSON.status == "error"`:
+- If `RESULT_JSON.error == "no_changes"`: Display `"レビュー対象の変更がありません。フィルタリングにより全ての変更が除外されたか、実装変更がありません。"` → **STOP**.
+- Otherwise: Display `RESULT_JSON.error` → **STOP**.
+
+## Step 3: Handle Diff Warning
+
+If `RESULT_JSON.diff_summary.diff_warning == true`:
+
+Dual-Display Fallback Pattern に従う:
+
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+⚠ Diff size warning — {RESULT_JSON.diff_summary.total_lines} lines (threshold: {RESULT_JSON.diff_summary.threshold})
+
+続行しますか？（テキスト入力またはボタンで回答）:
+- **続行** → continue
+- **中止** → abort
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+```
+AskUserQuestion:
+  question: "フィルタリング後の diff が {total_lines} 行あります。レビューエージェントがスタックする可能性があります。続行しますか？"
+  options:
+    - label: "続行"
+      description: "このままレビューを実行"
+    - label: "中止"
+      description: "レビューをスキップ"
+```
+
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+If "中止" → **STOP**.
+
+If "続行": re-run the orchestrator with diff warning bypass enabled and replace `RESULT_JSON` with the new output.
+```bash
+specflow-review-apply review <CHANGE_ID> --skip-diff-check
+```
+Capture stdout again as `RESULT_JSON`. If the command fails (non-zero exit), display the error and **STOP**. Parse the new `RESULT_JSON` as JSON before proceeding.
+
+## Step 4: Display Review Results
+
+### Review Findings
+
+Present the review from `RESULT_JSON.review`:
+
+If `RESULT_JSON.review.parse_error` is true, display raw response from `RESULT_JSON.review.raw_response` instead of the structured table, then proceed to handoff.
+
+Otherwise display:
+```
+Implementation Review
+
+**Decision:** <RESULT_JSON.review.decision>
+**Summary:** <RESULT_JSON.review.summary>
+
+| # | Severity | File | Title | Detail |
+|---|----------|------|-------|--------|
+| F1 | high | src/foo.ts | ... | ... |
+| F2 | medium | src/bar.ts | ... | ... |
+```
+
+### Ledger Summary Display
+
+Use `RESULT_JSON.ledger` to display:
+```
+Review Ledger: Round {RESULT_JSON.ledger.round} | Status: {RESULT_JSON.ledger.status} | Findings: {RESULT_JSON.ledger.counts.new} new, {RESULT_JSON.ledger.counts.open} open, {RESULT_JSON.ledger.counts.resolved} resolved
+```
+
+If `RESULT_JSON.ledger.round_summaries` has more than 1 entry, show a compact progress table:
+```
+| Round | Total | Open | New | Resolved | Overridden |
+|-------|-------|------|-----|----------|------------|
+| 1     | 5     | 0    | 0   | 3        | 2          |
+| 2     | 7     | 2    | 2   | 3        | 2          |
+```
+Then show round-over-round diff: `"Round {n}: +{new} new, {resolved_this_round} resolved, {open} remaining"`
+
+## Step 5: Handoff (based on RESULT_JSON.handoff.state)
+
+### Actionable Findings 定義
+
+**Actionable findings**: `status ∈ {"new", "open"}` の finding。`"resolved"`, `"accepted_risk"`, `"ignored"` は non-actionable。
+
+**Blocking findings (approve gate)**: `actionable_count` のうち `severity ∈ {"critical", "high"}` に該当する件数が、approve 経路を gate する唯一の基準。LOW / MEDIUM は approve を阻害せず、`severity_summary` で Remaining Risks として表示される。
+
+### Severity 集計
+
+Use `RESULT_JSON.handoff.actionable_count` and `RESULT_JSON.handoff.severity_summary`.
+
+The `severity_summary` format: CRITICAL → HIGH → MEDIUM → LOW order, 0 件の severity は除外。
+
+### State-to-Option Mapping
+
+| State | Condition | Options (label → command) |
+|-------|-----------|--------------------------|
+| `review_with_findings` | HIGH+ unresolved ≥ 1 after review | "Auto-fix 実行" → `/specflow.fix_apply autofix`, "手動修正" → `/specflow.fix_apply`, "中止" → `/specflow.reject`, "Approve (accepted risk)" → `/specflow.approve` *(last)* |
+| `review_no_findings` | HIGH+ unresolved == 0 after review (LOW/MEDIUM may remain) | "Approve" → `/specflow.approve`, "手動修正" → `/specflow.fix_apply`, "中止" → `/specflow.reject` |
+| `loop_no_findings` | HIGH+ unresolved == 0 after loop (LOW/MEDIUM may remain) | "Approve" → `/specflow.approve`, "手動修正" → `/specflow.fix_apply`, "中止" → `/specflow.reject` |
+| `loop_with_findings` | HIGH+ unresolved ≥ 1 after loop | "Auto-fix 続行" → `/specflow.fix_apply autofix`, "手動修正" → `/specflow.fix_apply`, "中止" → `/specflow.reject`, "Approve (accepted risk)" → `/specflow.approve` *(last)* |
+
+**Approve 選択肢の表示規約** (`_with_findings` 状態):
+- Approve は常にリストの **最後** に配置する。偶発的な primary 上書きを防ぐ。
+- ラベルに severity_summary を併記する（例: `Approve (accepted risk) — HIGH 2, MEDIUM 1 を残す`）。
+- ユーザーが Approve を選択したら、`Skill(skill: "specflow.approve")` を起動する前に以下の警告を表示する:
+  ```
+  ⚠️ HIGH+ findings が残存しています（{RESULT_JSON.handoff.severity_summary}）。
+  accepted_risk 運用を確認してください。続行すると未解決の高リスクがそのまま approve に持ち越されます。
+  ```
+
+### Dual-Display Fallback Pattern
+
+全ハンドオフポイントに以下のパターンを適用する:
+
+1. **テキストプロンプト表示**: 1行ステータスメッセージ + 選択肢リスト（label → command 形式）を表示
+2. **AskUserQuestion 呼び出し**: 同じ選択肢をボタンとして表示
+3. **入力受理ルール**: 最初に受理された有効入力（ボタンまたはテキスト）のみを採用する
+4. **テキスト入力検証**: exact label または exact slash command のみ受理（label は case-insensitive）。部分一致は不可
+5. **無効入力時**: テキストプロンプトを再表示し、再度入力を待つ。自動選択や無入力での進行は禁止
+
+### `review_no_findings` (HIGH+ unresolved == 0)
+
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+✅ Review complete — all HIGH+ findings resolved (LOW/MEDIUM may remain: {RESULT_JSON.handoff.severity_summary})
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **Approve** → `/specflow.approve`
+- **手動修正** → `/specflow.fix_apply`
+- **中止** → `/specflow.reject`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+```
+AskUserQuestion:
+  question: "HIGH+ の指摘は解決済みです。次のアクションを選択してください"
+  options:
+    - label: "Approve"
+      description: "実装を承認してコミット・PR 作成"
+    - label: "手動修正 (/specflow.fix_apply)"
+      description: "残る LOW/MEDIUM を手動で修正して再レビュー"
+    - label: "中止"
+      description: "全変更を破棄して終了"
+```
+
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+- 「Approve」 → `Skill(skill: "specflow.approve")`
+- 「手動修正 (/specflow.fix_apply)」 → `Skill(skill: "specflow.fix_apply")`
+- 「中止」 → `Skill(skill: "specflow.reject")`
+
+### `review_with_findings` (HIGH+ unresolved ≥ 1)
+
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+⚠ Review complete — {RESULT_JSON.handoff.actionable_count} actionable finding(s): {RESULT_JSON.handoff.severity_summary}
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **Auto-fix 実行** → `/specflow.fix_apply autofix`
+- **手動修正** → `/specflow.fix_apply`
+- **中止** → `/specflow.reject`
+- **Approve (accepted risk) — {RESULT_JSON.handoff.severity_summary} を残す** → `/specflow.approve`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+```
+AskUserQuestion:
+  question: "レビュー指摘: {severity_summary}\n次のアクションを選択してください"
+  options:
+    - label: "Auto-fix 実行"
+      description: "自動修正を実行し、再レビューする"
+    - label: "手動修正 (/specflow.fix_apply)"
+      description: "手動で修正した後に再レビューする"
+    - label: "中止"
+      description: "全変更を破棄して終了"
+    - label: "Approve (accepted risk)"
+      description: "HIGH+ findings を accepted_risk として残したまま承認する（確認警告あり）"
+```
+
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+ユーザーの選択に応じて分岐:
+- 「Auto-fix 実行」 → Step 6: Auto-fix Loop に進む
+- 「手動修正 (/specflow.fix_apply)」 → 手動修正誘導メッセージを表示し、`Skill(skill: "specflow.fix_apply")` を実行する
+- 「中止」 → `Skill(skill: "specflow.reject")`
+- 「Approve (accepted risk)」 → 以下の確認警告を表示したうえで `Skill(skill: "specflow.approve")` を実行する:
+  ```
+  ⚠️ HIGH+ findings が残存しています（{RESULT_JSON.handoff.severity_summary}）。
+  accepted_risk 運用を確認してください。続行すると未解決の高リスクがそのまま approve に持ち越されます。
+  ```
+
+**手動修正誘導メッセージ**:
+```
+手動修正モードに進みます。/specflow.fix_apply で指摘を修正し、再レビューしてください。
+```
+
+## Step 6: Auto-fix Loop
+
+ユーザーが「Auto-fix 実行」を選択した場合、Bash orchestrator で auto-fix loop を実行する。
+
+### Run Orchestrator
+
+```bash
+specflow-review-apply autofix-loop <CHANGE_ID> --max-rounds <MAX_AUTOFIX_ROUNDS>
+```
+
+Capture stdout as `LOOP_JSON`. If the command fails (non-zero exit), display the error and **STOP**.
+
+Parse `LOOP_JSON` as JSON. If parse fails, display raw output and **STOP**.
+
+### Display Loop Summary
+
+```
+Auto-fix Loop Complete:
+  - Total rounds: {LOOP_JSON.autofix.total_rounds}
+  - Result: {LOOP_JSON.autofix.result}
+  - Reason: {LOOP_JSON.autofix.result == "success" ? "unresolved HIGH+ = 0" : LOOP_JSON.autofix.result}
+  - Remaining actionable: {LOOP_JSON.handoff.actionable_count} ({LOOP_JSON.handoff.severity_summary})
+```
+
+**スコア推移テーブル**（`LOOP_JSON.autofix.round_scores` が 1 件以上の場合に表示）:
+```
+| Round | Score | Unresolved HIGH+ | New HIGH+ |
+|-------|-------|------------------|-----------|
+| 1     | 12    | 3                | 1         |
+| 2     | 9     | 2                | 0         |
+```
+
+**Divergence 警告履歴**（`LOOP_JSON.autofix.divergence_warnings` が 1 件以上の場合に表示）:
+```
+Divergence Warnings:
+  - Round {round}: {type} ({detail})
+  - Round {round}: {type} ({detail})
+```
+`divergence_warnings` が空の場合、この警告履歴セクションは表示しない。
+
+### Ledger Summary Display (Loop)
+
+Use `LOOP_JSON.ledger` to display the same ledger summary format as Step 4:
+```
+Review Ledger: Round {round} | Status: {status} | Findings: {new} new, {open} open, {resolved} resolved
+```
+If `round_summaries` has more than 1 entry, show the compact progress table and round-over-round diff.
+
+### Loop Handoff (based on LOOP_JSON.handoff.state)
+
+#### `loop_no_findings` (HIGH+ unresolved == 0)
+
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+✅ Auto-fix complete — all HIGH+ findings resolved (LOW/MEDIUM may remain: {LOOP_JSON.handoff.severity_summary})
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **Approve** → `/specflow.approve`
+- **手動修正** → `/specflow.fix_apply`
+- **中止** → `/specflow.reject`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+```
+AskUserQuestion:
+  question: "Auto-fix loop 完了（HIGH+ 解決）。次のアクションを選択してください"
+  options:
+    - label: "Approve"
+      description: "実装を承認してコミット・PR 作成"
+    - label: "手動修正 (/specflow.fix_apply)"
+      description: "残る LOW/MEDIUM を手動で修正して再レビュー"
+    - label: "中止"
+      description: "全変更を破棄して終了"
+```
+
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+- 「Approve」 → `Skill(skill: "specflow.approve")`
+- 「手動修正 (/specflow.fix_apply)」 → `Skill(skill: "specflow.fix_apply")`
+- 「中止」 → `Skill(skill: "specflow.reject")`
+
+#### `loop_with_findings` (HIGH+ unresolved ≥ 1)
+
+残存する HIGH+ findings の severity_summary を `LOOP_JSON.handoff.severity_summary` から取得。
+
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+⚠ Auto-fix stopped — {LOOP_JSON.autofix.result == "success" ? "success (HIGH+ resolved, lower-severity remaining)" : "max rounds reached"}. Remaining: {LOOP_JSON.handoff.severity_summary}
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
+- **Auto-fix 続行** → `/specflow.fix_apply autofix`
+- **手動修正** → `/specflow.fix_apply`
+- **中止** → `/specflow.reject`
+- **Approve (accepted risk) — {LOOP_JSON.handoff.severity_summary} を残す** → `/specflow.approve`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+```
+AskUserQuestion:
+  question: "Auto-fix loop 停止（{result_reason}）。残存指摘: {severity_summary}\n次のアクションを選択してください"
+  options:
+    - label: "Auto-fix 続行"
+      description: "自動修正を続行し、再レビューする"
+    - label: "手動修正 (/specflow.fix_apply)"
+      description: "残りの指摘を手動で修正して再レビュー"
+    - label: "中止"
+      description: "全変更を破棄して終了"
+    - label: "Approve (accepted risk)"
+      description: "HIGH+ findings を accepted_risk として残したまま承認する（確認警告あり）"
+```
+
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+- 「Auto-fix 続行」 → auto-fix loop を再開始（Step 6 を再実行）
+- 「手動修正 (/specflow.fix_apply)」 → `Skill(skill: "specflow.fix_apply")`
+- 「中止」 → `Skill(skill: "specflow.reject")`
+- 「Approve (accepted risk)」 → 以下の確認警告を表示したうえで `Skill(skill: "specflow.approve")` を実行する:
+  ```
+  ⚠️ HIGH+ findings が残存しています（{LOOP_JSON.handoff.severity_summary}）。
+  accepted_risk 運用を確認してください。続行すると未解決の高リスクがそのまま approve に持ち越されます。
+  ```
+
+**IMPORTANT:** 全ハンドオフポイントで Dual-Display Fallback Pattern を適用すること — テキストプロンプトと AskUserQuestion の両方を必ず表示する。
+
+## Important Rules
+
+- Use the git repository root (`git rev-parse --show-toplevel`) as the base for all relative paths.
+- All artifacts (proposal, review-ledger, current-phase) are managed in `openspec/changes/<CHANGE_ID>/`.
+- If any tool call fails, report the error and ask the user how to proceed.
+- ALL control flow logic (diff filtering, review agent invocation, ledger update, finding matching, current-phase generation) is handled by the `specflow-review-apply` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.

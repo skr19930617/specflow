@@ -1,0 +1,64 @@
+{
+  "feature_id": "refactor-command-bodies-into-template-based-authoring-with-explicit-contract-insertion-points",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/contracts/inserts.ts",
+      "title": "parseInsertKey is unused internally",
+      "detail": "parseInsertKey is defined and used by resolveInsert(), but the template-resolver.ts has its own inline parsing logic (line 45). The duplication is minor but could be consolidated. resolveInsert() itself is only used in inserts.test.ts. Consider whether resolveInsert + parseInsertKey can be removed if all real resolution goes through the template resolver.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/contracts/template-resolver.ts",
+      "title": "Duplicate insert-key parsing logic",
+      "detail": "resolveTag() at line 45 duplicates the argument parsing regex from inserts.ts:parseInsertKey(). Both use the same /^([^(]+)\\(([^)]*)\\)$/ pattern. Consider importing parseInsertKey from inserts.ts to keep the pattern in one place.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/contracts/template-resolver.ts",
+      "title": "splitIntoSections creates null-title sections for preamble",
+      "detail": "The old command-bodies format never had null-title sections — all sections had explicit titles. The new splitIntoSections allows preamble content before the first ## heading to produce a null-title section. If any template accidentally has content before the first heading, it will silently become a titleless section. This is correctly handled by the snapshot test so it's not a correctness issue, just a behavioral change to be aware of.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "low": 3
+      }
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "feature_id": "refactor-command-bodies-into-template-based-authoring-with-explicit-contract-insertion-points",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 4,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "renderPhaseSection is not used inline — insert registry task 1.5 is misleading",
+      "detail": "Task 1.5 says 'Register renderPhaseSection entries for render: tags'. However, renderPhaseSection is defined in command-bodies.ts but never called from within the commandBodies sections — it is only exported for tests. The {{render: <phase>}} tag should call renderPhaseMarkdown() directly (as the design correctly states in D2). Task 1.5 should be reworded to clarify that the resolver handles {{render:}} tags by calling renderPhaseMarkdown() directly from phase-contract.ts, and that renderPhaseSection will be moved/retained only as a convenience wrapper in inserts.ts or removed.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Insert key syntax for inline-concatenated prerequisites needs explicit handling",
+      "detail": "Several command-bodies.ts entries concatenate buildOpenspecPrereq() output with additional text inline (e.g., line 53: `${buildOpenspecPrereq('specflow.apply')}\\n2. Read ...`). The insert tag {{insert: openspec_prereq(specflow.apply)}} replaces the function call but the surrounding concatenated prose must remain in the template. Tasks 5.2–5.7 should explicitly note that template extraction must split these concatenated strings: the {{insert:}} tag replaces only the function call, and the trailing prose stays as literal Markdown in the .md.tmpl file.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "low",
+      "category": "granularity",
+      "title": "Task 4.4 'Commit snapshot baselines' should not be a separate commit step",
+      "detail": "Snapshot baselines are generated test artifacts. They should be committed together with the snapshot test file (4.1), not as a separate task. Committing snapshots independently creates a commit that only makes sense in a narrow migration window. Consider merging 4.2–4.4 into 4.1 or dropping 4.4 as a distinct task.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "low",
+      "category": "completeness",
+      "title": "Design should note that resolveTemplate returns immutable CommandSection[]",
+      "detail": "The design's Contracts/Interfaces section shows resolveTemplate returning ResolvedSections with readonly sections, but task 6.3 separately states 'produces new CommandContract objects (immutable)'. The design should clarify where the immutable copy of CommandContract is created — whether resolveAllTemplates returns new CommandContract[] or mutates the sections in-place via the optional templatePath field. The current wording in D5 says 'the resolver fills sections from the template' which sounds like mutation. Task 6.3 correctly says 'new CommandContract objects (immutable)' — the design text in D5 should align.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "low": 2
+      }
+    }
+  ]
+}

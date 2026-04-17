@@ -31,6 +31,7 @@ export interface CommandSection {
 export interface CommandBody {
 	readonly frontmatter: Readonly<Record<string, string>>;
 	readonly sections: readonly CommandSection[];
+	readonly templatePath?: string;
 }
 
 export interface CommandContract {

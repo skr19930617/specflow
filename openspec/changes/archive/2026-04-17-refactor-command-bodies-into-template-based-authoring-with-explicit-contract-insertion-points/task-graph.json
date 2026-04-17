@@ -1,0 +1,400 @@
+{
+  "version": "1.0",
+  "change_id": "refactor-command-bodies-into-template-based-authoring-with-explicit-contract-insertion-points",
+  "bundles": [
+    {
+      "id": "insert-registry",
+      "title": "Insert Registry Module",
+      "goal": "Create src/contracts/inserts.ts exporting a ReadonlyMap of insert keys to generator functions wrapping existing helpers",
+      "depends_on": [],
+      "inputs": [
+        "src/contracts/prerequisites.ts",
+        "src/contracts/command-bodies.ts#buildDesignArtifactInstruction",
+        "src/contracts/phase-contract.ts"
+      ],
+      "outputs": [
+        "src/contracts/inserts.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Audit command-bodies.ts to inventory all shared snippet calls (buildOpenspecPrereq, buildDesignArtifactInstruction, renderPhaseSection, etc.) and their call-site arguments",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Define the InsertRegistry type as ReadonlyMap<string, (arg?: string) => string> in src/contracts/inserts.ts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Register buildOpenspecPrereq as openspec_prereq(<commandName>) with argument parsing",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Extract buildDesignArtifactInstruction from command-bodies.ts, export from inserts.ts as design_artifact_instruction",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Register renderPhaseSection entries for render: tags and phaseContractRegistry entries for contract: tags",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Register any remaining shared prose fragments identified in the audit (e.g., important_rules.common)",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Write unit tests for every registry entry verifying output matches current inline invocations",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "template-resolver",
+      "title": "Template Resolver Engine",
+      "goal": "Implement resolveTemplate() that parses .md.tmpl files and resolves {{insert:}}, {{contract:}}, and {{render:}} tags into CommandSection[]",
+      "depends_on": [
+        "insert-registry"
+      ],
+      "inputs": [
+        "src/contracts/inserts.ts",
+        "src/contracts/phase-contract.ts",
+        "src/types/contracts.ts#CommandSection"
+      ],
+      "outputs": [
+        "src/contracts/template-resolver.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define ResolvedSections interface and resolveTemplate() function signature in src/contracts/template-resolver.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement template file reader that reads .md.tmpl content from disk given a path",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Implement regex-based tag parser for {{insert: <key>}}, {{contract: <phase>}}, and {{render: <phase>}} (depth-1 only, no nesting)",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Implement tag resolution: insert tags resolve via insertRegistry, contract tags emit JSON from phaseContractRegistry, render tags call renderPhaseMarkdown()",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Implement section splitting: parse resolved Markdown into CommandSection[] using heading-based boundaries matching current renderBody() structure",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Add hard-error on unresolved tags (missing insert key, unknown phase name, missing template file)",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Write unit tests for each tag kind including error cases (unknown key, malformed tag, missing file)",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "type-extension-and-validation",
+      "title": "CommandBody Type Extension + Validation",
+      "goal": "Add optional templatePath to CommandBody and extend contract validation to check template file existence",
+      "depends_on": [],
+      "inputs": [
+        "src/types/contracts.ts",
+        "src/lib/contracts.ts"
+      ],
+      "outputs": [
+        "src/types/contracts.ts",
+        "src/lib/contracts.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add readonly templatePath?: string to CommandBody interface in src/types/contracts.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Extend validateContracts() in src/lib/contracts.ts to check that templatePath files exist on disk when declared",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add validation that commands with templatePath have empty sections array (sections will be populated by resolver)",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Write unit tests for the new validation rules (missing template file, valid template path)",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "snapshot-baseline",
+      "title": "Capture Pre-Migration Snapshot Baselines",
+      "goal": "Capture the full renderCommands() output for every command as snapshot baselines before any migration changes",
+      "depends_on": [],
+      "inputs": [
+        "src/generators/commands.ts",
+        "src/contracts/command-bodies.ts"
+      ],
+      "outputs": [
+        "src/tests/__snapshots__/command-output.snap.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create snapshot test file src/tests/command-output.test.ts that renders every command and compares to snapshot",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Generate baseline snapshots by running the test suite in update mode",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Verify snapshots cover all commands in commandBodies",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Commit snapshot baselines as a reference point",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "template-extraction",
+      "title": "Extract Template Source Files",
+      "goal": "Extract prose content from command-bodies.ts into assets/commands/*.md.tmpl files with insertion tags replacing inline function calls",
+      "depends_on": [
+        "insert-registry",
+        "template-resolver",
+        "snapshot-baseline"
+      ],
+      "inputs": [
+        "src/contracts/command-bodies.ts",
+        "src/contracts/inserts.ts"
+      ],
+      "outputs": [
+        "assets/commands/*.md.tmpl"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create assets/commands/ directory",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Extract specflow.md.tmpl — replace buildOpenspecPrereq() call with {{insert: openspec_prereq(specflow)}} and renderPhaseSection() calls with {{render: <phase>}} tags",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Extract specflow.apply.md.tmpl with appropriate insertion tags",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Extract specflow.design.md.tmpl with appropriate insertion tags",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Extract remaining command templates (specflow.review_design, specflow.review_apply, specflow.fix_design, specflow.fix_apply, etc.)",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Extract specflow.approve, specflow.reject, specflow.explore, specflow.setup templates",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Extract utility command templates (specflow.spec, specflow.readme, specflow.license, specflow.dashboard, specflow.decompose)",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Verify every command in commandBodies has a corresponding .md.tmpl file",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides"
+      ]
+    },
+    {
+      "id": "build-pipeline-integration",
+      "title": "Build Pipeline Integration",
+      "goal": "Wire resolveAllTemplates() into src/build.ts between validateContracts() and renderCommands()",
+      "depends_on": [
+        "template-resolver",
+        "type-extension-and-validation"
+      ],
+      "inputs": [
+        "src/build.ts",
+        "src/contracts/template-resolver.ts",
+        "src/contracts/inserts.ts"
+      ],
+      "outputs": [
+        "src/build.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement resolveAllTemplates() that iterates contracts.commands and calls resolveTemplate() for each command with a templatePath",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Insert resolveAllTemplates() call in build.ts main() between validateContracts() and renderCommands()",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Ensure resolveAllTemplates() produces new CommandContract objects (immutable) with sections populated from templates",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Write integration test that runs the full build pipeline and verifies dist/ output matches pre-migration baselines",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "command-bodies-refactor",
+      "title": "Slim Down command-bodies.ts",
+      "goal": "Refactor command-bodies.ts to export only frontmatter + templatePath per command, removing all inline string literal sections",
+      "depends_on": [
+        "template-extraction",
+        "build-pipeline-integration"
+      ],
+      "inputs": [
+        "src/contracts/command-bodies.ts",
+        "assets/commands/*.md.tmpl"
+      ],
+      "outputs": [
+        "src/contracts/command-bodies.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Replace each command entry's sections array with an empty array and add templatePath pointing to assets/commands/<id>.md.tmpl",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Remove unused imports (buildOpenspecPrereq, renderPhaseSection, etc.) from command-bodies.ts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Remove buildDesignArtifactInstruction and renderPhaseSection from command-bodies.ts (now live in inserts.ts)",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Verify command-bodies.ts is ~100 lines of metadata declarations",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run full build and verify dist/ output is unchanged",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "snapshot-verification-and-packaging",
+      "title": "Snapshot Verification + Package Exclusion",
+      "goal": "Verify all snapshot tests pass post-migration and update package configuration to exclude template source files",
+      "depends_on": [
+        "command-bodies-refactor"
+      ],
+      "inputs": [
+        "src/tests/__snapshots__/command-output.snap.ts",
+        "package.json",
+        ".npmignore"
+      ],
+      "outputs": [
+        "src/tests/__snapshots__/command-output.snap.ts",
+        ".npmignore"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run snapshot tests and verify all commands produce identical output to pre-migration baselines",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update .npmignore or package.json files field to exclude assets/commands/ from the published package",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Run npm run build and verify dist/ output is complete and correct",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run full test suite and verify 80%+ coverage for new modules (inserts.ts, template-resolver.ts)",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Verify no inline content strings remain in command-bodies.ts",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "contract-driven-distribution"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-17T03:31:48.672Z",
+  "generated_from": "design.md"
+}
