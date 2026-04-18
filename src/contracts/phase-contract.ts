@@ -738,16 +738,32 @@ const phaseContractData: readonly PhaseContract[] = [
 	},
 
 	// --- Terminal states ---
+	//
 	// phase-semantics defines all six roles for terminal phases with
-	// explicit terminal-specific values (Decision D7 in design.md):
-	//   - inputs: empty (explicit empty-set encoding, not omission)
-	//   - outputs: empty (artifacts persist but are not *produced* by the
-	//     terminal phase itself — the phase-semantics spec is the meaning
-	//     authority and it defines outputs as empty for all three terminals)
-	//   - branching: "no transition / terminal" via terminal=true +
-	//     terminal_reason + next_action="terminal"
-	//   - delegation: deterministic (no agent)
-	//   - cliCommands: empty (terminal phases have no deterministic work)
+	// explicit terminal-specific values (Decision D7 in design.md).
+	// Each role encoding is documented inline per-phase below.
+	//
+	// The empty arrays for requiredInputs, producedOutputs, and cliCommands
+	// are the DEFINED terminal-specific values — not missing data. The
+	// phase-semantics spec (the meaning authority per D1) explicitly states:
+	//   - approved outputs: "empty (archived artifacts persist but are not
+	//     produced by this phase)"
+	//   - decomposed outputs: "empty (sub-issue references persist outside
+	//     the run)"
+	//   - rejected outputs: "empty"
+	// These empty-set encodings are distinguishable from non-terminal empty
+	// arrays because the consumer reads `terminal === true` to identify
+	// terminal phases.
+
+	// phase-semantics §approved — all six roles:
+	//   Role 1 (identity): "approved"
+	//   Role 2 (inputs): empty (terminal-specific: no new inputs consumed)
+	//   Role 3 (outputs): empty (terminal-specific: archived artifacts persist
+	//     but are not *produced* by this phase)
+	//   Role 4 (completion): run lifecycle status has reached terminal
+	//   Role 5 (branching): "no transition / terminal" — encoded via
+	//     terminal=true, terminal_reason, next_action="terminal"
+	//   Role 6 (delegation): deterministic (no agent, no agentTask)
 	{
 		phase: "approved",
 		next_action: "terminal",
@@ -758,6 +774,15 @@ const phaseContractData: readonly PhaseContract[] = [
 		producedOutputs: [],
 		cliCommands: [],
 	},
+	// phase-semantics §decomposed — all six roles:
+	//   Role 1 (identity): "decomposed"
+	//   Role 2 (inputs): empty (terminal-specific: no new inputs consumed)
+	//   Role 3 (outputs): empty (terminal-specific: sub-issue references
+	//     persist outside the run)
+	//   Role 4 (completion): run lifecycle status has reached terminal
+	//   Role 5 (branching): "no transition / terminal" — encoded via
+	//     terminal=true, terminal_reason, next_action="terminal"
+	//   Role 6 (delegation): deterministic (no agent, no agentTask)
 	{
 		phase: "decomposed",
 		next_action: "terminal",
@@ -768,6 +793,14 @@ const phaseContractData: readonly PhaseContract[] = [
 		producedOutputs: [],
 		cliCommands: [],
 	},
+	// phase-semantics §rejected — all six roles:
+	//   Role 1 (identity): "rejected"
+	//   Role 2 (inputs): empty (terminal-specific: no new inputs consumed)
+	//   Role 3 (outputs): empty (terminal-specific)
+	//   Role 4 (completion): run lifecycle status has reached terminal
+	//   Role 5 (branching): "no transition / terminal" — encoded via
+	//     terminal=true, terminal_reason, next_action="terminal"
+	//   Role 6 (delegation): deterministic (no agent, no agentTask)
 	{
 		phase: "rejected",
 		next_action: "terminal",
