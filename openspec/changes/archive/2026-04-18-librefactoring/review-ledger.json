@@ -1,0 +1,172 @@
+{
+  "feature_id": "librefactoring",
+  "phase": "impl",
+  "current_round": 4,
+  "status": "all_resolved",
+  "max_finding_id": 8,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/lib/task-planner/window.ts",
+      "title": "completion.ts merged into window.ts, not advance.ts as spec requires",
+      "detail": "The proposal explicitly states: 'task-planner/completion.ts + task-planner/window.ts → inline into task-planner/advance.ts (their only production caller)'. The diff instead merges completion.ts into window.ts. Either the spec or the implementation needs to be corrected to match.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "updated",
+      "supersedes": null,
+      "notes": "Stale finding. The proposal was corrected during design phase (design.md D3 erratum): advance.ts does NOT import from completion.ts — window.ts is the actual sole production importer. The current proposal.md explicitly states 'absorbed into src/lib/task-planner/window.ts (its only production importer), not advance.ts'. Implementation matches the corrected proposal."
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/lib/phase-router/errors.ts",
+      "title": "phase-router/errors.ts → router.ts merge missing from diff",
+      "detail": "The proposal specifies 'phase-router/errors.ts (50 lines, error classes only) → inline into phase-router/router.ts; phase-router/index.ts keeps re-exporting the same classes.' This consolidation is not present in the diff.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "updated",
+      "supersedes": null,
+      "notes": "Stale finding. The proposal was corrected during design phase (design.md D3): errors.ts has TWO internal consumers (router.ts and derive-action.ts), violating the single-consumer precondition. The current proposal.md explicitly states 'src/lib/phase-router/errors.ts is NOT merged'. Intentionally absent from the diff."
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/specs/project-bootstrap-installation/spec.md",
+      "title": "Spec retirement not visible in diff",
+      "detail": "The proposal requires removing the 'setup rerun performs deterministic diff-and-resolve on existing profile' requirement from project-bootstrap-installation/spec.md. This change is not in the diff. Verify it is staged or pending.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "updated",
+      "supersedes": null,
+      "notes": "The spec delta exists at openspec/changes/librefactoring/specs/project-bootstrap-installation/spec.md with a REMOVED Requirements section. Per the OpenSpec workflow, the baseline spec is rewritten at archive time — the delta is the correct mechanism. The proposal explicitly states: 'the baseline spec file is rewritten by OpenSpec at archive time'. The delta file is present in the changeset (untracked under openspec/changes/librefactoring/)."
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/tests/interaction-records.test.ts",
+      "title": "Test deletion for profile-diff not visible in diff",
+      "detail": "The proposal says 'src/tests/interaction-records.test.ts is currently the only confirmed match (sole subject = profile-diff.ts) and is deleted.' This deletion is not in the provided diff. Verify it is included in the full changeset.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "updated",
+      "supersedes": null,
+      "notes": "Stale finding. The proposal was corrected during design phase (design.md D1 erratum): interaction-records.test.ts imports in-memory-interaction-record-store.ts and types/interaction-records.ts, NOT profile-diff.ts. The current proposal.md explicitly states: 'zero tests match' and 'interaction-records.test.ts imports in-memory-interaction-record-store.ts (not touched) rather than profile-diff.ts, so it is NOT deleted'. No test file deletion is required."
+    },
+    {
+      "id": "R1-F05",
+      "severity": "low",
+      "category": "scope",
+      "file": "src/lib/agent-session/session-manager.ts",
+      "title": "send-queue.ts → session-manager.ts merge not explicitly confirmed in spec",
+      "detail": "The proposal says agent-session merges proceed 'only if design confirms each candidate has a single internal consumer'. The merge of SendQueue into session-manager.ts appears reasonable but the spec's confirmed list only names task-planner and phase-router consolidations. Ensure design phase confirmed this merge.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "updated",
+      "supersedes": null,
+      "notes": "The current proposal.md explicitly lists this merge: 'src/lib/agent-session/send-queue.ts (43 lines) → absorbed into src/lib/agent-session/session-manager.ts (its only production importer)'. Design phase confirmed send-queue.ts has a single consumer (session-manager.ts). The merge is in the confirmed list."
+    },
+    {
+      "id": "R1-F06",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/agent-session/session-manager.ts",
+      "title": "Inlined SendQueue uses mutation pattern",
+      "detail": "SendQueue mutates this.poisonError and this.tail in place. This is acceptable for a queue's internal state machine, but note it conflicts with the project's immutability-first coding style rule. The original send-queue.ts had the same pattern, so this is not a regression — just flagging for awareness.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "updated",
+      "supersedes": null,
+      "notes": "Acknowledged. Not a regression — the original send-queue.ts had identical mutation patterns. Queue internal state machines inherently require mutable state for tail-chaining and poison tracking. The coding style rule notes language-specific overrides are acceptable when idiomatically required."
+    },
+    {
+      "id": "R3-F07",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/agent-session/send-queue.ts",
+      "title": "Deleted source files not included in diff",
+      "detail": "Git status shows send-queue.ts, completion.ts, ecosystem-detector.ts, and profile-diff.ts as unstaged deletions (` D`), meaning they are deleted in the working tree but not staged. The diff under review does not capture these deletions. The consolidation targets (session-manager.ts, window.ts) already inline the code, but until the old files are staged for deletion and verified absent, the refactoring is incomplete. Stage the deletions (`git add` the removed files) and confirm the build passes with the files gone.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R3-F08",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/tests/barrel-equivalence.test.ts",
+      "title": "barrel-equivalence.test.ts is untracked and not in diff",
+      "detail": "The proposal explicitly requires a new `src/tests/barrel-equivalence.test.ts` to pin the three barrels' runtime export surfaces. Git status shows it as `??` (untracked) but its contents are not part of the reviewed diff. This test is a key safety net for the refactoring — it must be reviewed for correctness and included in the final changeset.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 6,
+      "open": 6,
+      "new": 6,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 3,
+        "low": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 6,
+      "open": 0,
+      "new": 0,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": 0,
+        "medium": 0,
+        "low": 0
+      }
+    },
+    {
+      "round": 3,
+      "total": 8,
+      "open": 2,
+      "new": 2,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    },
+    {
+      "round": 4,
+      "total": 8,
+      "open": 0,
+      "new": 0,
+      "resolved": 8,
+      "overridden": 0,
+      "by_severity": {}
+    }
+  ]
+}

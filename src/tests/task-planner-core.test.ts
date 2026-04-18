@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkBundleCompletion } from "../lib/task-planner/completion.js";
 import type { LlmClient } from "../lib/task-planner/generate.js";
 import { generateTaskGraph } from "../lib/task-planner/generate.js";
 import { renderTasksMd } from "../lib/task-planner/render.js";
 import { updateBundleStatus } from "../lib/task-planner/status.js";
 import type { TaskGraph } from "../lib/task-planner/types.js";
-import { selectNextWindow } from "../lib/task-planner/window.js";
+import {
+	checkBundleCompletion,
+	selectNextWindow,
+} from "../lib/task-planner/window.js";
 
 // --- Fixtures ---
 

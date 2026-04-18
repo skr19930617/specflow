@@ -1,7 +1,15 @@
-// Next execution window selection from task graph.
+// Bundle completion check and next execution window selection from task graph.
 
-import type { ArtifactChecker } from "./completion.js";
 import type { Bundle, TaskGraph } from "./types.js";
+
+export type ArtifactChecker = (artifactRef: string) => boolean;
+
+export function checkBundleCompletion(
+	bundle: Bundle,
+	artifactChecker: ArtifactChecker,
+): boolean {
+	return bundle.outputs.every((output) => artifactChecker(output));
+}
 
 export function selectNextWindow(
 	taskGraph: TaskGraph,

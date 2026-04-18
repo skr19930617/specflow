@@ -8,8 +8,6 @@ export type {
 	AdvanceBundleWriter,
 } from "./advance.js";
 export { advanceBundleStatus } from "./advance.js";
-export type { ArtifactChecker } from "./completion.js";
-export { checkBundleCompletion } from "./completion.js";
 export type {
 	GenerateError,
 	GenerateOptions,
@@ -33,4 +31,5 @@ export type {
 	TaskGraph,
 	TaskStatus,
 } from "./types.js";
-export { selectNextWindow } from "./window.js";
+export type { ArtifactChecker } from "./window.js";
+export { checkBundleCompletion, selectNextWindow } from "./window.js";

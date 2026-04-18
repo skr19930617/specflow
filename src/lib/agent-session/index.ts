@@ -10,9 +10,8 @@ export { CopilotAdapter } from "./adapters/copilot-adapter.js";
 export type { ProviderAdapter, ProviderHandle } from "./adapters/types.js";
 export type { SessionErrorKind } from "./errors.js";
 export { ConfigMismatchError, SessionError } from "./errors.js";
-export { SendQueue } from "./send-queue.js";
 export type { SessionManagerDeps } from "./session-manager.js";
-export { DefaultAgentSessionManager } from "./session-manager.js";
+export { DefaultAgentSessionManager, SendQueue } from "./session-manager.js";
 export type { SessionMetadata } from "./session-store.js";
 export { SessionMetadataStore } from "./session-store.js";
 export type {

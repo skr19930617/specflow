@@ -1,0 +1,282 @@
+{
+  "version": "1.0",
+  "change_id": "librefactoring",
+  "bundles": [
+    {
+      "id": "baseline-verification",
+      "title": "Baseline verification and barrel-equivalence test",
+      "goal": "Confirm npm run check is green on current main and add or confirm barrel-equivalence smoke tests for task-planner, agent-session, and phase-router barrels.",
+      "depends_on": [],
+      "inputs": [
+        "src/lib/task-planner/index.ts",
+        "src/lib/agent-session/index.ts",
+        "src/lib/phase-router/index.ts",
+        "src/tests/"
+      ],
+      "outputs": [
+        "src/tests/barrel-equivalence.test.ts",
+        "baseline-green-confirmation"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run npm run check on current branch and confirm green baseline",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Check whether a barrel-equivalence smoke test already exists for task-planner, agent-session, and phase-router barrels",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add barrel-equivalence smoke test asserting exported keys of task-planner/index.ts, agent-session/index.ts, and phase-router/index.ts",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run npm run check and confirm the new test passes",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner",
+        "agent-session-manager",
+        "phase-router"
+      ]
+    },
+    {
+      "id": "delete-dormant-modules",
+      "title": "Delete dormant bootstrap modules",
+      "goal": "Remove ecosystem-detector.ts and profile-diff.ts which have zero production consumers and zero dedicated tests.",
+      "depends_on": [
+        "baseline-verification"
+      ],
+      "inputs": [
+        "src/lib/ecosystem-detector.ts",
+        "src/lib/profile-diff.ts"
+      ],
+      "outputs": [
+        "deletion-confirmation"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Verify ecosystem-detector.ts has zero non-test, non-archived consumers via grep",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Verify profile-diff.ts has zero non-test, non-archived consumers via grep",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Delete src/lib/ecosystem-detector.ts",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run npm run typecheck and confirm green",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Delete src/lib/profile-diff.ts",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run npm run typecheck and confirm green",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "project-bootstrap-installation"
+      ]
+    },
+    {
+      "id": "retire-setup-spec",
+      "title": "Verify spec delta for setup rerun requirement retirement",
+      "goal": "Ensure the spec delta correctly retires the setup rerun diff-and-resolve requirement and openspec validate is green.",
+      "depends_on": [
+        "baseline-verification"
+      ],
+      "inputs": [
+        "openspec/changes/librefactoring/specs/project-bootstrap-installation/spec.md"
+      ],
+      "outputs": [
+        "spec-delta-validated"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Confirm the spec delta contains the REMOVED Requirements block retiring the setup rerun requirement",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Run openspec validate librefactoring --type change and confirm green",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "project-bootstrap-installation",
+        "spec-consistency-verification"
+      ]
+    },
+    {
+      "id": "merge-completion-into-window",
+      "title": "Merge completion.ts into window.ts",
+      "goal": "Absorb the single-consumer completion.ts into window.ts, update barrel and test imports, keeping all exported symbols intact.",
+      "depends_on": [
+        "baseline-verification"
+      ],
+      "inputs": [
+        "src/lib/task-planner/completion.ts",
+        "src/lib/task-planner/window.ts",
+        "src/lib/task-planner/index.ts",
+        "src/tests/task-planner-core.test.ts"
+      ],
+      "outputs": [
+        "src/lib/task-planner/window.ts",
+        "src/lib/task-planner/index.ts",
+        "src/tests/task-planner-core.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Move ArtifactChecker type and checkBundleCompletion function from completion.ts into window.ts, preserving exports",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Delete src/lib/task-planner/completion.ts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Update task-planner/index.ts barrel to re-export checkBundleCompletion and ArtifactChecker from ./window.js instead of ./completion.js",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Update src/tests/task-planner-core.test.ts imports to use ../lib/task-planner/window.js or the barrel",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Run npm run check and confirm green including barrel-equivalence test",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner"
+      ]
+    },
+    {
+      "id": "merge-send-queue-into-session-manager",
+      "title": "Merge send-queue.ts into session-manager.ts",
+      "goal": "Absorb the single-consumer send-queue.ts into session-manager.ts, update barrel exports, keeping SendQueue symbol intact.",
+      "depends_on": [
+        "baseline-verification"
+      ],
+      "inputs": [
+        "src/lib/agent-session/send-queue.ts",
+        "src/lib/agent-session/session-manager.ts",
+        "src/lib/agent-session/index.ts"
+      ],
+      "outputs": [
+        "src/lib/agent-session/session-manager.ts",
+        "src/lib/agent-session/index.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Move SendQueue class from send-queue.ts into session-manager.ts, preserving export",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Delete src/lib/agent-session/send-queue.ts",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Update agent-session/index.ts barrel to re-export SendQueue from ./session-manager.js instead of ./send-queue.js",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run npm run check and confirm green including barrel-equivalence test",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "agent-session-manager"
+      ]
+    },
+    {
+      "id": "final-verification",
+      "title": "Final verification and review handoff",
+      "goal": "Run full verification suite after all changes and confirm all completion conditions are met.",
+      "depends_on": [
+        "delete-dormant-modules",
+        "retire-setup-spec",
+        "merge-completion-into-window",
+        "merge-send-queue-into-session-manager"
+      ],
+      "inputs": [
+        "src/lib/",
+        "openspec/changes/librefactoring/"
+      ],
+      "outputs": [
+        "verification-report"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Confirm ecosystem-detector.ts and profile-diff.ts no longer exist on disk",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Confirm completion.ts and send-queue.ts no longer exist on disk",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Run npm run check (typecheck + lint + format + coverage + validate:contracts + tests) and confirm green",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run openspec validate librefactoring --type change and confirm green",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Confirm barrel-equivalence smoke test passes for all three barrels",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Verify coverage has not dropped beyond lines removed",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "run-artifact-store-conformance",
+        "spec-consistency-verification"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-18T01:15:00.000Z",
+  "generated_from": "design.md"
+}
