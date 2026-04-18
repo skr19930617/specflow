@@ -742,10 +742,7 @@ test("specflow-review-design does not inject task-plannable findings in rereview
 // --- Review gate issuance E2E tests (R5-F13) --------------------------------
 
 /** Helper: start a run for the given changeId and return the run_id. */
-function startRunForReview(
-	repoPath: string,
-	changeId: string,
-): string {
+function startRunForReview(repoPath: string, changeId: string): string {
 	const result = runNodeCli("specflow-run", ["start", changeId], repoPath);
 	assert.equal(result.status, 0, result.stderr);
 	const state = JSON.parse(result.stdout) as { run_id: string };
@@ -767,13 +764,7 @@ function readGateFile(
 	runId: string,
 	fileName: string,
 ): Record<string, unknown> {
-	const path = resolve(
-		repoPath,
-		".specflow/runs",
-		runId,
-		"records",
-		fileName,
-	);
+	const path = resolve(repoPath, ".specflow/runs", runId, "records", fileName);
 	return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 }
 
@@ -824,12 +815,7 @@ test("specflow-review-design review emits a review_decision gate when --run-id i
 		const ledger = readJson<{
 			round_summaries: Array<{ gate_id?: string | null }>;
 		}>(
-			join(
-				repoPath,
-				"openspec/changes",
-				changeId,
-				"review-ledger-design.json",
-			),
+			join(repoPath, "openspec/changes", changeId, "review-ledger-design.json"),
 		);
 		assert.ok(ledger.round_summaries.length > 0);
 		const lastSummary =
@@ -856,7 +842,11 @@ test("specflow-review-apply review emits a review_decision gate when --run-id is
 				output: JSON.stringify({
 					decision: "APPROVE",
 					findings: [
-						{ title: "Check error handling", severity: "medium", category: "correctness" },
+						{
+							title: "Check error handling",
+							severity: "medium",
+							category: "correctness",
+						},
 					],
 					summary: "review complete",
 				}),
@@ -888,14 +878,7 @@ test("specflow-review-apply review emits a review_decision gate when --run-id is
 		// Ledger should have gate_id back-reference
 		const ledger = readJson<{
 			round_summaries: Array<{ gate_id?: string | null }>;
-		}>(
-			join(
-				repoPath,
-				"openspec/changes",
-				changeId,
-				"review-ledger.json",
-			),
-		);
+		}>(join(repoPath, "openspec/changes", changeId, "review-ledger.json"));
 		assert.ok(ledger.round_summaries.length > 0);
 		const lastSummary =
 			ledger.round_summaries[ledger.round_summaries.length - 1];
