@@ -1,0 +1,62 @@
+{
+  "feature_id": "define-phase-semantics-as-contractual-state-meaning-rather-than-command-prose",
+  "phase": "design",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "title": "Registry reconciliation does not cover the full PhaseContract encoding",
+      "detail": "Concern C4 and Task 4 only call out updates to requiredInputs, producedOutputs, advance_event, gatedDecision, and terminal_reason. The acceptance criteria require PhaseContract to losslessly encode all six phase-semantics roles, which also depends on routing and delegation fields such as next_action, gated, terminal, next_phase, gated_event_kind, gated_event_type, agent, agentTask, and cliCommands, including explicit empty-set encodings for terminal and purely agent-delegated phases. Expand the reconciliation and verification steps so every encoding field that carries branching or delegation semantics is audited and corrected.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "risk",
+      "title": "No explicit source-of-truth audit for phases and vocabulary",
+      "detail": "The design says the phase set must come from canonical-workflow-state and every referenced artifact, event, and run-state term must already exist in an owning capability, but the tasks only say to enumerate 21 phases and draft definitions. That leaves no concrete step to derive the phase list from canonical-workflow-state or to verify each cited term against artifact-ownership-model, surface-event-contract, workflow-run-state, and related capabilities. Add an explicit verification task for phase-set parity and vocabulary resolution before finalizing phase-semantics text.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Accepted Spec Conflicts fallback is underspecified",
+      "detail": "The proposal allows unresolved divergences only when design.md records them with both justification and a follow-up change reference, but the design's Accepted Spec Conflicts table schema has no follow-up field and Task 4.3 asks only for rationale. Task 5.3 includes follow-up references, so the fallback process is inconsistent across workstreams. Update the section schema and both reconciliation task groups so every accepted conflict captures the required follow-up reference as well as the rationale.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      }
+    }
+  ]
+}

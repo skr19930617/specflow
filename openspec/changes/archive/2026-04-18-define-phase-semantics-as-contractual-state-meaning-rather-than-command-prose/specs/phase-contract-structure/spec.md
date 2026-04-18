@@ -1,8 +1,5 @@
-# phase-contract-structure Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change phase-1-core-runstate-core-adapter-field-split-phase-contract. Update Purpose after archive.
-## Requirements
 ### Requirement: PhaseContract includes typed input and output descriptors
 
 The existing `PhaseContract` interface SHALL be extended with optional `input` and `output` fields. Each field SHALL be a `PhaseIODescriptor` — a pure TypeScript interface describing the expected shape of data flowing into or out of a phase. These are compile-time type descriptors only; no runtime validation is provided in this phase. `PhaseContract.input` (of type `PhaseIODescriptor`) SHALL be a structural expression of the `phase-semantics` role **required inputs**, and `PhaseContract.output` (of type `PhaseIODescriptor`) SHALL be a structural expression of the `phase-semantics` role **expected outputs**. The descriptor SHALL NOT introduce semantic content beyond what `phase-semantics` defines for the corresponding phase.
@@ -85,14 +82,3 @@ The `GateCondition` type SHALL be a discriminated union on the `kind` field. The
 - **WHEN** a proposed change to `GateCondition` introduces a `kind` not previously defined
 - **THEN** either `phase-semantics` SHALL be updated to enumerate the new gate predicate category in the same change
 - **OR** the divergence SHALL be recorded under `## Accepted Spec Conflicts` in that change's `design.md`
-
-### Requirement: Gate condition evaluation is not provided in this phase
-
-The system SHALL NOT include any gate condition evaluation logic in this phase. The `GateCondition` type is a data-only descriptor. Evaluation functions that interpret `GateCondition` values against run state SHALL be implemented in Phase 2 (server adapter layer).
-
-#### Scenario: No evaluation function is exported
-
-- **WHEN** the exports of the phase-contract-structure module are inspected
-- **THEN** no function named `evaluateGateCondition`, `checkGate`, or similar SHALL exist
-- **AND** only type definitions and type guard utilities (if any) SHALL be exported
-

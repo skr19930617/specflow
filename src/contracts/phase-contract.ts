@@ -239,13 +239,34 @@ const phaseContractData: readonly PhaseContract[] = [
 	// --- Mainline workflow ---
 	{
 		phase: "start",
+		// phase-semantics: start has three outgoing branches (propose,
+		// explore_start, spec_bootstrap_start), but the routing model's
+		// "advance" mode only supports single-successor transitions. The
+		// mainline branch (propose) is encoded via advance_event; the two
+		// utility branches are encoded in cliCommands only. Consumers that
+		// need all three branches must read cliCommands, not rely on
+		// advance_event alone. See Accepted Spec Conflict AC3 in design.md.
 		next_action: "advance",
 		gated: false,
 		terminal: false,
 		advance_event: "propose",
 		requiredInputs: [],
 		producedOutputs: [],
-		cliCommands: [],
+		cliCommands: [
+			{
+				command: 'specflow-run advance "<RUN_ID>" propose',
+				description:
+					"Enter mainline proposal flow (also auto-fired by advance_event)",
+			},
+			{
+				command: 'specflow-run advance "<RUN_ID>" explore_start',
+				description: "Enter exploratory mode (utility branch)",
+			},
+			{
+				command: 'specflow-run advance "<RUN_ID>" spec_bootstrap_start',
+				description: "Enter baseline-spec bootstrap mode (utility branch)",
+			},
+		],
 	},
 	{
 		phase: "proposal_draft",
@@ -253,7 +274,12 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
-		requiredInputs: [],
+		agentTask: {
+			agent: "claude",
+			description:
+				"Generate proposal document (WHY / WHAT / Capabilities / Impact) from the run's source metadata",
+		},
+		requiredInputs: [{ path: "<RUN_STATE>/source-metadata", role: "input" }],
 		producedOutputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "output" },
 		],
@@ -270,6 +296,11 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Analyse proposal scope and recommend single-proposal continuation or decomposition into sub-issues",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
 		],
@@ -291,6 +322,11 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Resolve clarification questions and integrate answers into the proposal document",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
 		],
@@ -310,10 +346,17 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Produce a challenge result set (challenge items with id, category, question, context) for the proposal",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
 		],
-		producedOutputs: [],
+		producedOutputs: [
+			{ path: "<RUN_STATE>/challenge-result-set", role: "output" },
+		],
 		cliCommands: [
 			{
 				command: "specflow-challenge-proposal challenge <CHANGE_ID>",
@@ -331,8 +374,14 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Address every challenge item and revise the proposal with integrated answers",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
+			{ path: "<RUN_STATE>/challenge-result-set", role: "input" },
 		],
 		producedOutputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "output" },
@@ -350,6 +399,11 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Generate spec delta files (one per capability listed in the proposal's Capabilities section)",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
 		],
@@ -368,14 +422,29 @@ const phaseContractData: readonly PhaseContract[] = [
 				command: 'specflow-run advance "<RUN_ID>" validate_spec',
 				description: "Enter spec validation",
 			},
+			{
+				command: 'specflow-run advance "<RUN_ID>" reclarify',
+				description:
+					"Return to proposal reclarify when capabilities cannot be resolved",
+			},
 		],
 	},
 	{
 		phase: "spec_validate",
+		// phase-semantics classifies spec_validate as deterministic, but the
+		// routing model's "advance" only supports single-successor transitions.
+		// spec_validate has three outcomes (spec_validated, revise_spec, reject),
+		// so it is encoded as invoke_agent to allow multi-branch routing.
+		// See Accepted Spec Conflict AC4 in design.md.
 		next_action: "invoke_agent",
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Route multi-branch outcome of deterministic spec validation (AC4: agent encoding is a routing workaround; actual work is in cliCommands)",
+		},
 		requiredInputs: [
 			{
 				path: "openspec/changes/<CHANGE_ID>/specs/*/spec.md",
@@ -404,6 +473,11 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Judge each baseline/delta conflict candidate (agent-delegated portion of mixed phase; deterministic helper computes candidates)",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
 			{
@@ -465,6 +539,11 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Generate design document and task breakdown covering every delta spec",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/proposal.md", role: "input" },
 			{
@@ -561,6 +640,11 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Implement code changes for each task-graph bundle until all bundles reach terminal status",
+		},
 		requiredInputs: [
 			{ path: "openspec/changes/<CHANGE_ID>/design.md", role: "input" },
 			{ path: "openspec/changes/<CHANGE_ID>/tasks.md", role: "input" },
@@ -569,7 +653,9 @@ const phaseContractData: readonly PhaseContract[] = [
 				role: "input",
 			},
 		],
-		producedOutputs: [],
+		producedOutputs: [
+			{ path: "<RUN_STATE>/task-graph-bundle-transitions", role: "output" },
+		],
 		cliCommands: [
 			{
 				command: "specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>",
@@ -589,7 +675,9 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated_event_kind: "apply_review",
 		gated_event_type: "apply_review_approved",
 		next_phase: "apply_ready",
-		requiredInputs: [],
+		requiredInputs: [
+			{ path: "<RUN_STATE>/applied-implementation-state", role: "input" },
+		],
 		producedOutputs: [
 			{
 				path: "openspec/changes/<CHANGE_ID>/review-ledger.json",
@@ -655,6 +743,32 @@ const phaseContractData: readonly PhaseContract[] = [
 	},
 
 	// --- Terminal states ---
+	//
+	// phase-semantics defines all six roles for terminal phases with
+	// explicit terminal-specific values (Decision D7 in design.md).
+	// Each role encoding is documented inline per-phase below.
+	//
+	// The empty arrays for requiredInputs, producedOutputs, and cliCommands
+	// are the DEFINED terminal-specific values — not missing data. The
+	// phase-semantics spec (the meaning authority per D1) explicitly states:
+	//   - approved outputs: "empty (archived artifacts persist but are not
+	//     produced by this phase)"
+	//   - decomposed outputs: "empty (sub-issue references persist outside
+	//     the run)"
+	//   - rejected outputs: "empty"
+	// These empty-set encodings are distinguishable from non-terminal empty
+	// arrays because the consumer reads `terminal === true` to identify
+	// terminal phases.
+
+	// phase-semantics §approved — all six roles:
+	//   Role 1 (identity): "approved"
+	//   Role 2 (inputs): empty (terminal-specific: no new inputs consumed)
+	//   Role 3 (outputs): empty (terminal-specific: archived artifacts persist
+	//     but are not *produced* by this phase)
+	//   Role 4 (completion): run lifecycle status has reached terminal
+	//   Role 5 (branching): "no transition / terminal" — encoded via
+	//     terminal=true, terminal_reason, next_action="terminal"
+	//   Role 6 (delegation): deterministic (no agent, no agentTask)
 	{
 		phase: "approved",
 		next_action: "terminal",
@@ -665,6 +779,15 @@ const phaseContractData: readonly PhaseContract[] = [
 		producedOutputs: [],
 		cliCommands: [],
 	},
+	// phase-semantics §decomposed — all six roles:
+	//   Role 1 (identity): "decomposed"
+	//   Role 2 (inputs): empty (terminal-specific: no new inputs consumed)
+	//   Role 3 (outputs): empty (terminal-specific: sub-issue references
+	//     persist outside the run)
+	//   Role 4 (completion): run lifecycle status has reached terminal
+	//   Role 5 (branching): "no transition / terminal" — encoded via
+	//     terminal=true, terminal_reason, next_action="terminal"
+	//   Role 6 (delegation): deterministic (no agent, no agentTask)
 	{
 		phase: "decomposed",
 		next_action: "terminal",
@@ -675,6 +798,14 @@ const phaseContractData: readonly PhaseContract[] = [
 		producedOutputs: [],
 		cliCommands: [],
 	},
+	// phase-semantics §rejected — all six roles:
+	//   Role 1 (identity): "rejected"
+	//   Role 2 (inputs): empty (terminal-specific: no new inputs consumed)
+	//   Role 3 (outputs): empty (terminal-specific)
+	//   Role 4 (completion): run lifecycle status has reached terminal
+	//   Role 5 (branching): "no transition / terminal" — encoded via
+	//     terminal=true, terminal_reason, next_action="terminal"
+	//   Role 6 (delegation): deterministic (no agent, no agentTask)
 	{
 		phase: "rejected",
 		next_action: "terminal",
@@ -693,9 +824,21 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Conduct exploratory session and produce a summary or GitHub issue reference",
+		},
 		requiredInputs: [],
-		producedOutputs: [],
-		cliCommands: [],
+		producedOutputs: [
+			{ path: "<RUN_STATE>/exploration-summary", role: "output" },
+		],
+		cliCommands: [
+			{
+				command: 'specflow-run advance "<RUN_ID>" explore_complete',
+				description: "Return to start after exploration completes",
+			},
+		],
 	},
 	{
 		phase: "spec_bootstrap",
@@ -703,9 +846,21 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
-		requiredInputs: [],
+		agentTask: {
+			agent: "claude",
+			description:
+				"Generate baseline spec files for every identified capability in the project source tree",
+		},
+		requiredInputs: [
+			{ path: "<RUN_STATE>/project-source-tree", role: "input" },
+		],
 		producedOutputs: [{ path: "openspec/specs/*/spec.md", role: "output" }],
-		cliCommands: [],
+		cliCommands: [
+			{
+				command: 'specflow-run advance "<RUN_ID>" spec_bootstrap_complete',
+				description: "Return to start after baseline specs have been generated",
+			},
+		],
 	},
 ];
 
