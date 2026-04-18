@@ -11,8 +11,10 @@ import {
 	ConfigMismatchError,
 	SessionError,
 } from "../lib/agent-session/errors.js";
-import { SendQueue } from "../lib/agent-session/send-queue.js";
-import { DefaultAgentSessionManager } from "../lib/agent-session/session-manager.js";
+import {
+	DefaultAgentSessionManager,
+	SendQueue,
+} from "../lib/agent-session/session-manager.js";
 import { SessionMetadataStore } from "../lib/agent-session/session-store.js";
 import type {
 	AgentConfig,

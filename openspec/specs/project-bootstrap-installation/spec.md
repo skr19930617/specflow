@@ -139,30 +139,6 @@ The `setup` command SHALL analyze the repository root, detect ecosystem and tool
 - **WHEN** `setup` successfully writes `.specflow/profile.json`
 - **THEN** it SHALL automatically trigger the Claude adapter to render CLAUDE.md
 
-### Requirement: `setup` rerun performs deterministic diff-and-resolve on existing profile
-
-When `.specflow/profile.json` already exists, `setup` SHALL re-analyze the repository and present field-level diffs for user resolution.
-
-#### Scenario: No changes detected on rerun
-
-- **WHEN** `setup` is re-run and all field values match the existing profile
-- **THEN** it SHALL display "No changes detected" and exit without modifying the profile
-
-#### Scenario: Changed field is presented for user resolution
-
-- **WHEN** `setup` detects a field where existing value differs from analysis result and existing value is not null
-- **THEN** it SHALL display the diff and ask the user to choose: adopt analysis result or keep existing value
-
-#### Scenario: Newly detected field is proposed to user
-
-- **WHEN** an existing field is null but analysis detects a value
-- **THEN** `setup` SHALL propose the detected value and adopt it on user confirmation
-
-#### Scenario: Previously detected field now undetectable is preserved
-
-- **WHEN** an existing field has a non-null value but analysis returns null
-- **THEN** `setup` SHALL keep the existing value
-
 ### Requirement: `setup` detects out-of-scope repositories and aborts
 
 The `setup` command SHALL detect repository configurations that are not supported in v1 and abort with a clear message.
