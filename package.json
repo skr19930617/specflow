@@ -17,6 +17,7 @@
 		"specflow-review-design": "bin/specflow-review-design",
 		"specflow-challenge-proposal": "bin/specflow-challenge-proposal",
 		"specflow-generate-task-graph": "bin/specflow-generate-task-graph",
+		"specflow-migrate-records": "bin/specflow-migrate-records",
 		"specflow-run": "bin/specflow-run",
 		"specflow-spec-verify": "bin/specflow-spec-verify"
 	},

@@ -113,6 +113,13 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
 		],
 	},
 	{
+		id: "specflow-migrate-records",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-migrate-records",
+		entryModule: "dist/bin/specflow-migrate-records.js",
+		references: [],
+	},
+	{
 		id: "specflow-run",
 		type: AssetType.Orchestrator,
 		filePath: "bin/specflow-run",

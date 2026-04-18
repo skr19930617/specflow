@@ -7,7 +7,14 @@ import {
 import { validatePlanningHeadings } from "../lib/design-planning-validation.js";
 import { tryGit } from "../lib/git.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
+import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.js";
+import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
+import {
+	issueReviewDecisionGate,
+	type ReviewPhase,
+	type ReviewRoundProvenance,
+} from "../lib/review-decision-gate.js";
 import {
 	actionableCount,
 	applyStillOpenSeverityOverrides,
@@ -22,6 +29,7 @@ import {
 	matchFindings,
 	matchRereview,
 	openHighFindings,
+	patchLatestRoundGateId,
 	persistMaxFindingId,
 	readLedgerFromStore,
 	resolvedHighFindingTitles,
@@ -47,6 +55,7 @@ import {
 	resolveReviewAgent,
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
+import { findLatestRun } from "../lib/run-store-ops.js";
 import type {
 	AutofixRoundScore,
 	DivergenceWarning,
@@ -55,6 +64,7 @@ import type {
 	ReviewPayload,
 	ReviewResult,
 } from "../types/contracts.js";
+import type { ReviewFindingSnapshot } from "../types/gate-records.js";
 
 function notInGitRepo(): never {
 	process.stdout.write('{"status":"error","error":"not_in_git_repo"}\n');
@@ -270,6 +280,7 @@ async function runReviewPipeline(
 	changeId: string,
 	rereviewMode: boolean,
 	reviewAgent: ReviewAgentName,
+	runId?: string,
 ): Promise<ReviewResult> {
 	process.stderr.write("Reading artifacts...\n");
 	if (!(await readDesignArtifactsFromStore(changeStore, changeId))) {
@@ -431,16 +442,42 @@ async function runReviewPipeline(
 		);
 	}
 
-	return resultFromLedger(
-		action,
-		changeId,
-		reviewJson,
-		rereviewMode,
-		parseError,
-		rawResponse,
-		ledger,
-		rereviewClassification,
-	);
+	// Issue a review_decision gate if a run_id was provided.
+	let gateId: string | null = null;
+	if (runId && !parseError) {
+		gateId = tryIssueReviewDecisionGate(
+			projectRoot,
+			runId,
+			"design_review",
+			ledger,
+			reviewAgent,
+		);
+		// Write gate_id back into the ledger's latest round summary (D10 step 3).
+		if (gateId) {
+			ledger = patchLatestRoundGateId(ledger, gateId);
+			await writeLedgerToStore(
+				changeStore,
+				changeId,
+				ReviewLedgerKind.Design,
+				ledger,
+				true,
+			);
+		}
+	}
+
+	return {
+		...resultFromLedger(
+			action,
+			changeId,
+			reviewJson,
+			rereviewMode,
+			parseError,
+			rawResponse,
+			ledger,
+			rereviewClassification,
+		),
+		gate_id: gateId,
+	};
 }
 
 async function runAutofixLoop(
@@ -451,6 +488,7 @@ async function runAutofixLoop(
 	maxRounds: number,
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
+	runId?: string,
 ): Promise<ReviewResult> {
 	if (!(await readDesignArtifactsFromStore(changeStore, changeId))) {
 		return {
@@ -483,6 +521,7 @@ async function runAutofixLoop(
 	let consecutiveFailures = 0;
 	let autofixRound = 0;
 	let loopResult = "max_rounds_reached";
+	let lastSuccessfulGateId: string | null = null;
 	const roundScores: AutofixRoundScore[] = [];
 	const divergenceWarnings: DivergenceWarning[] = [];
 
@@ -543,6 +582,7 @@ async function runAutofixLoop(
 			changeId,
 			true,
 			reviewAgent,
+			runId,
 		);
 		if (reviewResult.status === "error" || reviewResult.review?.parse_error) {
 			consecutiveFailures += 1;
@@ -557,6 +597,8 @@ async function runAutofixLoop(
 		}
 
 		consecutiveFailures = 0;
+		// Track the gate_id emitted by this round's review pipeline.
+		lastSuccessfulGateId = reviewResult.gate_id ?? null;
 		ledger = (
 			await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Design)
 		).ledger;
@@ -626,6 +668,11 @@ async function runAutofixLoop(
 		);
 	}
 
+	// Gate emission is handled per-round inside runReviewPipeline (which
+	// receives runId). We only propagate the gate_id from the last
+	// *successful* review round — no unconditional emission at loop exit.
+	const gateId = lastSuccessfulGateId;
+
 	const actionable = actionableCount(ledger);
 	// Severity-aware handoff: loop is "clean" when no critical/high remain.
 	const blocking = unresolvedCriticalHighCount(ledger);
@@ -646,6 +693,7 @@ async function runAutofixLoop(
 			actionable_count: actionable,
 			severity_summary: severitySummary(ledger),
 		},
+		gate_id: gateId,
 		error: null,
 	};
 }
@@ -656,10 +704,13 @@ async function cmdReview(
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
+	runId?: string,
 ): Promise<ReviewResult> {
 	const changeId = args[0];
 	if (!changeId) {
-		die("Usage: specflow-review-design review <CHANGE_ID> [--reset-ledger]");
+		die(
+			"Usage: specflow-review-design review <CHANGE_ID> [--reset-ledger] [--run-id <id>]",
+		);
 	}
 	const reset = args.includes("--reset-ledger");
 	try {
@@ -685,6 +736,7 @@ async function cmdReview(
 		changeId,
 		false,
 		reviewAgent,
+		runId,
 	);
 }
 
@@ -694,11 +746,12 @@ async function cmdFixReview(
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
+	runId?: string,
 ): Promise<ReviewResult> {
 	const changeId = args[0];
 	if (!changeId) {
 		die(
-			"Usage: specflow-review-design fix-review <CHANGE_ID> [--reset-ledger] [--autofix]",
+			"Usage: specflow-review-design fix-review <CHANGE_ID> [--reset-ledger] [--autofix] [--run-id <id>]",
 		);
 	}
 	const reset = args.includes("--reset-ledger");
@@ -725,6 +778,7 @@ async function cmdFixReview(
 		changeId,
 		true,
 		reviewAgent,
+		runId,
 	);
 }
 
@@ -735,11 +789,12 @@ async function cmdAutofixLoop(
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
 	mainAgent: MainAgentName,
+	runId?: string,
 ): Promise<ReviewResult> {
 	const changeId = args[0];
 	if (!changeId) {
 		die(
-			"Usage: specflow-review-design autofix-loop <CHANGE_ID> [--max-rounds N]",
+			"Usage: specflow-review-design autofix-loop <CHANGE_ID> [--max-rounds N] [--run-id <id>]",
 		);
 	}
 	let maxRounds = "";
@@ -764,6 +819,7 @@ async function cmdAutofixLoop(
 		rounds,
 		reviewAgent,
 		mainAgent,
+		runId,
 	);
 }
 
@@ -776,6 +832,68 @@ function parseReviewAgentFlag(args: readonly string[]): string | undefined {
 	return undefined;
 }
 
+function parseRunIdFlag(args: readonly string[]): string | undefined {
+	for (let index = 0; index < args.length; index += 1) {
+		if (args[index] === "--run-id") {
+			return args[index + 1];
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Issue a review_decision gate for a completed review round. Returns the
+ * gate_id on success, or null if emission fails (best-effort; the review
+ * result is still valid without the gate).
+ */
+function tryIssueReviewDecisionGate(
+	projectRoot: string,
+	runId: string,
+	reviewPhase: ReviewPhase,
+	ledger: ReviewLedger,
+	reviewAgent: ReviewAgentName,
+): string | null {
+	try {
+		const store = createLocalFsGateRecordStore(projectRoot);
+		const round = Number(ledger.current_round ?? 0);
+		const roundId = `${reviewPhase}-round-${round}`;
+		const gateId = `review_decision-${runId}-${reviewPhase}-${round}`;
+		const findings: ReviewFindingSnapshot[] = (ledger.findings ?? [])
+			.filter((f) => {
+				const status = String(f.status ?? "");
+				return status === "new" || status === "open";
+			})
+			.map((f) => ({
+				id: String(f.id ?? ""),
+				severity: (f.severity ?? "medium") as ReviewFindingSnapshot["severity"],
+				status: String(f.status ?? ""),
+				title: String(f.title ?? ""),
+			}));
+		const provenance: ReviewRoundProvenance = {
+			run_id: runId,
+			review_phase: reviewPhase,
+			review_round_id: roundId,
+			findings,
+			reviewer_actor: "ai-agent",
+			reviewer_actor_id: reviewAgent,
+			approval_binding: "advisory",
+		};
+		const gate = issueReviewDecisionGate(provenance, {
+			store,
+			projectRoot,
+			gateId,
+			createdAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+		});
+		return gate.gate_id;
+	} catch (cause) {
+		const message = cause instanceof Error ? cause.message : String(cause);
+		process.stderr.write(
+			`Warning: failed to issue review_decision gate: ${message}\n`,
+		);
+		return null;
+	}
+}
+
 async function main(): Promise<void> {
 	const projectRoot = ensureGitRepo();
 	loadConfigEnv(projectRoot);
@@ -784,6 +902,7 @@ async function main(): Promise<void> {
 	const [subcommand, ...args] = process.argv.slice(2);
 	const reviewAgent = resolveReviewAgent(parseReviewAgentFlag(args));
 	const mainAgent = resolveMainAgent();
+	let runId = parseRunIdFlag(args);
 	if (!subcommand) {
 		process.stderr.write(`Usage: specflow-review-design <subcommand> <CHANGE_ID> [options]
 
@@ -796,6 +915,19 @@ Subcommands:
 		process.exit(1);
 	}
 
+	// Auto-discover run_id from the change_id when --run-id is not provided.
+	// This ensures review_decision gates are always emitted when a run exists.
+	if (!runId) {
+		const changeId = args.find((a) => !a.startsWith("-"));
+		if (changeId) {
+			const runStore = createLocalFsRunArtifactStore(projectRoot);
+			const latest = await findLatestRun(runStore, changeId);
+			if (latest) {
+				runId = latest.run_id;
+			}
+		}
+	}
+
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
@@ -805,6 +937,7 @@ Subcommands:
 				changeStore,
 				args,
 				reviewAgent,
+				runId,
 			);
 			break;
 		case "fix-review":
@@ -814,6 +947,7 @@ Subcommands:
 				changeStore,
 				args,
 				reviewAgent,
+				runId,
 			);
 			break;
 		case "autofix-loop":
@@ -824,6 +958,7 @@ Subcommands:
 				args,
 				reviewAgent,
 				mainAgent,
+				runId,
 			);
 			break;
 		default:

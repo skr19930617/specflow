@@ -1,0 +1,200 @@
+{
+  "feature_id": "define-gate-semantics-for-approval-clarify-and-review-decisions-as-persistent-workflow-objects",
+  "phase": "design",
+  "current_round": 4,
+  "status": "has_open_high",
+  "max_finding_id": 10,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "consistency",
+      "title": "Clarify gate supersede logic conflicts with concurrent clarify semantics",
+      "detail": "Decision D4 and task 3.2 treat any new gate with the same gate_kind plus originating_phase as superseding the prior pending gate. That directly conflicts with the spec's concurrency rule that multiple pending `clarify` gates may coexist in the same phase. As written, issuing a second clarify question would incorrectly retire the first one. Narrow the supersede/concurrency logic to `approval` and `review_decision` only, or define a clarify-specific identity rule for true reissues, and add tests that multiple clarify gates remain pending and independently resolvable.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "completeness",
+      "title": "review_decision gate payload is missing required round metadata",
+      "detail": "The review-orchestration spec requires each `review_decision` gate payload to include not just `review_round_id` and `findings`, but also the persisted round provenance fields `reviewer_actor`, `reviewer_actor_id`, and `approval_binding`. The design contract and tasks 5.1-5.5 only plan for `review_round_id` and `findings`, so the persisted gate shape will not satisfy the spec and loses the metadata needed to interpret binding vs advisory review outcomes. Expand the GatePayload contract, issuance code, and verification tasks to carry and assert the full required payload.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "high",
+      "category": "completeness",
+      "title": "End-to-end gate resolution and response mapping are not planned",
+      "detail": "The specs require gate responses to resolve the gate and synchronously drive the corresponding workflow behavior, including approval accept/reject transitions, clarify response handling, review rejection/request-changes transitions, and review accept handoff behavior. The design defines a `resolveGate` helper, but the task breakdown only plans gate creation/adoption and never explicitly updates the real response-handling runtime/CLI paths to call it and apply the response-to-workflow mapping. Add explicit integration tasks and tests for the commands/transition handlers that consume gate responses, including `event_ids` updates and rejection of non-pending or ineligible responses.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "high",
+      "category": "consistency",
+      "file": "DESIGN CONTENT",
+      "title": "Review-decision response mapping is still not implementable for all allowed responses",
+      "detail": "The design's response table still says `review_decision.accept` has \"no direct event\" even though `workflow-gate-semantics` requires every gate response to synchronously drive a concrete workflow event or handoff, and it never defines what `request_changes` does for `originating_phase: proposal_challenge` even though proposal-challenge rounds issue `review_decision` gates with the fixed `accept|reject|request_changes` response set. Task 6.3 therefore cannot be implemented correctly as written. Define the exact runtime transition or handoff for accept/reject and add the proposal-challenge request_changes mapping, then cover each review phase/response combination in tests.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F05",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "DESIGN CONTENT",
+      "title": "Migration fail-fast behavior only covers read() while list()-based legacy reads remain undefined",
+      "detail": "The spec says legacy record shapes must not be read after migration, but Decision D6, the integration notes, and task 2.4 only make `GateRecordStore.read()` raise `UnmigratedRecordError`. The runtime's concurrency checks and pending-gate queries use `list(runId)`, so an unmigrated run can still be silently consumed or fail unclearly through that path. Extend `LocalFsGateRecordStore.list()` and its tests to detect legacy-shaped files and return the same migration error before runtime logic proceeds.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F06",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "DESIGN CONTENT",
+      "title": "Approval and clarify gates still lack a defined eligible_responder_roles policy",
+      "detail": "The Gate schema requires every gate to persist a non-empty `eligible_responder_roles` set, and `resolveGate` enforces role intersection, but the design only fixes this field for `review_decision` gates. Tasks 4.1 and 6.x replace approval/clarify issuance and resolution without stating which roles those gate kinds should stamp onto new records, so implementers still have to guess how to populate a required field and how authorization should behave. Add an explicit per-kind role policy for approval and clarify gates and cover it in issuance and authorization tests.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F07",
+      "severity": "high",
+      "category": "feasibility",
+      "file": "DESIGN CONTENT",
+      "title": "Atomic supersede requirement is weakened to best-effort rollback plus later repair",
+      "detail": "The approval-clarify-persistence spec requires superseding an existing pending approval/review gate and creating the replacement gate to behave atomically: if either write fails, both changes must roll back together. Decision D4 instead relies on two separate file writes with an in-process lock, best-effort rollback, and startup self-healing after crashes. That still allows a torn on-disk state that can temporarily expose two pending gates or an already-superseded old gate without the replacement, which does not satisfy the promised all-or-nothing contract. The design needs a concrete transactional/journaled approach that makes paired updates recover atomically before normal reads, or the spec/tasks must be changed to explicitly accept weaker semantics.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R3-F08",
+      "severity": "high",
+      "category": "consistency",
+      "file": "DESIGN CONTENT",
+      "title": "Review-decision mappings introduce workflow transitions that are not defined in the scoped state contract",
+      "detail": "The response table and task 6.3 wire review_decision.accept to review_accepted, proposal_challenge.request_changes to revise_proposal, and all review_decision.reject paths to reject, but the provided specs only describe review handoff outcomes plus revise_design/revise_apply, and the design simultaneously declares workflow-run-state updates out of scope. That leaves implementers without an authoritative state-machine contract for the events they are supposed to fire, and it conflicts with review-orchestration's statement that review outcomes are distinct from workflow approve/reject operations. Align the mapping with existing workflow/handoff names or bring the required workflow-run-state/spec/task changes into scope so every review_decision response has a defined, testable transition contract.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F09",
+      "severity": "high",
+      "category": "feasibility",
+      "file": "DESIGN CONTENT",
+      "title": "Supersede journal does not actually serialize concurrent gate issuers",
+      "detail": "Decision D4 assumes that a single `.supersede-intent.json` path plus per-file atomic renames is enough to serialize concurrent `issueGate` calls, but it is not. Two processes can both read the same pending gate set, overwrite each other's intent file, and each commit a different new pending approval/review gate, violating the one-pending-per-phase invariant and making recovery ambiguous. The design/tasks need an explicit run-scoped mutual-exclusion or compare-and-swap mechanism around the supersede/create sequence, not just a deterministic journal filename.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F10",
+      "severity": "high",
+      "category": "risk",
+      "file": "DESIGN CONTENT",
+      "title": "Review round persistence can be left without its required gate or back-reference",
+      "detail": "The design says review CLIs write the ledger round first and then issue the `review_decision` gate, with task 5.4 adding the `gate_id` afterward. A failure between those writes leaves a completed round without its mandatory gate, or a gate without the ledger back-reference, violating the 'exactly one gate per completed round' and round<->gate traversal requirements. The design/tasks need a transactional or recoverable protocol keyed by `review_round_id` so ledger append, gate creation, and `gate_id` linkage cannot be torn.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3
+      }
+    },
+    {
+      "round": 2,
+      "total": 6,
+      "open": 3,
+      "new": 3,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      }
+    },
+    {
+      "round": 3,
+      "total": 8,
+      "open": 2,
+      "new": 2,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2
+      }
+    },
+    {
+      "round": 4,
+      "total": 10,
+      "open": 3,
+      "new": 2,
+      "resolved": 7,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3
+      }
+    }
+  ]
+}

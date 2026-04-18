@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+	existsSync,
+	readdirSync,
+	readFileSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import {
 	addDesignArtifacts,
@@ -728,6 +734,216 @@ test("specflow-review-design does not inject task-plannable findings in rereview
 		// In rereview mode, no task-plannable findings are injected
 		assert.equal(json.ledger.counts.new, 0);
 		assert.equal(json.ledger.counts.resolved, 1);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- Review gate issuance E2E tests (R5-F13) --------------------------------
+
+/** Helper: start a run for the given changeId and return the run_id. */
+function startRunForReview(repoPath: string, changeId: string): string {
+	const result = runNodeCli("specflow-run", ["start", changeId], repoPath);
+	assert.equal(result.status, 0, result.stderr);
+	const state = JSON.parse(result.stdout) as { run_id: string };
+	return state.run_id;
+}
+
+/** Helper: list gate record files in a run's records directory. */
+function listGateFiles(repoPath: string, runId: string): string[] {
+	const dir = join(repoPath, ".specflow/runs", runId, "records");
+	if (!existsSync(dir)) return [];
+	return readdirSync(dir).filter(
+		(f: string) => f.endsWith(".json") && !f.startsWith("."),
+	);
+}
+
+/** Helper: read a gate record JSON from disk. */
+function readGateFile(
+	repoPath: string,
+	runId: string,
+	fileName: string,
+): Record<string, unknown> {
+	const path = resolve(repoPath, ".specflow/runs", runId, "records", fileName);
+	return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+}
+
+test("specflow-review-design review emits a review_decision gate when --run-id is provided", () => {
+	const tempRoot = makeTempDir("review-design-gate-emit-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addDesignArtifacts(repoPath, changeId);
+		const runId = startRunForReview(repoPath, changeId);
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [
+						{ title: "Minor gap", severity: "medium", category: "design" },
+					],
+					summary: "mostly ok",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-design",
+			["review", changeId, "--run-id", runId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			gate_id: string | null;
+		};
+		assert.equal(json.status, "success");
+		// gate_id should be non-null
+		assert.ok(json.gate_id, "gate_id should be set in the review result");
+		assert.match(json.gate_id, /review_decision/);
+
+		// Gate file should exist on disk
+		const gateFiles = listGateFiles(repoPath, runId);
+		const gateFile = gateFiles.find((f) => f.includes("design_review"));
+		assert.ok(gateFile, "gate file for design_review should exist on disk");
+		const gate = readGateFile(repoPath, runId, gateFile!);
+		assert.equal(gate.gate_kind, "review_decision");
+		assert.equal(gate.status, "pending");
+		assert.equal(gate.originating_phase, "design_review");
+
+		// Ledger should have gate_id back-reference in round_summaries
+		const ledger = readJson<{
+			round_summaries: Array<{ gate_id?: string | null }>;
+		}>(
+			join(repoPath, "openspec/changes", changeId, "review-ledger-design.json"),
+		);
+		assert.ok(ledger.round_summaries.length > 0);
+		const lastSummary =
+			ledger.round_summaries[ledger.round_summaries.length - 1];
+		assert.equal(
+			lastSummary.gate_id,
+			json.gate_id,
+			"ledger round_summary should back-reference the gate_id",
+		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-review-apply review emits a review_decision gate when --run-id is provided", () => {
+	const tempRoot = makeTempDir("review-apply-gate-emit-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		addImplementationDiff(repoPath);
+		const runId = startRunForReview(repoPath, changeId);
+		const env = createCodexEnv(tempRoot, [
+			{
+				exitCode: 0,
+				output: JSON.stringify({
+					decision: "APPROVE",
+					findings: [
+						{
+							title: "Check error handling",
+							severity: "medium",
+							category: "correctness",
+						},
+					],
+					summary: "review complete",
+				}),
+			},
+		]);
+		const result = runNodeCli(
+			"specflow-review-apply",
+			["review", changeId, "--run-id", runId],
+			repoPath,
+			env,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const json = JSON.parse(result.stdout) as {
+			status: string;
+			gate_id: string | null;
+		};
+		assert.equal(json.status, "success");
+		assert.ok(json.gate_id, "gate_id should be set in the review result");
+		assert.match(json.gate_id, /review_decision/);
+
+		// Gate file should exist on disk
+		const gateFiles = listGateFiles(repoPath, runId);
+		const gateFile = gateFiles.find((f) => f.includes("apply_review"));
+		assert.ok(gateFile, "gate file for apply_review should exist on disk");
+		const gate = readGateFile(repoPath, runId, gateFile!);
+		assert.equal(gate.gate_kind, "review_decision");
+		assert.equal(gate.status, "pending");
+
+		// Ledger should have gate_id back-reference
+		const ledger = readJson<{
+			round_summaries: Array<{ gate_id?: string | null }>;
+		}>(join(repoPath, "openspec/changes", changeId, "review-ledger.json"));
+		assert.ok(ledger.round_summaries.length > 0);
+		const lastSummary =
+			ledger.round_summaries[ledger.round_summaries.length - 1];
+		assert.equal(lastSummary.gate_id, json.gate_id);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-challenge-proposal emits distinct gate IDs across successive rounds", () => {
+	const tempRoot = makeTempDir("challenge-gate-round-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const runId = startRunForReview(repoPath, changeId);
+		const challengeResponse = {
+			exitCode: 0,
+			output: JSON.stringify({
+				challenges: [
+					{
+						id: "C1",
+						category: "scope",
+						question: "Is this in scope?",
+						context: "test",
+					},
+				],
+				summary: "one challenge",
+			}),
+		};
+		const env = createCodexEnv(tempRoot, [
+			challengeResponse,
+			challengeResponse,
+		]);
+		// Run challenge twice to verify distinct gate IDs
+		const result1 = runNodeCli(
+			"specflow-challenge-proposal",
+			["challenge", changeId, "--run-id", runId],
+			repoPath,
+			env,
+		);
+		assert.equal(result1.status, 0, result1.stderr);
+		const json1 = JSON.parse(result1.stdout) as {
+			gate_id: string | null;
+		};
+		assert.ok(json1.gate_id, "first challenge should emit a gate_id");
+
+		const result2 = runNodeCli(
+			"specflow-challenge-proposal",
+			["challenge", changeId, "--run-id", runId],
+			repoPath,
+			env,
+		);
+		assert.equal(result2.status, 0, result2.stderr);
+		const json2 = JSON.parse(result2.stdout) as {
+			gate_id: string | null;
+		};
+		assert.ok(json2.gate_id, "second challenge should emit a gate_id");
+
+		// Gate IDs must be distinct (round numbering should differ)
+		assert.notEqual(
+			json1.gate_id,
+			json2.gate_id,
+			"successive challenge rounds must produce distinct gate IDs",
+		);
+		assert.match(json1.gate_id!, /challenge-1/);
+		assert.match(json2.gate_id!, /challenge-2/);
 	} finally {
 		removeTempDir(tempRoot);
 	}

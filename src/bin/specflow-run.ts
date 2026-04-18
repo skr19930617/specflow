@@ -7,7 +7,7 @@
 //  * gathering precondition inputs (reads, adapter seed, nextRunId, nowIso)
 //  * invoking pure core functions
 //  * persisting returned state via `RunArtifactStore.write` and applying
-//    `RecordMutation[]` via `InteractionRecordStore`
+//    `RecordMutation[]` via `GateRecordStore` (translated by the gate-mutation bridge)
 //  * mapping `Result<Ok, CoreRuntimeError>` to process stdout / stderr / exit code
 //
 // All workflow logic lives under `src/core/`. This file must not contain
@@ -37,9 +37,14 @@ import {
 	changeRef,
 	runRef,
 } from "../lib/artifact-types.js";
-import type { InteractionRecordStore } from "../lib/interaction-record-store.js";
+import {
+	gateRecordsToInteractionRecords,
+	mirrorMutationsToGateStore,
+} from "../lib/gate-mutation-bridge.js";
+import type { GateRecordStore } from "../lib/gate-record-store.js";
+import { GateRuntimeError, resolveGate } from "../lib/gate-runtime.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
-import { createLocalFsInteractionRecordStore } from "../lib/local-fs-interaction-record-store.js";
+import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { createLocalWorkspaceContext } from "../lib/local-workspace-context.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
@@ -57,6 +62,123 @@ import type {
 	SchemaId,
 	SourceMetadata,
 } from "../types/contracts.js";
+import type { GateKind, GateRecord } from "../types/gate-records.js";
+import { UnmigratedRecordError } from "../types/gate-records.js";
+
+// ---------------------------------------------------------------------------
+// Gate-aware event mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Map a workflow event to a gate response token for the given gate kind.
+ * Returns null when the event does not correspond to a gate response,
+ * meaning the advance should proceed without gate resolution.
+ */
+function eventToGateResponse(event: string, gateKind: GateKind): string | null {
+	if (gateKind === "approval") {
+		if (event.startsWith("accept")) return "accept";
+		if (event === "reject") return "reject";
+		return null;
+	}
+	if (gateKind === "review_decision") {
+		if (event.startsWith("accept")) return "accept";
+		if (event === "reject") return "reject";
+		if (event === "request_changes") return "request_changes";
+		return null;
+	}
+	if (gateKind === "clarify") {
+		if (event === "clarify_response") return "clarify_response";
+		return null;
+	}
+	return null;
+}
+
+/**
+ * Returns true when `event` is an unambiguous gate-response token that
+ * should never appear as a raw workflow transition without a pending gate.
+ * `accept_*` events are NOT included because they serve dual duty as both
+ * gate responses (when a gate is pending) and regular workflow events
+ * (e.g. `accept_proposal` at phases without a gate).
+ * `reject` IS included because it is always a gate response — there is no
+ * workflow transition where `reject` is valid without a pending gate.
+ */
+function isUnambiguousGateResponseEvent(event: string): boolean {
+	return (
+		event === "reject" ||
+		event === "request_changes" ||
+		event === "clarify_response"
+	);
+}
+
+/**
+ * Find pending gates at the given phase. Returns the first matching
+ * approval or review_decision gate (which have at-most-one-pending
+ * concurrency), or the first matching clarify gate.
+ */
+function findPendingGateForPhase(
+	gates: readonly GateRecord[],
+	phase: string,
+): GateRecord | null {
+	for (const gate of gates) {
+		if (gate.status === "pending" && gate.originating_phase === phase) {
+			return gate;
+		}
+	}
+	return null;
+}
+
+/**
+ * If a pending gate exists for the current phase and the incoming event
+ * maps to a valid gate response, resolve the gate via the first-class
+ * gate runtime. This enforces `allowed_responses`, `eligible_responder_roles`,
+ * and invalid-response checks **before** the state machine advance fires.
+ *
+ * Gate validation errors (invalid response, ineligible role, gate not
+ * pending) abort the advance with a hard failure so that callers cannot
+ * bypass gate rules by sending raw workflow events.
+ *
+ * When no pending gate exists at the current phase, the advance proceeds
+ * normally — the event is a regular workflow transition, not a gate
+ * resolution.
+ */
+function resolveGateForEvent(
+	store: GateRecordStore,
+	runId: string,
+	currentPhase: string,
+	event: string,
+	gates: readonly GateRecord[],
+): void {
+	const pendingGate = findPendingGateForPhase(gates, currentPhase);
+
+	// When no pending gate exists at the current phase, most events proceed
+	// as regular workflow transitions. However, unambiguous gate-response
+	// tokens (request_changes, clarify_response) should never be sent as
+	// raw events without a corresponding pending gate.
+	if (!pendingGate) {
+		if (isUnambiguousGateResponseEvent(event)) {
+			throw new GateRuntimeError(
+				"gate_not_found",
+				`Event '${event}' is a gate-response event but no pending gate exists at phase '${currentPhase}'. ` +
+					`Gate-response events require a corresponding pending gate.`,
+			);
+		}
+		return;
+	}
+
+	const response = eventToGateResponse(event, pendingGate.gate_kind);
+	if (!response) return;
+
+	// Gate resolution failures are hard errors — the advance must not
+	// proceed if the gate runtime rejects the response.
+	resolveGate(store, {
+		run_id: runId,
+		gate_id: pendingGate.gate_id,
+		response,
+		actor: { actor: "human", actor_id: "cli" },
+		actor_role: "human-author",
+		resolved_at: nowIso(),
+	});
+}
 
 function fail(message: string): never {
 	process.stderr.write(`${message}\n`);
@@ -140,28 +262,25 @@ async function persistState(
 }
 
 /**
- * Apply a list of record mutations in order. Best-effort: a failure during
- * record persistence after the state has been written is surfaced as a
- * warning, but the transition itself is considered committed.
+ * Apply record mutations via the GateRecordStore. The bridge translates
+ * legacy RecordMutation shapes to GateRecord writes. Delete mutations are
+ * translated to `superseded` status writes so gate records persist as
+ * history (per workflow-gate-semantics spec).
+ *
+ * Best-effort per mutation: each mutation is attempted independently so one
+ * failure does not suppress the rest of the batch. Failures are surfaced as
+ * warnings; the transition itself is considered committed.
  */
-function applyRecordMutations(
-	records: InteractionRecordStore,
+function applyGateMutations(
+	store: GateRecordStore,
 	runId: string,
 	mutations: readonly RecordMutation[],
 ): void {
-	for (const mutation of mutations) {
-		try {
-			if (mutation.kind === "delete") {
-				records.delete(runId, mutation.recordId);
-			} else {
-				records.write(runId, mutation.record);
-			}
-		} catch (cause) {
-			const message = cause instanceof Error ? cause.message : String(cause);
-			process.stderr.write(
-				`Warning: interaction record mutation failed (${mutation.kind}): ${message}\n`,
-			);
-		}
+	const errors = mirrorMutationsToGateStore(store, runId, mutations);
+	for (const err of errors) {
+		process.stderr.write(
+			`Warning: gate record mutation failed (${err.kind}, ${err.recordId}): ${err.error.message}\n`,
+		);
 	}
 }
 
@@ -188,13 +307,13 @@ function renderResult<T>(
  */
 async function commitTransitionAndExit(
 	runStore: RunArtifactStore,
-	records: InteractionRecordStore | null,
+	gates: GateRecordStore | null,
 	runId: string,
 	transitionOk: TransitionOk<LocalRunState>,
 ): Promise<never> {
 	await persistState(runStore, runId, transitionOk.state);
-	if (records) {
-		applyRecordMutations(records, runId, transitionOk.recordMutations);
+	if (gates) {
+		applyGateMutations(gates, runId, transitionOk.recordMutations);
 	}
 	printSchemaJson("run-state", transitionOk.state);
 	process.exit(0);
@@ -286,7 +405,7 @@ async function runStart(args: readonly string[]): Promise<never> {
 	const root = ctx.projectRoot();
 	const runStore = createLocalFsRunArtifactStore(root);
 	const changeStore = createLocalFsChangeArtifactStore(root);
-	const records = createLocalFsInteractionRecordStore(root);
+	const gates = createLocalFsGateRecordStore(root);
 
 	const parsed = parseStartArgs(args);
 	const source: SourceMetadata | null = parsed.sourceFile
@@ -312,7 +431,7 @@ async function runStart(args: readonly string[]): Promise<never> {
 		if (!result.ok) renderResult("run-state", result);
 		return commitTransitionAndExit(
 			runStore,
-			records,
+			gates,
 			parsed.positional,
 			result.value,
 		);
@@ -337,7 +456,7 @@ async function runStart(args: readonly string[]): Promise<never> {
 		adapterSeed,
 	});
 	if (!result.ok) renderResult("run-state", result);
-	return commitTransitionAndExit(runStore, records, nextRunId, result.value);
+	return commitTransitionAndExit(runStore, gates, nextRunId, result.value);
 }
 
 async function runAdvance(args: readonly string[]): Promise<never> {
@@ -348,7 +467,7 @@ async function runAdvance(args: readonly string[]): Promise<never> {
 	}
 	const root = projectRoot();
 	const runStore = createLocalFsRunArtifactStore(root);
-	const records = createLocalFsInteractionRecordStore(root);
+	const gates = createLocalFsGateRecordStore(root);
 	const workflow = loadWorkflow(stateMachinePath(root));
 
 	// Read current state.
@@ -362,7 +481,40 @@ async function runAdvance(args: readonly string[]): Promise<never> {
 		runStore,
 		runId,
 	)) as RunStateOf<LocalRunState>;
-	const priorRecords = records.list(runId);
+
+	// Read prior records from the gate store and translate back to the legacy
+	// InteractionRecord shape for the core runtime's priorRecords input.
+	let gateRecords: readonly GateRecord[];
+	let priorRecords: readonly import("../types/interaction-records.js").InteractionRecord[];
+	try {
+		gateRecords = gates.list(runId);
+		priorRecords = gateRecordsToInteractionRecords(gateRecords);
+	} catch (cause) {
+		if (cause instanceof UnmigratedRecordError) {
+			fail(`Error: ${cause.message}`);
+		}
+		throw cause;
+	}
+
+	// Resolve any pending gate whose allowed_responses match the incoming
+	// event. This enforces the first-class gate validation (eligible roles,
+	// allowed responses) before the state machine transition fires. Gate
+	// validation failures abort the advance with a hard error.
+	try {
+		resolveGateForEvent(gates, runId, state.current_phase, event, gateRecords);
+	} catch (cause) {
+		if (cause instanceof GateRuntimeError) {
+			fail(`Error: gate resolution rejected: ${cause.message}`);
+		}
+		throw cause;
+	}
+
+	// Re-read gate records after resolution so that advanceRun() sees the
+	// resolved state, not the stale pending snapshot. Without this refresh,
+	// the core runtime's update mutations (based on the stale pending record)
+	// would overwrite the already-resolved gate via mirrorMutationsToGateStore.
+	gateRecords = gates.list(runId);
+	priorRecords = gateRecordsToInteractionRecords(gateRecords);
 
 	const result = advanceRun<LocalRunState>(
 		{
@@ -374,7 +526,7 @@ async function runAdvance(args: readonly string[]): Promise<never> {
 		{ workflow },
 	);
 	if (!result.ok) renderResult("run-state", result);
-	return commitTransitionAndExit(runStore, records, runId, result.value);
+	return commitTransitionAndExit(runStore, gates, runId, result.value);
 }
 
 async function runSuspend(args: readonly string[]): Promise<never> {

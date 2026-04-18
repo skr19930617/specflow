@@ -68,5 +68,6 @@
 		"severity_summary": "HIGH: 1"
 	},
 	"rereview_classification": null,
-	"error": null
+	"error": null,
+	"gate_id": null
 }
