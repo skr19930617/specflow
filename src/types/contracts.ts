@@ -386,6 +386,8 @@ export interface LedgerRoundSummary extends JsonMap {
 	readonly stagnant_rounds?: number;
 	readonly max_rounds?: number;
 	readonly stop_reason?: string | null;
+	/** Back-reference to the review_decision gate issued for this round. */
+	readonly gate_id?: string | null;
 }
 
 export interface ReviewLedger extends JsonMap {
@@ -486,6 +488,8 @@ export interface ReviewResult extends JsonMap {
 	readonly warning?: string;
 	readonly ledger_recovery?: string;
 	readonly rereview_classification?: RereviewClassification | null;
+	/** Gate ID of the review_decision gate issued for this round, if any. */
+	readonly gate_id?: string | null;
 	readonly error?: string | null;
 }
 
@@ -502,6 +506,8 @@ export interface ChallengeResult extends JsonMap {
 	readonly change_id: string;
 	readonly challenges: readonly ChallengeItem[];
 	readonly summary: string;
+	/** Gate ID of the review_decision gate issued for this challenge round, if any. */
+	readonly gate_id?: string | null;
 	readonly error?: string | null;
 	readonly parse_error?: boolean;
 	readonly raw_response?: string | null;

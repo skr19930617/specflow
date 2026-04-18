@@ -74,5 +74,6 @@
 		"diff_warning": false,
 		"threshold": 1000
 	},
-	"error": null
+	"error": null,
+	"gate_id": null
 }

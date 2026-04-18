@@ -1,0 +1,260 @@
+{
+  "feature_id": "define-gate-semantics-for-approval-clarify-and-review-decisions-as-persistent-workflow-objects",
+  "phase": "impl",
+  "current_round": 5,
+  "status": "has_open_high",
+  "max_finding_id": 13,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-run.ts",
+      "title": "GateRecord persistence is explicitly disabled",
+      "detail": "In `commitTransitionAndExit()` (around lines 213-231), the new `GateRecordStore` is wired in but then deliberately discarded via `void gates; void mirrorMutationsSafely;`. The spec requires the runtime to persist first-class `GateRecord` objects after migration, but this change still commits only legacy `InteractionRecord` mutations. As written, surfaces cannot rely on gate persistence for approval/clarify/review decisions, so the core behavior in the spec is still missing.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/bin/specflow-run.ts",
+      "title": "Legacy delete-based record flow remains authoritative",
+      "detail": "`applyRecordMutations()` (around lines 150-168) still writes and deletes through `InteractionRecordStore`. The spec explicitly replaces `InteractionRecordStore` with `GateRecordStore`, removes the delete API, and requires prior gates to remain in history as `resolved` or `superseded` instead of being physically removed. Keeping the legacy delete path means the required lifecycle/history semantics are not implemented.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/lib/local-fs-interaction-record-store.ts",
+      "title": "Mixed migrated/unmigrated record directories are silently tolerated",
+      "detail": "`list()` now skips dotfiles and silently ignores any gate-shaped JSON file (around lines 57-70). The spec says migration is a one-time boundary and post-migration support is for `GateRecord` only; partial migration should fail fast, not produce a filtered legacy view. This behavior can hide incomplete migrations or unexpected files instead of forcing callers onto `GateRecordStore`.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "package.json",
+      "title": "Public migration CLI is registered before it is part of the reviewed change set",
+      "detail": "`package.json` and `src/contracts/orchestrators.ts` now advertise `specflow-migrate-records`, but the reviewed diff only adds the registration points. As reviewed, the package surface expands before the migration command implementation and its supporting changes are included in the same tracked change set. Either include the command/source files and tests together, or defer the registration.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R1-F05",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/bin/specflow-run.ts",
+      "title": "No regression tests cover the new persistence behavior",
+      "detail": "This patch changes runtime persistence wiring and record-directory parsing, but the diff adds no tests proving that `specflow-run` writes gate records, preserves history instead of deleting records, or rejects mixed migrated/unmigrated directories. The spec change is non-trivial and needs explicit CLI/runtime coverage before merge.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F06",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-run.ts",
+      "title": "runAdvance still bypasses first-class gate resolution",
+      "detail": "`specflow-run advance` still accepts a raw workflow event and feeds `advanceRun()` a legacy `InteractionRecord[]` reconstructed by `gateRecordsToInteractionRecords()`. The CLI never looks up a pending gate or calls `resolveGate()`, so the required `allowed_responses`, `eligible_responder_roles`, and invalid-response checks in `gate-runtime.ts` are not enforced on real runs. A caller can still drive the state machine with `accept_*`/`reject` events directly instead of resolving a gate. Wire the runtime through `GateRecord` issue/resolve helpers and map gate responses to workflow events before advancing the run.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F07",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/bin/specflow-review-design.ts",
+      "title": "Review rounds still do not emit review_decision gates",
+      "detail": "The repository contains `issueReviewDecisionGate()`, but none of the review entry points (`specflow-challenge-proposal`, `specflow-review-design`, `specflow-review-apply`) call it or open a `GateRecordStore`. Review rounds still only update their JSON/ledger outputs, so the required persistent `review_decision` gate is never created and surfaces have nothing to render or resolve. Each review CLI needs to issue the gate after persisting the round and write the returned `gate_id` back into the ledger.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F08",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/bin/specflow-run.ts",
+      "title": "A single gate-store failure aborts the rest of the mutation batch",
+      "detail": "`applyGateMutations()` now wraps the entire `mirrorMutationsToGateStore()` call in one try/catch. If one `store.write()` throws, later mutations in the same transition are never attempted, which is weaker than the previous per-mutation best-effort behavior and can leave gate history partially mirrored. Catch around each translated mutation (or inside `mirrorMutationsToGateStore()`) so one bad write does not suppress the rest of the batch.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R4-F09",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-review-design.ts",
+      "title": "Review gate IDs collide across design and apply phases",
+      "detail": "Both `specflow-review-design.ts` and `specflow-review-apply.ts` derive gate IDs as `review_decision-${runId}-${round}`. Because the design and apply ledgers each start at round 1, the first apply-review gate for a run reuses the same `.specflow/runs/<run>/records/<gate_id>.json` path as the first design-review gate and overwrites that earlier gate history. Include the review phase in the persisted `gate_id` (for example `review_decision-${runId}-${reviewPhase}-${round}`) so every review round in a run gets a unique record.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R4-F10",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-review-apply.ts",
+      "title": "Autofix loops fabricate a review gate even when no new review round finished",
+      "detail": "Both autofix-loop implementations still call `tryIssueReviewDecisionGate()` after the loop unconditionally. If the loop exits on `no_changes`, `no_progress`, or `consecutive_failures` before a final `runReviewPipeline()` succeeds, they still write a new pending `review_decision` gate from stale ledger state and may repoint the latest round summary even though no review round completed. Gate emission needs to stay tied to successful per-round review persistence instead of happening unconditionally at loop exit.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R5-F11",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-challenge-proposal.ts",
+      "title": "Proposal challenge gates always reuse round 1 IDs",
+      "detail": "`tryIssueChallengeGate()` hard-codes both `gateId` (`review_decision-${runId}-challenge-1`) and `review_round_id` (`proposal_challenge-round-1`). Re-running the challenge CLI for the same run rewrites the same `.specflow/runs/<run>/records/...json` file instead of creating one gate per review round, so prior proposal-challenge gate history is lost. Derive or persist a monotonically increasing proposal-challenge round number and include it in both IDs.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F12",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/bin/specflow-run.ts",
+      "title": "Successful advances overwrite gate-resolution provenance with stale legacy data",
+      "detail": "In `runAdvance()`, `priorRecords` is materialized before `resolveGateForEvent()` mutates the gate store. On a successful approval transition, `advanceRun()` still emits an `update` mutation from that stale pending record, and `mirrorMutationsToGateStore()` writes it back over the already-resolved gate. Today that drops the gate-runtime `decision_actor` back to `null`; it would also clobber any future resolve-time payload fields. Refresh the records after resolution or skip mirroring a legacy update once the first-class gate has already been resolved.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F13",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/review-cli.test.ts",
+      "title": "There is no end-to-end coverage for review gate issuance",
+      "detail": "The new review-gate behavior is only covered by helper/unit tests and parity fixtures where `gate_id` remains `null`. There is no CLI integration test that exercises design/apply/challenge review commands with `--run-id` or auto-discovered runs and then asserts both the emitted gate file and the ledger `gate_id` back-reference. Add those end-to-end cases so regressions in gate creation, round numbering, and proposal-challenge emission are caught.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 5,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 3
+      }
+    },
+    {
+      "round": 2,
+      "total": 8,
+      "open": 5,
+      "new": 3,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 2
+      }
+    },
+    {
+      "round": 3,
+      "total": 8,
+      "open": 4,
+      "new": 0,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "high": 2
+      }
+    },
+    {
+      "round": 4,
+      "total": 10,
+      "open": 4,
+      "new": 2,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": 4
+      }
+    },
+    {
+      "round": 5,
+      "total": 13,
+      "open": 5,
+      "new": 3,
+      "resolved": 8,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 2
+      }
+    }
+  ]
+}

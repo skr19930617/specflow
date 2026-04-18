@@ -844,3 +844,22 @@ export async function writeLedgerToStore(
 		`${JSON.stringify(ledger, null, 2)}\n`,
 	);
 }
+
+/**
+ * Patch the latest round_summary in the ledger with a gate_id back-reference.
+ * Returns a new ledger (immutable). If no round_summaries exist, returns the
+ * ledger unchanged.
+ */
+export function patchLatestRoundGateId(
+	ledger: ReviewLedger,
+	gateId: string,
+): ReviewLedger {
+	const summaries = ledger.round_summaries;
+	if (!summaries || summaries.length === 0) return ledger;
+	const updated: LedgerRoundSummary[] = [...summaries];
+	updated[updated.length - 1] = {
+		...updated[updated.length - 1],
+		gate_id: gateId,
+	};
+	return { ...ledger, round_summaries: updated };
+}

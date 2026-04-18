@@ -9,8 +9,15 @@
 // against in-memory stores.
 
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import {
 	createBareHome,
@@ -378,6 +385,156 @@ test("specflow-run reads legacy run.json and infers terminal status", () => {
 		};
 		assert.equal(statusJson.run_id, legacyRunId);
 		assert.equal(statusJson.status, "terminal");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- Gate record persistence regression tests (F05) -----------------------
+
+test("specflow-run writes gate records on disk when entering an approval gate phase", () => {
+	const tempRoot = makeTempDir("specflow-run-gate-persist-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const startJson = startRun(repoPath, changeId);
+		const runId = startJson.run_id;
+
+		// Advance through phases until reaching spec_ready (approval gate).
+		const phasesBeforeGate: Array<[string, string]> = [
+			["propose", "proposal_draft"],
+			["check_scope", "proposal_scope"],
+			["continue_proposal", "proposal_clarify"],
+			["challenge_proposal", "proposal_challenge"],
+			["reclarify", "proposal_reclarify"],
+			["accept_proposal", "spec_draft"],
+			["validate_spec", "spec_validate"],
+			["spec_validated", "spec_verify"],
+			["spec_verified", "spec_ready"],
+		];
+		for (const [event, expectedPhase] of phasesBeforeGate) {
+			const json = advancePhase(repoPath, runId, event);
+			assert.equal(json.current_phase, expectedPhase, event);
+		}
+
+		// Verify gate record files exist on disk.
+		const recordsDir = join(repoPath, ".specflow/runs", runId, "records");
+		assert.ok(existsSync(recordsDir), "records directory should exist");
+		const files = readdirSync(recordsDir).filter(
+			(f: string) => f.endsWith(".json") && !f.startsWith("."),
+		);
+		assert.ok(files.length > 0, "at least one gate record should be written");
+
+		// The record file should be gate-shaped (gate_id, gate_kind) not legacy-shaped.
+		const firstFile = readFileSync(resolve(recordsDir, files[0]), "utf8");
+		const parsed = JSON.parse(firstFile) as Record<string, unknown>;
+		assert.equal(typeof parsed.gate_id, "string", "should have gate_id");
+		assert.equal(typeof parsed.gate_kind, "string", "should have gate_kind");
+		assert.equal(parsed.status, "pending", "gate should be pending");
+		assert.equal(parsed.gate_kind, "approval", "should be an approval gate");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run preserves gate history when approval is resolved (no physical delete)", () => {
+	const tempRoot = makeTempDir("specflow-run-gate-history-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const startJson = startRun(repoPath, changeId);
+		const runId = startJson.run_id;
+
+		// Advance to spec_ready (creates pending approval gate).
+		const phases: string[] = [
+			"propose",
+			"check_scope",
+			"continue_proposal",
+			"challenge_proposal",
+			"reclarify",
+			"accept_proposal",
+			"validate_spec",
+			"spec_validated",
+			"spec_verified",
+		];
+		for (const event of phases) {
+			advancePhase(repoPath, runId, event);
+		}
+
+		const recordsDir = join(repoPath, ".specflow/runs", runId, "records");
+		const filesBefore = readdirSync(recordsDir).filter(
+			(f: string) => f.endsWith(".json") && !f.startsWith("."),
+		);
+		assert.ok(
+			filesBefore.length > 0,
+			"should have gate record(s) before resolve",
+		);
+
+		// Accept spec → resolves the approval gate and enters design_draft (new phase).
+		advancePhase(repoPath, runId, "accept_spec");
+
+		// All original record files should still exist (not deleted).
+		for (const file of filesBefore) {
+			assert.ok(
+				existsSync(resolve(recordsDir, file)),
+				`gate record ${file} should still exist after resolution`,
+			);
+		}
+
+		// The resolved gate should have status "resolved", not be deleted.
+		const resolvedContent = readFileSync(
+			resolve(recordsDir, filesBefore[0]),
+			"utf8",
+		);
+		const resolved = JSON.parse(resolvedContent) as Record<string, unknown>;
+		assert.equal(
+			resolved.status,
+			"resolved",
+			"gate should be resolved, not deleted",
+		);
+		assert.equal(resolved.resolved_response, "accept");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run advance rejects unmigrated legacy records with a clear error", () => {
+	const tempRoot = makeTempDir("specflow-run-unmigrated-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const startJson = startRun(repoPath, changeId);
+		const runId = startJson.run_id;
+
+		// Plant a legacy-shaped record file in the records directory.
+		const recordsDir = join(repoPath, ".specflow/runs", runId, "records");
+		mkdirSync(recordsDir, { recursive: true });
+		writeFileSync(
+			join(recordsDir, "approval-legacy-1.json"),
+			JSON.stringify({
+				record_id: "approval-legacy-1",
+				record_kind: "approval",
+				run_id: runId,
+				phase_from: "spec_ready",
+				phase_to: "design_draft",
+				status: "pending",
+				requested_at: "2026-01-01T00:00:00Z",
+				decided_at: null,
+				decision_actor: null,
+				event_ids: [],
+			}),
+			"utf8",
+		);
+
+		// Advance should fail because the gate store detects legacy records.
+		const result = runNodeCli(
+			"specflow-run",
+			["advance", runId, "propose"],
+			repoPath,
+		);
+		assert.notEqual(result.status, 0, "should fail on unmigrated records");
+		assert.match(
+			result.stderr,
+			/specflow-migrate-records/,
+			"error should mention migration command",
+		);
 	} finally {
 		removeTempDir(tempRoot);
 	}

@@ -1,7 +1,13 @@
 import type { ChangeArtifactStore } from "../lib/artifact-store.js";
 import { tryGit } from "../lib/git.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
+import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.js";
+import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
+import {
+	issueReviewDecisionGate,
+	type ReviewRoundProvenance,
+} from "../lib/review-decision-gate.js";
 import {
 	buildPrompt,
 	callReviewAgent,
@@ -13,7 +19,9 @@ import {
 	resolveReviewAgent,
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
+import { findLatestRun } from "../lib/run-store-ops.js";
 import type { ChallengeResult } from "../types/contracts.js";
+import type { ReviewFindingSnapshot } from "../types/gate-records.js";
 
 function notInGitRepo(): never {
 	process.stdout.write('{"status":"error","error":"not_in_git_repo"}\n');
@@ -135,6 +143,73 @@ function parseReviewAgentFlag(args: readonly string[]): string | undefined {
 	return undefined;
 }
 
+function parseRunIdFlag(args: readonly string[]): string | undefined {
+	for (let index = 0; index < args.length; index += 1) {
+		if (args[index] === "--run-id") {
+			return args[index + 1];
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Issue a review_decision gate for a completed proposal challenge round.
+ * Best-effort: returns null on failure.
+ */
+function tryIssueChallengeGate(
+	projectRoot: string,
+	runId: string,
+	challenges: readonly {
+		id: string;
+		category: string;
+		question: string;
+		context: string;
+	}[],
+	reviewAgent: ReviewAgentName,
+): string | null {
+	try {
+		const store = createLocalFsGateRecordStore(projectRoot);
+		// Derive the next round number from existing proposal_challenge gates
+		// so re-running the challenge CLI creates distinct gates per round.
+		const existingGates = store.list(runId);
+		const challengeRound =
+			existingGates.filter(
+				(g) =>
+					g.gate_kind === "review_decision" &&
+					g.originating_phase === "proposal_challenge",
+			).length + 1;
+		const gateId = `review_decision-${runId}-challenge-${challengeRound}`;
+		const findings: ReviewFindingSnapshot[] = challenges.map((c) => ({
+			id: c.id,
+			severity: "medium" as const,
+			status: "new",
+			title: c.question,
+		}));
+		const provenance: ReviewRoundProvenance = {
+			run_id: runId,
+			review_phase: "proposal_challenge",
+			review_round_id: `proposal_challenge-round-${challengeRound}`,
+			findings,
+			reviewer_actor: "ai-agent",
+			reviewer_actor_id: reviewAgent,
+			approval_binding: "advisory",
+		};
+		const gate = issueReviewDecisionGate(provenance, {
+			store,
+			projectRoot,
+			gateId,
+			createdAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+		});
+		return gate.gate_id;
+	} catch (cause) {
+		const message = cause instanceof Error ? cause.message : String(cause);
+		process.stderr.write(
+			`Warning: failed to issue review_decision gate: ${message}\n`,
+		);
+		return null;
+	}
+}
+
 async function main(): Promise<void> {
 	const projectRoot = ensureGitRepo();
 	loadConfigEnv(projectRoot);
@@ -142,14 +217,28 @@ async function main(): Promise<void> {
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
 	const [subcommand = "", ...args] = process.argv.slice(2);
 	const agent = resolveReviewAgent(parseReviewAgentFlag(args));
+	let runId = parseRunIdFlag(args);
 
 	if (subcommand !== "challenge") {
-		die("Usage: specflow-challenge-proposal challenge <CHANGE_ID> [options]");
+		die(
+			"Usage: specflow-challenge-proposal challenge <CHANGE_ID> [--run-id <id>] [options]",
+		);
 	}
 
-	const changeId = args[0];
+	const changeId = args.find((a) => !a.startsWith("-"));
 	if (!changeId) {
-		die("Usage: specflow-challenge-proposal challenge <CHANGE_ID>");
+		die(
+			"Usage: specflow-challenge-proposal challenge <CHANGE_ID> [--run-id <id>]",
+		);
+	}
+
+	// Auto-discover run_id when --run-id is not provided.
+	if (!runId) {
+		const runStore = createLocalFsRunArtifactStore(projectRoot);
+		const latest = await findLatestRun(runStore, changeId);
+		if (latest) {
+			runId = latest.run_id;
+		}
 	}
 
 	const result = await runChallenge(
@@ -159,7 +248,20 @@ async function main(): Promise<void> {
 		changeId,
 		agent,
 	);
-	printSchemaJson("challenge-proposal-result", result);
+
+	// Issue a review_decision gate if a run_id was provided and the
+	// challenge succeeded with actual challenges.
+	let gateId: string | null = null;
+	if (runId && result.status === "success" && result.challenges.length > 0) {
+		gateId = tryIssueChallengeGate(
+			projectRoot,
+			runId,
+			result.challenges,
+			agent,
+		);
+	}
+
+	printSchemaJson("challenge-proposal-result", { ...result, gate_id: gateId });
 }
 
 main();

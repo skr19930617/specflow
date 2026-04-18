@@ -1,0 +1,311 @@
+{
+  "version": "1.0",
+  "change_id": "define-gate-semantics-for-approval-clarify-and-review-decisions-as-persistent-workflow-objects",
+  "bundles": [
+    {
+      "id": "gate-record-foundation",
+      "title": "Gate Record Foundation",
+      "goal": "Define GateRecord as the canonical persistence model and replace the legacy interaction store at the data-layer boundary.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "approval-clarify-persistence capability",
+        "existing InteractionRecordStore and LocalFsInteractionRecordStore code"
+      ],
+      "outputs": [
+        "GateRecord, GatePayload, GateKind, GateStatus, and GateRecordStore TypeScript contracts",
+        "LocalFsGateRecordStore on .specflow/runs/<run_id>/records/",
+        "FakeGateRecordStore test double",
+        "unit tests for read, write, list, and atomic single-record persistence behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define GateKind, GateStatus, GatePayload, GateRecord, and GateRecordStore and remove the individual delete API from the contract",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement LocalFsGateRecordStore with write-to-temp plus rename semantics while preserving the existing records/ directory layout and gate_id filename mapping",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add FakeGateRecordStore for runtime and transition tests",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add unit coverage for read, write, list, no-delete behavior, and atomic persistence guarantees",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "approval-clarify-persistence",
+        "run-artifact-store-conformance",
+        "artifact-ownership-model"
+      ]
+    },
+    {
+      "id": "legacy-record-migration",
+      "title": "Legacy Record Migration",
+      "goal": "Provide an idempotent migration and rollback path from legacy approval and clarify records to GateRecord JSON.",
+      "depends_on": [
+        "gate-record-foundation"
+      ],
+      "inputs": [
+        "GateRecord and GateRecordStore contracts",
+        "legacy .specflow/runs/<run_id>/records/*.json fixtures",
+        "design.md Migration Plan"
+      ],
+      "outputs": [
+        "specflow-migrate-records CLI",
+        ".migrated sentinel and .backup snapshot behavior",
+        "UnmigratedRecordError read-path enforcement",
+        "migration fixtures and idempotency tests"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement forward migration that rewrites legacy approval and clarify record JSON in place and preserves record_id as gate_id",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Write .migrated sentinels and .backup snapshots per run so migration is idempotent and reversible",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Implement --undo to restore original files from .backup and remove the .migrated sentinel before any post-migration writes",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Make GateRecordStore read fail fast with UnmigratedRecordError when a legacy-shaped file is encountered",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add tests for mixed directories, repeated migration runs, unknown record_kind values, and partially corrupted legacy records",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "approval-clarify-persistence",
+        "utility-cli-suite",
+        "workspace-context"
+      ]
+    },
+    {
+      "id": "runtime-gate-helpers",
+      "title": "Runtime Gate Helpers",
+      "goal": "Implement gate issuance and resolution semantics, including supersede, validation, and recovery rules, in the runtime layer.",
+      "depends_on": [
+        "gate-record-foundation"
+      ],
+      "inputs": [
+        "GateRecord and GateRecordStore contracts",
+        "actor-surface-model role identifiers",
+        "design.md Decisions and State Lifecycle sections"
+      ],
+      "outputs": [
+        "issueGate helper",
+        "resolveGate helper",
+        "runtime-owned allowed_responses mapping",
+        "startup self-heal logic for duplicate pending gates",
+        "unit tests for concurrency, rollback, and validation rules"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement the runtime-owned allowed_responses mapping for approval, clarify, and review_decision gates",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement issueGate with same gate_kind plus originating_phase concurrency checks, paired supersede and create writes, and event_ids updates",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Implement resolveGate with allowed response validation, eligible responder role checks, terminal-state immutability, and resolved metadata writes",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add in-process locking, best-effort rollback, and startup self-healing to reconcile duplicate pending gates after partial failures",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add tests for supersede behavior, invalid response rejection, role mismatch rejection, non-pending response attempts, and rollback semantics",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-semantics",
+        "actor-surface-model",
+        "approval-clarify-persistence"
+      ]
+    },
+    {
+      "id": "transition-and-cli-gate-adoption",
+      "title": "Transition and CLI Gate Adoption",
+      "goal": "Replace legacy transition record issuance and CLI wiring with GateRecord-backed behavior without changing run paths.",
+      "depends_on": [
+        "legacy-record-migration",
+        "runtime-gate-helpers"
+      ],
+      "inputs": [
+        "issueGate and resolveGate helpers",
+        "migration command availability",
+        "transition call sites that emit ApprovalRecord or ClarifyRecord",
+        "CLI entry points using LocalFsInteractionRecordStore"
+      ],
+      "outputs": [
+        "transition code paths emitting approval and clarify GateRecord objects",
+        "phase gating logic aligned to approval and review_decision blocking rules",
+        "CLI and runtime composition using LocalFsGateRecordStore",
+        "transition regression tests"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Replace ApprovalRecord and ClarifyRecord writes in spec, design, and apply transitions with issueGate inputs and GateRecord payloads",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update phase advancement checks so pending approval and review_decision gates block advancement while clarify gates remain non-blocking by themselves",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Switch CLI and runtime injection sites from LocalFsInteractionRecordStore to LocalFsGateRecordStore",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add regression tests proving gate_kind, payload, and on-disk record path semantics match legacy behavior apart from the schema rename",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-semantics",
+        "workflow-run-state",
+        "approval-clarify-persistence",
+        "utility-cli-suite"
+      ]
+    },
+    {
+      "id": "review-decision-gates",
+      "title": "Review Decision Gate Integration",
+      "goal": "Emit one review_decision gate per completed review round and link each round summary back to the gate.",
+      "depends_on": [
+        "runtime-gate-helpers",
+        "transition-and-cli-gate-adoption"
+      ],
+      "inputs": [
+        "issueGate helper",
+        "review ledger round summaries",
+        "specflow-challenge-proposal entry point",
+        "specflow-review-design entry point",
+        "specflow-review-apply entry point"
+      ],
+      "outputs": [
+        "review_decision gate emission in proposal, design, and apply review CLIs",
+        "ledger round summaries with gate_id back-references",
+        "integration tests for review gate payloads, eligibility, and linkage"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update specflow-challenge-proposal to issue a review_decision gate after each completed proposal challenge round",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update specflow-review-design to issue a review_decision gate carrying review_round_id and findings in the payload",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Update specflow-review-apply to issue a review_decision gate carrying review_round_id and findings in the payload",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Extend ledger round summary persistence to include gate_id while keeping legacy summaries readable when gate_id is absent",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add tests proving exactly one review_decision gate per round, human-author-only eligibility, and gate_id equality with the ledger round back-reference",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-orchestration",
+        "actor-surface-model",
+        "approval-clarify-persistence"
+      ]
+    },
+    {
+      "id": "gate-alias-and-change-verification",
+      "title": "Gate Alias Layer and Change Verification",
+      "goal": "Preserve surface-event compatibility through the record_id alias layer and complete archive-level verification for the change.",
+      "depends_on": [
+        "legacy-record-migration",
+        "transition-and-cli-gate-adoption",
+        "review-decision-gates"
+      ],
+      "inputs": [
+        "GateRecord-based event emitters",
+        "surface-event payload builders",
+        "design.md Completion Conditions"
+      ],
+      "outputs": [
+        "recordIdForGate compatibility helper",
+        "event payloads still emitting record_id derived from gate_id",
+        "follow-up tracking hook for alias removal",
+        "passing openspec validate and specflow-spec-verify results"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add recordIdForGate that returns gate.gate_id and route surface-event payload construction through the alias helper",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add compatibility tests proving payload.record_id remains present and equals gate.gate_id across updated emitters",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add a follow-up tracking reference for removing the alias from surface-event-contract and workflow-run-state consumers",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run openspec validate and specflow-spec-verify and resolve any remaining consistency issues required for archive readiness",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "surface-event-contract",
+        "workflow-run-state",
+        "spec-consistency-verification"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-18T09:40:48.184Z",
+  "generated_from": "design.md"
+}
