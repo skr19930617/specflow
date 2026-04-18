@@ -440,6 +440,11 @@ const phaseContractData: readonly PhaseContract[] = [
 		gated: false,
 		terminal: false,
 		agent: "claude",
+		agentTask: {
+			agent: "claude",
+			description:
+				"Route multi-branch outcome of deterministic spec validation (AC4: agent encoding is a routing workaround; actual work is in cliCommands)",
+		},
 		requiredInputs: [
 			{
 				path: "openspec/changes/<CHANGE_ID>/specs/*/spec.md",

@@ -229,18 +229,24 @@ test("every workflow state has a PhaseContract", () => {
 // ---------------------------------------------------------------------------
 
 test("terminal phases encode the terminal sentinel for all six roles", () => {
-	// phase-semantics per-phase scenarios (approved, decomposed, rejected)
-	// define terminal-specific values for ALL six roles per Decision D7:
+	// AUTHORITATIVE REFERENCE: phase-semantics §approved, §decomposed, §rejected
+	// (openspec/specs/phase-semantics/spec.md, Requirement "Per-phase semantic
+	// definitions", Scenarios: approved, decomposed, rejected).
+	//
+	// phase-semantics per-phase scenarios define terminal-specific values for
+	// ALL six roles per Decision D7:
 	//
 	//   Role 1 (identity): the phase name
 	//   Role 2 (inputs): "empty" — this IS the terminal-specific value.
-	//     phase-semantics says "inputs: empty" for all three terminals.
+	//     phase-semantics §approved: "inputs: empty"
+	//     phase-semantics §decomposed: "inputs: empty"
+	//     phase-semantics §rejected: "inputs: empty"
 	//   Role 3 (outputs): "empty" — this IS the terminal-specific value.
-	//     phase-semantics approved: "outputs: empty (archived artifacts
+	//     phase-semantics §approved: "outputs: empty (archived artifacts
 	//       persist but are not *produced* by this phase)"
-	//     phase-semantics decomposed: "outputs: empty (sub-issue references
+	//     phase-semantics §decomposed: "outputs: empty (sub-issue references
 	//       persist outside the run)"
-	//     phase-semantics rejected: "outputs: empty"
+	//     phase-semantics §rejected: "outputs: empty"
 	//     Empty arrays encode the explicit empty-set, NOT a missing value.
 	//   Role 4 (completion): run lifecycle status has reached terminal
 	//   Role 5 (branching): "no transition / terminal" with terminal_reason
@@ -251,6 +257,10 @@ test("terminal phases encode the terminal sentinel for all six roles", () => {
 	// spec explicitly chose "empty" over artifact references because terminal
 	// phases do not produce new artifacts — they merely persist what prior
 	// phases created. This is a deliberate semantic decision, not an omission.
+	//
+	// NOTE: If the phase-semantics spec is later revised to define non-empty
+	// terminal outputs, this test MUST be updated to match. The test asserts
+	// the current authoritative definition, not a placeholder.
 	const expectedTerminals: Record<
 		string,
 		{ terminal_reason: string; inputs: number; outputs: number }
@@ -638,6 +648,35 @@ test("phases with empty outputs per phase-semantics have empty producedOutputs",
 			0,
 			`${phase}: producedOutputs SHALL be empty per phase-semantics`,
 		);
+	}
+});
+
+test("agent-delegated phases with agent field populate agentTask", () => {
+	// R4-F11: phase-contract-types claims delegation is recoverable from
+	// agent, agentTask, and cliCommands. For phases with agent set,
+	// agentTask must describe the delegated work so a consumer can tell
+	// what work is delegated and what condition makes the phase complete
+	// without falling back to slash-command prose.
+	const finalSet = new Set(workflowFinalStates);
+	for (const phase of phaseContractRegistry.phases()) {
+		if (finalSet.has(phase)) continue;
+		const contract = phaseContractRegistry.get(phase);
+		assert.ok(contract !== undefined);
+		if (contract.agent !== undefined) {
+			assert.ok(
+				contract.agentTask !== undefined,
+				`${phase}: agent-delegated phase with agent="${contract.agent}" SHALL have agentTask describing the delegated work`,
+			);
+			assert.equal(
+				contract.agentTask.agent,
+				contract.agent,
+				`${phase}: agentTask.agent SHALL match the phase's agent field`,
+			);
+			assert.ok(
+				contract.agentTask.description.length > 0,
+				`${phase}: agentTask.description SHALL be non-empty`,
+			);
+		}
 	}
 });
 
