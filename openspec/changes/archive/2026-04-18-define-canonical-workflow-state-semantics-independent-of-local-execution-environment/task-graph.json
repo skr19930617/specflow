@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "change_id": "define-canonical-workflow-state-semantics-independent-of-local-execution-environment",
+  "bundles": [
+    {
+      "id": "canonical-workflow-state-spec",
+      "title": "Write canonical-workflow-state capability spec",
+      "goal": "Publish the canonical-workflow-state spec defining the nine semantic roles, the exclusion rule for adapter state, and the conformance-authority contract.",
+      "depends_on": [],
+      "inputs": [
+        "openspec/specs/workflow-run-state/spec.md",
+        "src/types/contracts.ts"
+      ],
+      "outputs": [
+        "openspec/changes/define-canonical-workflow-state-semantics-independent-of-local-execution-environment/specs/canonical-workflow-state/spec.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Draft the runtime-agnostic requirement: canonical workflow state is defined independently of any persistence format or execution environment",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Draft the nine-roles requirement enumerating each semantic role (run identity, change identity, current phase, lifecycle status, allowed events, actor identity, source metadata, history, previous run linkage) with purpose and invariants",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Draft the exclusion-rule requirement: a field is adapter execution state iff it does not map to any canonical role",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Draft the external-consumer requirement: any conforming runtime must produce all nine canonical roles",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Draft the local-reference-implementation requirement: CoreRunState is one conforming representation, with informative examples of LocalRunState as adapter-private fields",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Draft the conformance-authority requirement: this spec is the upstream source of truth; type partitions are conforming representations",
+          "status": "done"
+        },
+        {
+          "id": "7",
+          "title": "Draft the non-goals requirement: no interchange format, no stability policy, no field-level prescription",
+          "status": "done"
+        },
+        {
+          "id": "8",
+          "title": "Run openspec validate on the new spec file and fix any structural issues",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "run-identity-model"
+      ]
+    },
+    {
+      "id": "workflow-run-state-conformance-delta",
+      "title": "Add conformance reference to workflow-run-state",
+      "goal": "Append one ADDED Requirement to the workflow-run-state delta declaring that the CoreRunState/LocalRunState partition conforms to canonical-workflow-state semantics.",
+      "depends_on": [
+        "canonical-workflow-state-spec"
+      ],
+      "inputs": [
+        "openspec/specs/workflow-run-state/spec.md",
+        "openspec/changes/define-canonical-workflow-state-semantics-independent-of-local-execution-environment/specs/canonical-workflow-state/spec.md"
+      ],
+      "outputs": [
+        "openspec/changes/define-canonical-workflow-state-semantics-independent-of-local-execution-environment/specs/workflow-run-state/spec.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Draft the ADDED Requirement declaring CoreRunState/LocalRunState conformance to canonical-workflow-state",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Write scenario: coverage — every canonical role maps to at least one CoreRunState field",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Write scenario: exclusion — every LocalRunState field is absent from the canonical roles",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Write scenario: no-field-change — no fields are added, removed, or renamed by this requirement",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Write scenario: discrepancy-surfacing — if a mismatch is found it is recorded, not silently reconciled",
+          "status": "done"
+        },
+        {
+          "id": "6",
+          "title": "Run openspec validate on the updated delta spec and fix any structural issues",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "run-identity-model"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-18T03:37:22.327Z",
+  "generated_from": "design.md"
+}
