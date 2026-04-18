@@ -1,0 +1,308 @@
+{
+  "version": "1.0",
+  "change_id": "define-phase-semantics-as-contractual-state-meaning-rather-than-command-prose",
+  "bundles": [
+    {
+      "id": "create-phase-semantics-baseline",
+      "title": "Create Phase Semantics Baseline",
+      "goal": "Establish a spec-level authority that defines the six-role meaning of every canonical workflow phase, including terminal phases.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "openspec/specs/canonical-workflow-state/spec.md",
+        "openspec/specs/workflow-run-state/spec.md",
+        "openspec/specs/artifact-ownership-model/spec.md",
+        "openspec/specs/surface-event-contract/spec.md",
+        "openspec/specs/review-orchestration/spec.md",
+        "openspec/specs/actor-surface-model/spec.md"
+      ],
+      "outputs": [
+        "openspec/specs/phase-semantics/spec.md",
+        "phase semantics role matrix for 21 phases"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extract the canonical phase set and vocabulary constraints from the owning baseline specs",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Define the six mandatory phase roles, terminal sentinels, and delegation boundary classifications for the new baseline",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Enumerate all 21 phases with per-phase values for inputs, outputs, completion, branching, and delegation",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Archive the change so the new phase-semantics baseline exists and validates cleanly",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "canonical-workflow-state",
+        "workflow-run-state",
+        "artifact-ownership-model",
+        "surface-event-contract",
+        "review-orchestration",
+        "actor-surface-model"
+      ]
+    },
+    {
+      "id": "ground-phase-contract-types",
+      "title": "Ground Phase Contract Types",
+      "goal": "Make the PhaseContract baseline an explicit lossless encoding of phase-semantics without adding new interface fields.",
+      "depends_on": [
+        "create-phase-semantics-baseline"
+      ],
+      "inputs": [
+        "design.md",
+        "openspec/specs/phase-semantics/spec.md",
+        "openspec/specs/phase-contract-types/spec.md"
+      ],
+      "outputs": [
+        "openspec/specs/phase-contract-types/spec.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Map the six semantic roles onto existing PhaseContract fields and document the lossless encoding requirement",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Declare cliCommands a normative encoding of deterministic work rather than an adapter-private detail",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Align the baseline wording with the no-new-fields constraint and the phase-semantics authority model",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-contract-types",
+        "workflow-run-state",
+        "utility-cli-suite"
+      ]
+    },
+    {
+      "id": "ground-phase-contract-structure",
+      "title": "Ground Phase Contract Structure",
+      "goal": "Anchor PhaseIODescriptor and GateCondition in the phase-semantics role model while preserving the current structural surface.",
+      "depends_on": [
+        "create-phase-semantics-baseline"
+      ],
+      "inputs": [
+        "design.md",
+        "openspec/specs/phase-semantics/spec.md",
+        "openspec/specs/phase-contract-structure/spec.md"
+      ],
+      "outputs": [
+        "openspec/specs/phase-contract-structure/spec.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define how required inputs and expected outputs are expressed through PhaseIODescriptor",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Define how branching and gate conditions are expressed through GateCondition using existing vocabulary only",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Clarify the discriminated-union extension policy and cross-references back to phase-semantics",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-contract-structure",
+        "artifact-ownership-model",
+        "surface-event-contract"
+      ]
+    },
+    {
+      "id": "reconcile-phase-contract-registry-data",
+      "title": "Reconcile Phase Contract Registry Data",
+      "goal": "Make the TypeScript phase contract registry recover every phase-semantics role from existing fields for all 21 phases.",
+      "depends_on": [
+        "create-phase-semantics-baseline"
+      ],
+      "inputs": [
+        "openspec/specs/phase-semantics/spec.md",
+        "src/contracts/phase-contract.ts#phaseContractData"
+      ],
+      "outputs": [
+        "src/contracts/phase-contract.ts#phaseContractData",
+        "design.md#accepted-spec-conflicts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Audit every phaseContractData entry against the per-phase semantics matrix",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update existing encoding fields for inputs, outputs, events, gates, delegation, terminal markers, and next-phase metadata",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Normalize explicit empty-set and terminal-sentinel encodings for terminal and purely agent-delegated phases",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Record any intentional residual disagreements as Accepted Spec Conflicts with rationale and follow-up references",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-contract-types",
+        "phase-contract-structure",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "reconcile-slash-command-prose",
+      "title": "Reconcile Slash Command Prose",
+      "goal": "Remove factual disagreements between slash command templates and phase-semantics while leaving broader prose redesign out of scope.",
+      "depends_on": [
+        "create-phase-semantics-baseline"
+      ],
+      "inputs": [
+        "openspec/specs/phase-semantics/spec.md",
+        "assets/commands/*.md.tmpl"
+      ],
+      "outputs": [
+        "assets/commands/*.md.tmpl",
+        "design.md#accepted-spec-conflicts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Audit command templates for incorrect inputs, outputs, branching, or delegation claims",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Correct factual mismatches so command prose references phase meaning instead of redefining it incorrectly",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Capture any large unresolved prose gaps as Accepted Spec Conflicts with follow-up references",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "command-template-authoring",
+        "slash-command-guides",
+        "artifact-ownership-model",
+        "surface-event-contract"
+      ]
+    },
+    {
+      "id": "align-phase-contract-tests",
+      "title": "Align Phase Contract Tests",
+      "goal": "Update value-level tests so they validate the reconciled registry data without changing the public structure of the test suite.",
+      "depends_on": [
+        "reconcile-phase-contract-registry-data"
+      ],
+      "inputs": [
+        "openspec/specs/phase-semantics/spec.md",
+        "src/contracts/phase-contract.ts#phaseContractData",
+        "src/tests/phase-contract*.test.ts"
+      ],
+      "outputs": [
+        "src/tests/phase-contract*.test.ts",
+        "phase-contract test pass report"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update assertions that lock in old PhaseContract values to match the reconciled registry data",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Preserve the current test structure and add only minimal losslessness coverage if required",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Run the phase-contract test targets and confirm green assertions after the data sweep",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-contract-types",
+        "spec-consistency-verification"
+      ]
+    },
+    {
+      "id": "validate-phase-semantics-rollout",
+      "title": "Validate Phase Semantics Rollout",
+      "goal": "Prove that the new semantic authority, encodings, data, prose, and tests are mutually consistent and ready for review.",
+      "depends_on": [
+        "ground-phase-contract-types",
+        "ground-phase-contract-structure",
+        "reconcile-phase-contract-registry-data",
+        "reconcile-slash-command-prose",
+        "align-phase-contract-tests"
+      ],
+      "inputs": [
+        "openspec/specs/phase-semantics/spec.md",
+        "openspec/specs/phase-contract-types/spec.md",
+        "openspec/specs/phase-contract-structure/spec.md",
+        "src/contracts/phase-contract.ts#phaseContractData",
+        "assets/commands/*.md.tmpl",
+        "src/tests/phase-contract*.test.ts",
+        "design.md#accepted-spec-conflicts"
+      ],
+      "outputs": [
+        "openspec validate result",
+        "specflow-spec-verify result",
+        "design review evidence"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run openspec validate and spec verification across the archived baselines and reconciled artifacts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Confirm that any Accepted Spec Conflicts are fully documented or that no unresolved divergences remain",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Assemble review evidence showing tests are green and the change is ready for design and apply review gates",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "review-orchestration",
+        "utility-cli-suite"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-18T04:45:01.521Z",
+  "generated_from": "design.md"
+}

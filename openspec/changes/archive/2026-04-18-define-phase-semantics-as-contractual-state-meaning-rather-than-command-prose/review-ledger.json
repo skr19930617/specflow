@@ -1,0 +1,219 @@
+{
+  "feature_id": "define-phase-semantics-as-contractual-state-meaning-rather-than-command-prose",
+  "phase": "impl",
+  "current_round": 4,
+  "status": "has_open_high",
+  "max_finding_id": 11,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/specs/phase-semantics/spec.md",
+      "title": "New `phase-semantics` baseline capability is missing",
+      "detail": "The proposal’s primary deliverable is a new `phase-semantics` capability that defines every workflow phase and all six mandatory semantic roles. This diff only patches `PhaseContract` data and adds one test; it does not add `openspec/specs/phase-semantics/spec.md` at all, so there is still no runtime-agnostic meaning authority independent of slash-command prose.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/specs/phase-contract-types/spec.md",
+      "title": "Required conformance spec updates were not made",
+      "detail": "The proposal requires `phase-contract-types` to declare `PhaseContract` a lossless conforming encoding of `phase-semantics` and to make `cliCommands` normative, and it requires `phase-contract-structure` to map `PhaseIODescriptor`/`GateCondition` to the new semantic roles. None of those governing spec files are changed here, so the implementation does not establish the required contract-level semantics.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/contracts/phase-contract.ts",
+      "title": "Phase contracts still do not losslessly encode all required roles",
+      "detail": "The added CLI commands cover a few previously unencoded transition events, but the registry still falls short of the proposal’s losslessness requirement. In particular, terminal phases like `approved`, `decomposed`, and `rejected` still have empty `producedOutputs` and no defined terminal-sentinel branching value, even though the spec requires terminal-specific values for all six roles rather than omission.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/phase-contract.test.ts",
+      "title": "New test is too narrow for the acceptance criteria",
+      "detail": "The added test only checks that each non-`reject` transition event appears somewhere in `advance_event`, raw `cliCommands` text, or `gatedDecision`. It does not verify the full per-phase semantic contract required by the proposal: phase-set parity with `canonical-workflow-state`, terminal sentinel behavior, terminal artifacts, required inputs/outputs, or lossless coverage of all six roles. Add conformance tests for those non-trivial semantics.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R2-F05",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "openspec/specs/phase-contract-structure/spec.md",
+      "title": "New conformance wording references fields that do not exist",
+      "detail": "The added requirement text talks about `PhaseIODescriptor.input`, `PhaseIODescriptor.output`, and `PhaseIODescriptor.input.artifacts` / `.output.artifacts`, but `PhaseIODescriptor` only defines `artifacts`; the `input` and `output` properties live on `PhaseContract`. As written, the spec no longer matches the actual TypeScript surface. Rewrite these clauses to refer to `PhaseContract.input` / `PhaseContract.output` values of type `PhaseIODescriptor`.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F06",
+      "severity": "high",
+      "category": "testing",
+      "file": "src/tests/phase-contract.test.ts",
+      "title": "Terminal conformance test hardcodes the wrong output semantics",
+      "detail": "The proposal requires terminal phases to declare terminal-specific outputs instead of omitting the role, but the new `terminal phases encode the terminal sentinel for all six roles` test asserts `producedOutputs.length === 0` for `approved`, `decomposed`, and `rejected`. That means the suite now passes only while the existing bug remains, and it will fail once the correct terminal outputs are added. Update the test to assert the required terminal-specific outputs instead of an empty array.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F07",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/contracts/phase-contract.ts",
+      "title": "Non-artifact phase roles are still not encoded despite the new losslessness claim",
+      "detail": "The diff adds a few missing transition commands, but several phases still do not encode proposal-required non-artifact inputs or outputs. Examples: `proposal_draft.requiredInputs` is still empty even though the phase depends on source metadata, `proposal_challenge.producedOutputs` is still empty even though the phase is supposed to emit challenge results, `proposal_reclarify.requiredInputs` still omits those challenge results, and `apply_review.requiredInputs` is still empty despite depending on the implementation state produced by `apply_draft`. With `phase-contract-types` now declaring lossless encoding without new fields, these omissions leave the implementation non-conforming. Either populate the existing fields with a concrete encoding for those roles or record the gap as an Accepted Spec Conflict instead of claiming losslessness.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F08",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/contracts/phase-contract.ts",
+      "title": "`start` still cannot losslessly encode its three outgoing branches",
+      "detail": "The diff adds `explore_start` and `spec_bootstrap_start` only as `cliCommands`, but `start` still has `next_action: \"advance\"` and `advance_event: \"propose\"`. The routing consumer (`deriveAction`) can emit only that single advance event, so the two utility branches are not actually encoded in routing metadata even though the new specs/tests claim full branching losslessness. Either give `start` a real multi-outcome encoding that the router can surface, or record these utility branches as an Accepted Spec Conflict instead of claiming full conformance.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R3-F09",
+      "severity": "high",
+      "category": "testing",
+      "file": "src/tests/phase-contract.test.ts",
+      "title": "Delegation conformance test hardcodes the wrong `spec_validate` semantics",
+      "detail": "In `delegation boundary matches phase-semantics classification`, the comment explicitly says `spec_validate` is deterministic, but the test excludes it from `deterministicPhases` and then asserts `specValidate.agent !== undefined`. That makes the suite pass only while the contract keeps treating a deterministic validation phase as agent-driven. Update the contract/test to require `spec_validate` to have no agent, or record a spec conflict if its semantics are intentionally changing.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R4-F10",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/contracts/phase-contract.ts",
+      "title": "New run-state input/output labels still have no owning spec definition",
+      "detail": "The new contract values now treat `<RUN_STATE>/source-metadata`, `<RUN_STATE>/challenge-result-set`, `<RUN_STATE>/task-graph-bundle-transitions`, `<RUN_STATE>/applied-implementation-state`, `<RUN_STATE>/exploration-summary`, and `<RUN_STATE>/project-source-tree` as canonical phase inputs/outputs, but there is still no existing capability under `openspec/specs/` that defines those identifiers. The proposal’s vocabulary constraint required reusing existing canonical terms or updating the owning capability first; otherwise portable consumers still cannot interpret these roles from the spec surface. Land the missing capability definitions (or switch these entries to already-defined artifact/run-state terms) before encoding them here.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F11",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/contracts/phase-contract.ts",
+      "title": "Delegated phases still omit the data needed to recover delegated work and completion",
+      "detail": "The updated `phase-contract-types` baseline now claims completion and delegation are recoverable from `agent`, `agentTask`, and `cliCommands`, but the production registry still never populates `agentTask` for the delegated phases. For phases such as `proposal_draft`, `proposal_clarify`, `spec_draft`, `design_draft`, `apply_draft`, `explore`, and `spec_bootstrap`, the contract exposes only an agent name plus transition/helper commands, so a consumer still cannot tell what work is delegated or what condition makes the phase complete without falling back to slash-command prose. Populate `agentTask` (or otherwise encode that delegated work using the existing fields) before claiming a lossless TypeScript-layer encoding.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 1
+      }
+    },
+    {
+      "round": 2,
+      "total": 7,
+      "open": 6,
+      "new": 3,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": 4,
+        "medium": 2
+      }
+    },
+    {
+      "round": 3,
+      "total": 9,
+      "open": 6,
+      "new": 2,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 5,
+        "medium": 1
+      }
+    },
+    {
+      "round": 4,
+      "total": 11,
+      "open": 4,
+      "new": 2,
+      "resolved": 7,
+      "overridden": 0,
+      "by_severity": {
+        "high": 4
+      }
+    }
+  ]
+}
