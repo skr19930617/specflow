@@ -1,12 +1,34 @@
 import { resolve } from "node:path";
 import type { ChangeArtifactStore } from "../lib/artifact-store.js";
 import { ReviewLedgerKind } from "../lib/artifact-types.js";
+import {
+	buildAutofixReviewCompletedPayload,
+	buildAutofixRoundPayload,
+	publishAutofixReviewCompleted,
+} from "../lib/autofix-event-builder.js";
+import {
+	buildAutofixCountersFromRound,
+	findRoundSummary,
+	ledgerRoundIdFor,
+	startAutofixHeartbeat,
+	writeAutofixSnapshot,
+	ZERO_AUTOFIX_COUNTERS,
+} from "../lib/autofix-progress-snapshot.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.js";
 import { withLockedPublisher } from "../lib/local-fs-observation-event-publisher.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { createLocalWorkspaceContext } from "../lib/local-workspace-context.js";
 import { emitGateOpened } from "../lib/observation-event-emitter.js";
+import {
+	buildStartingSnapshot,
+	type AutofixProgressSnapshot,
+} from "../types/autofix-progress.js";
+import type {
+	AutofixLoopState,
+	AutofixRoundCounters,
+	AutofixTerminalOutcome,
+} from "../types/observation-events.js";
 import { moduleRepoRoot, printSchemaJson, tryExec } from "../lib/process.js";
 import {
 	issueReviewDecisionGate,
@@ -454,6 +476,79 @@ async function runAutofixLoop(
 	let ledger = (
 		await readLedgerFromStore(changeStore, changeId, ReviewLedgerKind.Apply)
 	).ledger;
+	const reviewConfig = readReviewConfig(projectRoot);
+	const runArtifactStore = createLocalFsRunArtifactStore(projectRoot);
+	const runsRoot = resolve(projectRoot, ".specflow/runs");
+	const progressEnabled = typeof runId === "string" && runId.length > 0;
+	const phase = "apply_review" as const;
+	let currentSnapshot: AutofixProgressSnapshot | null = null;
+	let stopHeartbeat: (() => void) | null = null;
+
+	const nowIso = () => new Date().toISOString();
+
+	const updateSnapshot = (
+		mutate: (prev: AutofixProgressSnapshot) => AutofixProgressSnapshot,
+	): void => {
+		if (!progressEnabled || !currentSnapshot) return;
+		currentSnapshot = mutate(currentSnapshot);
+		void writeAutofixSnapshot(runArtifactStore, currentSnapshot).catch(() => {
+			// Swallow per authority-precedence rule (ledger > events > snapshot).
+		});
+	};
+
+	const emitAutofixEvent = (args: {
+		readonly loopState: AutofixLoopState;
+		readonly terminalOutcome?: AutofixTerminalOutcome | null;
+		readonly roundIndex: number;
+		readonly counters: AutofixRoundCounters;
+		readonly ledgerRoundId: string | null;
+		readonly score?: number | null;
+	}): void => {
+		if (!progressEnabled || !runId) return;
+		const payload = buildAutofixReviewCompletedPayload({
+			reviewer: reviewAgent,
+			score: args.score ?? null,
+			autofix: buildAutofixRoundPayload({
+				roundIndex: args.roundIndex,
+				maxRounds,
+				loopState: args.loopState,
+				terminalOutcome: args.terminalOutcome ?? null,
+				counters: args.counters,
+				ledgerRoundId: args.ledgerRoundId,
+			}),
+		});
+		withLockedPublisher(runsRoot, runId, (publisher) => {
+			publishAutofixReviewCompleted({
+				publisher,
+				runId,
+				changeId,
+				highestSequence: publisher.highestSequence(),
+				timestamp: nowIso(),
+				sourcePhase: phase,
+				payload,
+			});
+		});
+	};
+
+	if (progressEnabled && runId) {
+		currentSnapshot = buildStartingSnapshot({
+			runId,
+			changeId,
+			phase,
+			maxRounds,
+			now: nowIso(),
+		});
+		await writeAutofixSnapshot(runArtifactStore, currentSnapshot);
+		stopHeartbeat = startAutofixHeartbeat({
+			getCurrent: () => currentSnapshot as AutofixProgressSnapshot,
+			write: (next) => {
+				currentSnapshot = next;
+				return writeAutofixSnapshot(runArtifactStore, next);
+			},
+			intervalMs: reviewConfig.autofixHeartbeatSeconds * 1000,
+		});
+	}
+
 	let previousScore = computeScore(ledger);
 	let previousNewHighCount = 0;
 	let previousAllHighTitles = highFindingTitles(ledger);
@@ -470,6 +565,29 @@ async function runAutofixLoop(
 		process.stderr.write(
 			`Auto-fix Round ${autofixRound}/${maxRounds}: Starting fix...\n`,
 		);
+		const prevSummary = findRoundSummary(
+			ledger.round_summaries ?? [],
+			autofixRound - 1,
+		);
+		const startCounters = prevSummary
+			? buildAutofixCountersFromRound(prevSummary)
+			: ZERO_AUTOFIX_COUNTERS;
+		const startLedgerRoundId = ledgerRoundIdFor(prevSummary);
+		updateSnapshot((prev) => ({
+			...prev,
+			loop_state: "in_progress",
+			round_index: autofixRound,
+			terminal_outcome: null,
+			counters: startCounters,
+			heartbeat_at: nowIso(),
+			ledger_round_id: startLedgerRoundId,
+		}));
+		emitAutofixEvent({
+			loopState: "in_progress",
+			roundIndex: autofixRound,
+			counters: startCounters,
+			ledgerRoundId: startLedgerRoundId,
+		});
 		const diffResult = diffFilter(ctx);
 		if (diffResult.summary === "empty") {
 			loopResult = "no_changes";
@@ -604,6 +722,31 @@ async function runAutofixLoop(
 		process.stderr.write(
 			`Auto-fix Round ${autofixRound}/${maxRounds}: unresolved_high=${unresolvedHigh}, score=${currentScore}\n`,
 		);
+		const endSummary = findRoundSummary(
+			ledger.round_summaries ?? [],
+			autofixRound,
+		);
+		const endCounters = endSummary
+			? buildAutofixCountersFromRound(endSummary)
+			: ZERO_AUTOFIX_COUNTERS;
+		const endLedgerRoundId =
+			ledgerRoundIdFor(endSummary) ?? lastSuccessfulGateId;
+		updateSnapshot((prev) => ({
+			...prev,
+			loop_state: "awaiting_review",
+			round_index: autofixRound,
+			terminal_outcome: null,
+			counters: endCounters,
+			heartbeat_at: nowIso(),
+			ledger_round_id: endLedgerRoundId,
+		}));
+		emitAutofixEvent({
+			loopState: "awaiting_review",
+			roundIndex: autofixRound,
+			counters: endCounters,
+			ledgerRoundId: endLedgerRoundId,
+			score: currentScore,
+		});
 	}
 
 	// Gate emission is handled per-round inside runReviewPipeline (which
@@ -616,6 +759,46 @@ async function runAutofixLoop(
 	// critical/high findings remain. LOW/MEDIUM may still be present and
 	// are reported via severity_summary and actionable_count.
 	const blocking = unresolvedCriticalHighCount(ledger);
+	const handoffState =
+		blocking === 0 ? "loop_no_findings" : "loop_with_findings";
+	const terminalLoopState: AutofixLoopState =
+		blocking === 0 ? "terminal_success" : "terminal_failure";
+	const terminalOutcome: AutofixTerminalOutcome =
+		blocking === 0
+			? "loop_no_findings"
+			: loopResult === "max_rounds_reached" ||
+					loopResult === "no_progress" ||
+					loopResult === "consecutive_failures"
+				? (loopResult as AutofixTerminalOutcome)
+				: "loop_with_findings";
+	const terminalSummary = findRoundSummary(
+		ledger.round_summaries ?? [],
+		autofixRound,
+	);
+	const terminalCounters = terminalSummary
+		? buildAutofixCountersFromRound(terminalSummary)
+		: ZERO_AUTOFIX_COUNTERS;
+	const terminalLedgerRoundId =
+		ledgerRoundIdFor(terminalSummary) ?? lastSuccessfulGateId;
+	updateSnapshot((prev) => ({
+		...prev,
+		loop_state: terminalLoopState,
+		round_index: autofixRound,
+		terminal_outcome: terminalOutcome,
+		counters: terminalCounters,
+		heartbeat_at: nowIso(),
+		ledger_round_id: terminalLedgerRoundId,
+	}));
+	emitAutofixEvent({
+		loopState: terminalLoopState,
+		terminalOutcome,
+		roundIndex: autofixRound,
+		counters: terminalCounters,
+		ledgerRoundId: terminalLedgerRoundId,
+		score: previousScore,
+	});
+	stopHeartbeat?.();
+
 	return {
 		status: "success",
 		action: "autofix_loop",
@@ -629,7 +812,7 @@ async function runAutofixLoop(
 			divergence_warnings: divergenceWarnings,
 		},
 		handoff: {
-			state: blocking === 0 ? "loop_no_findings" : "loop_with_findings",
+			state: handoffState,
 			actionable_count: actionable,
 			severity_summary: severitySummary(ledger),
 		},

@@ -237,15 +237,63 @@ AskUserQuestion:
 
 ## Step 6: Auto-fix Loop
 
-ユーザーが「Auto-fix 実行」を選択した場合、Bash orchestrator で auto-fix loop を実行する。
+ユーザーが「Auto-fix 実行」を選択した場合、Bash orchestrator を **バックグラウンドで** 起動し、run_id をキーに進捗スナップショット / `review_completed` observation events をポーリングしながら進捗をユーザーに逐次レンダリングする。同期で Bash を待ってはいけない（チャットが「凍って見える」失敗モードを避けるため）。
 
-### Run Orchestrator
+### Resolve run_id first
+
+`run_id` を事前に取得する。`specflow.review_apply` の前段で解決済みの `RUN_ID`（`<CHANGE_ID>-<N>` 形式）をそのまま再利用する。未確定であれば次を実行:
 
 ```bash
-specflow-review-apply autofix-loop <CHANGE_ID> --max-rounds <MAX_AUTOFIX_ROUNDS>
+specflow-run get-field "<RUN_ID>" run_id
 ```
 
-Capture stdout as `LOOP_JSON`. If the command fails (non-zero exit), display the error and **STOP**.
+`RUN_ID` を確定できない場合は、その根本原因を調査して解決したうえで再実行する（autofix-loop は `RUN_ID` なしでも動作するが、進捗スナップショット / `review_completed` observation events の emission は発生しないため observability が失われる）。
+
+### Launch in background
+
+バックグラウンドで起動する（Claude chat の場合は `run_in_background: true`）。
+
+```bash
+specflow-review-apply autofix-loop <CHANGE_ID> --run-id <RUN_ID> --max-rounds <MAX_AUTOFIX_ROUNDS>
+```
+
+CLI の `LOOP_JSON` は終了時にのみ stdout に返る。CLI `stderr` の `Auto-fix Round N/M: ...` 行は人間向けの補助情報であり、**契約上の進捗ソースではない**。
+
+### Poll progress via snapshot + events
+
+`run_id` をキーにして以下のいずれか（両方可）をポーリングする:
+
+- **進捗スナップショット**（推奨・Fast path）: `.specflow/runs/<RUN_ID>/autofix-progress-apply_review.json` を Read で取得。スキーマは `review-autofix-progress-observability` 契約に従う: `round_index`, `max_rounds`, `loop_state`, `terminal_outcome`, `counters` (`unresolvedCriticalHigh`, `totalOpen`, `resolvedThisRound`, `newThisRound`, `severitySummary`), `heartbeat_at`, `ledger_round_id`。
+- **Observation events**: `.specflow/runs/<RUN_ID>/events.jsonl` を tail し、`event_kind == "review_completed"` かつ `payload.autofix != null` の行を抜き出す。`payload.autofix.loop_state` が状態遷移、`payload.autofix.counters` が severity カウンタを示す。
+
+**1 round あたりのイベント数**: CLI は 1 round につき `review_completed` を 2 件（start: `loop_state = in_progress`、end: `loop_state = awaiting_review` または terminal）と、ループ終了時に 1 件の終局イベント（`loop_state ∈ {terminal_success, terminal_failure}`）を emit する（合計 `2N+1` events）。
+
+### Render per-round progress
+
+`loop_state` が変わるたびにユーザーにレンダリングする:
+
+```
+Auto-fix Round {round_index}/{max_rounds}: {loop_state}
+  - Unresolved HIGH+: {counters.unresolvedCriticalHigh}
+  - Total open: {counters.totalOpen}
+  - Resolved this round: {counters.resolvedThisRound}
+  - Severity summary: {counters.severitySummary}
+```
+
+状態が変わらないままハートビートが更新された場合、1 分に 1 回まで `heartbeat_at` の経過時間を表示してもよい（オプション）。
+
+### Finalize only on terminal `loop_state` or `abandoned`
+
+ループの終了判定は次のいずれかでのみ行う:
+
+- `loop_state == "terminal_success"` または `loop_state == "terminal_failure"` を観測 → `LOOP_JSON` を Read で取得（バックグラウンドタスクの出力ファイルから）し、通常の Handoff に進む。
+- `heartbeat_at` が `autofix_stale_threshold_seconds`（デフォルト `120`）を超えて更新されない → run を `abandoned` と分類する。ユーザーにそのことを通知し、必要に応じて再実行を案内する。
+
+### Retry after `abandoned`
+
+`abandoned` と分類された run で `/specflow.review_apply` を再実行する場合、新しい invocation は新しい `RUN_ID` を生成する。surface は古い `RUN_ID` のスナップショット / event stream のポーリングを停止し、新しい `RUN_ID` の `.specflow/runs/<NEW_RUN_ID>/autofix-progress-apply_review.json` をポーリングする。古いスナップショットはその `RUN_ID`-scoped パスにより到達不能になるため、明示的なクリーンアップは不要。
+
+Capture final stdout as `LOOP_JSON`. If the command fails (non-zero exit), display the error and **STOP**.
 
 Parse `LOOP_JSON` as JSON. If parse fails, display raw output and **STOP**.
 

@@ -52,6 +52,28 @@ and any change-local `spec.md` files, and SHALL persist its state in
 - **THEN** the CLI SHALL iterate review rounds until the loop resolves the
   actionable findings, reaches `max_rounds_reached`, or detects `no_progress`
 
+#### Scenario: Design autofix loop emits round-level observation events
+
+- **WHEN** `specflow-review-design autofix-loop <CHANGE_ID>` is running
+- **THEN** the loop SHALL emit a `review_completed` observation event at
+  the start of each round (`autofix.loop_state = "in_progress"`) and
+  another at the end of each round (`autofix.loop_state` transitioning
+  to `"awaiting_review"`, `"terminal_success"`, or `"terminal_failure"`)
+- **AND** the loop SHALL emit a final terminal `review_completed` event
+  carrying `autofix.loop_state ∈ {terminal_success, terminal_failure}`
+  and a non-null `autofix.terminal_outcome` when the loop exits
+- **AND** the event payloads SHALL conform to the extended
+  `review_completed` payload defined by `workflow-observation-events`
+
+#### Scenario: Design autofix loop refreshes the progress snapshot
+
+- **WHEN** `specflow-review-design autofix-loop <CHANGE_ID>` is running
+- **THEN** the loop SHALL rewrite the per-run progress snapshot defined
+  by `review-autofix-progress-observability` at least every
+  `autofix_heartbeat_seconds` (default `30`)
+- **AND** the snapshot SHALL converge to a terminal `loop_state` on
+  loop exit
+
 ### Requirement: Apply review operates on filtered git diffs and an implementation ledger
 `specflow-review-apply` SHALL obtain the implementation diff via the injected
 `WorkspaceContext.filteredDiff()` method instead of calling `specflow-filter-diff`
@@ -70,6 +92,28 @@ directly, and SHALL persist implementation review state in `review-ledger.json`.
 - **WHEN** `WorkspaceContext.filteredDiff()` returns a `DiffSummary` with `total_lines` exceeding the configured threshold
 - **THEN** it SHALL set the `diff_warning` flag and follow the existing warning flow
 
+#### Scenario: Apply autofix loop emits round-level observation events
+
+- **WHEN** `specflow-review-apply autofix-loop <CHANGE_ID>` is running
+- **THEN** the loop SHALL emit a `review_completed` observation event at
+  the start of each round (`autofix.loop_state = "in_progress"`) and
+  another at the end of each round (`autofix.loop_state` transitioning
+  to `"awaiting_review"`, `"terminal_success"`, or `"terminal_failure"`)
+- **AND** the loop SHALL emit a final terminal `review_completed` event
+  carrying `autofix.loop_state ∈ {terminal_success, terminal_failure}`
+  and a non-null `autofix.terminal_outcome` when the loop exits
+- **AND** the event payloads SHALL conform to the extended
+  `review_completed` payload defined by `workflow-observation-events`
+
+#### Scenario: Apply autofix loop refreshes the progress snapshot
+
+- **WHEN** `specflow-review-apply autofix-loop <CHANGE_ID>` is running
+- **THEN** the loop SHALL rewrite the per-run progress snapshot defined
+  by `review-autofix-progress-observability` at least every
+  `autofix_heartbeat_seconds` (default `30`)
+- **AND** the snapshot SHALL converge to a terminal `loop_state` on
+  loop exit
+
 ### Requirement: Review configuration is read from `openspec/config.yaml` with stable defaults
 
 The review runtime SHALL read review configuration from `openspec/config.yaml`
@@ -78,13 +122,22 @@ and SHALL fall back to built-in defaults when the keys are absent or invalid.
 #### Scenario: Missing config uses defaults
 
 - **WHEN** review configuration cannot be read from `openspec/config.yaml`
-- **THEN** the runtime SHALL use `diff_warn_threshold = 1000` and
-  `max_autofix_rounds = 4`
+- **THEN** the runtime SHALL use `diff_warn_threshold = 1000`,
+  `max_autofix_rounds = 4`, `autofix_heartbeat_seconds = 30`, and
+  `autofix_stale_threshold_seconds = 120`
 
 #### Scenario: Invalid max-autofix values fall back to the default
 
 - **WHEN** `max_autofix_rounds` is not an integer in the range `1..10`
 - **THEN** the runtime SHALL use `4`
+
+#### Scenario: Invalid autofix heartbeat values fall back to the default
+
+- **WHEN** `autofix_heartbeat_seconds` is not a positive integer
+- **THEN** the runtime SHALL use `30`
+- **AND** when `autofix_stale_threshold_seconds` is not a positive
+  integer greater than or equal to the effective
+  `autofix_heartbeat_seconds` value, the runtime SHALL use `120`
 
 ### Requirement: Current-phase summaries reflect the latest review ledger state
 

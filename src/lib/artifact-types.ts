@@ -22,6 +22,7 @@ export const changeArtifactTypes: readonly ChangeArtifactType[] =
 
 export const RunArtifactType = {
 	RunState: "run-state",
+	AutofixProgress: "autofix-progress",
 } as const;
 
 export type RunArtifactType =
@@ -29,6 +30,18 @@ export type RunArtifactType =
 
 export const runArtifactTypes: readonly RunArtifactType[] =
 	Object.values(RunArtifactType);
+
+/** Review phases that have their own autofix progress snapshot. */
+export const AutofixProgressPhase = {
+	DesignReview: "design_review",
+	ApplyReview: "apply_review",
+} as const;
+
+export type AutofixProgressPhase =
+	(typeof AutofixProgressPhase)[keyof typeof AutofixProgressPhase];
+
+export const autofixProgressPhases: readonly AutofixProgressPhase[] =
+	Object.values(AutofixProgressPhase);
 
 export const ReviewLedgerKind = {
 	Proposal: "proposal",
@@ -70,9 +83,21 @@ export type ChangeArtifactRef =
 			readonly qualifier: ReviewLedgerKind;
 	  };
 
-export interface RunArtifactRef {
-	readonly runId: string;
-	readonly type: typeof RunArtifactType.RunState;
+export type RunArtifactRef =
+	| {
+			readonly runId: string;
+			readonly type: typeof RunArtifactType.RunState;
+	  }
+	| {
+			readonly runId: string;
+			readonly type: typeof RunArtifactType.AutofixProgress;
+			readonly qualifier: AutofixProgressPhase;
+	  };
+
+export function isAutofixProgressPhase(
+	value: string,
+): value is AutofixProgressPhase {
+	return autofixProgressPhases.includes(value as AutofixProgressPhase);
 }
 
 // --- Query / Descriptor Types (for list operations, no concrete identity yet) ---
@@ -158,7 +183,28 @@ export function changeRef(
 	return { changeId, type: type as SingletonChangeArtifactType };
 }
 
-export function runRef(runId: string): RunArtifactRef {
+export function runRef(runId: string): RunArtifactRef;
+export function runRef(
+	runId: string,
+	type: typeof RunArtifactType.RunState,
+): RunArtifactRef;
+export function runRef(
+	runId: string,
+	type: typeof RunArtifactType.AutofixProgress,
+	qualifier: AutofixProgressPhase,
+): RunArtifactRef;
+export function runRef(
+	runId: string,
+	type: RunArtifactType = RunArtifactType.RunState,
+	qualifier?: AutofixProgressPhase,
+): RunArtifactRef {
+	if (type === RunArtifactType.AutofixProgress) {
+		return {
+			runId,
+			type,
+			qualifier: qualifier as AutofixProgressPhase,
+		};
+	}
 	return { runId, type: RunArtifactType.RunState };
 }
 

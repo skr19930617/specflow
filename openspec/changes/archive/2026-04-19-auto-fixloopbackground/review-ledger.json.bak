@@ -1,0 +1,93 @@
+{
+  "feature_id": "auto-fixloopbackground",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 5,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/local-fs-run-artifact-store.ts",
+      "title": "RunArtifactStore.list() never exposes the new autofix-progress artifacts",
+      "detail": "The spec says the per-run progress snapshot must be discoverable through the existing run-artifact-store contract, but `list()` still only returns `run-state` refs for directories containing `run.json`. It never enumerates `autofix-progress-*.json`, so consumers cannot discover the new artifact kind. Update `list()` to return `runRef(runId, RunArtifactType.AutofixProgress, <phase>)` for each snapshot file and add matching store tests.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-review-design.ts, src/bin/specflow-review-apply.ts",
+      "title": "Terminal rounds skip the required round-end review_completed emission",
+      "detail": "Both autofix loops `break` as soon as they hit a terminal condition (for example success, `no_progress`, `consecutive_failures`, or apply `no_changes`) before reaching the round-end emission block. That means the last round only produces the start event plus the final terminal event, so terminal runs emit `2N` events instead of the documented `2N+1`. Surfaces polling `review_completed` events will miss the required end-of-round transition for the final round. Emit the per-round end event before breaking, then emit the separate terminal event.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-review-apply.ts, src/types/observation-events.ts",
+      "title": "Apply autofix loses the exact terminal reason on the no_changes path",
+      "detail": "The apply loop still sets `loopResult = \"no_changes\"`, but `AutofixTerminalOutcome` does not include that value. The terminal snapshot/event therefore coerce this case to `loop_with_findings`, which violates the proposal requirement that non-success terminal outcomes carry the exact reason so surfaces can report it. Either add `no_changes` to the autofix terminal-outcome contract everywhere or stop returning it from `autofix-loop`.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "assets/commands/specflow.review_apply.md.tmpl, assets/commands/specflow.review_design.md.tmpl",
+      "title": "The guides still hardcode the abandoned threshold instead of using the configurable value",
+      "detail": "The proposal made `autofix_stale_threshold_seconds` overridable via `openspec/config.yaml`, but the command guides only read `max_autofix_rounds` and then describe abandoned detection with a hard-coded default of `120`. A surface following these templates will ignore project-specific overrides. Add a setup step that reads/stores the stale-threshold config and use that variable in the polling instructions.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F05",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/review-cli.test.ts",
+      "title": "The new observability behavior is effectively untested",
+      "detail": "The diff updates markdown snapshots and the artifact-type enum, but there are no tests asserting that `autofix-loop --run-id` writes `autofix-progress-{design,apply}_review.json`, refreshes `heartbeat_at`, emits `review_completed` events with `payload.autofix`, or preserves the required terminal event sequence. Add integration tests for both CLIs with a run id, and store tests that verify discovery of the new run-artifact refs.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 5,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 2
+      }
+    }
+  ]
+}

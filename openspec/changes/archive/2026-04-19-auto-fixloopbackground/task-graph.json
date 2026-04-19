@@ -1,0 +1,288 @@
+{
+  "version": "1.0",
+  "change_id": "auto-fixloopbackground",
+  "bundles": [
+    {
+      "id": "contract-observability-deltas",
+      "title": "Lock Observability Contract Deltas",
+      "goal": "Define the additive autofix progress contract across existing specs before any runtime wiring begins.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "specs/workflow-observation-events",
+        "specs/review-orchestration",
+        "specs/run-artifact-store-conformance",
+        "specs/slash-command-guides"
+      ],
+      "outputs": [
+        "spec delta for review_completed.payload.autofix and 2N+1 emission semantics",
+        "spec delta for run-scoped autofix progress snapshot and authority precedence",
+        "spec delta for autofix heartbeat/stale config keys with default fallback semantics",
+        "spec delta for slash-command background invocation and polling requirements"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add the additive autofix payload contract to review_completed without expanding the closed event catalog",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Specify snapshot fields, run_id plus phase pathing, stale-heartbeat abandoned classification, and ledger-over-event-over-snapshot authority precedence",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Define autofix heartbeat and stale-threshold config keys with invalid-to-default fallback semantics aligned to existing review config behavior",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Document the canonical slash-command background plus polling pattern and terminal-only finalization rule",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-observation-events",
+        "review-orchestration",
+        "run-artifact-store-conformance",
+        "slash-command-guides",
+        "spec-consistency-verification"
+      ]
+    },
+    {
+      "id": "schema-and-type-wiring",
+      "title": "Wire Shared Schemas And Types",
+      "goal": "Encode the new autofix event payload and progress snapshot contracts in shared runtime schemas and types.",
+      "depends_on": [
+        "contract-observability-deltas"
+      ],
+      "inputs": [
+        "spec delta for review_completed.payload.autofix and 2N+1 emission semantics",
+        "spec delta for run-scoped autofix progress snapshot and authority precedence",
+        "src/contracts/",
+        "src/lib/schemas.ts"
+      ],
+      "outputs": [
+        "shared AutofixRoundPayload schema and type exports",
+        "shared autofix progress snapshot schema and type exports",
+        "runtime builders and validators for autofix event and snapshot payloads"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend observation event contract types to support optional autofix payloads on review_completed",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add snapshot schema definitions for loop_state, terminal_outcome, counters, heartbeat_at, and ledger_round_id",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Export shared validation and serialization helpers so CLI and runtime code consume one contract shape",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-observation-events",
+        "run-artifact-store-conformance",
+        "review-orchestration"
+      ]
+    },
+    {
+      "id": "runtime-snapshot-and-config",
+      "title": "Add Snapshot And Heartbeat Runtime Support",
+      "goal": "Provide reusable runtime support for config-backed autofix progress snapshots keyed by run and phase.",
+      "depends_on": [
+        "schema-and-type-wiring"
+      ],
+      "inputs": [
+        "shared autofix progress snapshot schema and type exports",
+        "src/lib/review-runtime.ts",
+        "src/lib/review-ledger.ts",
+        "run-artifact store implementation"
+      ],
+      "outputs": [
+        "readReviewConfig support for autofix heartbeat and stale-threshold keys",
+        "autofix progress snapshot writer keyed by run_id and phase",
+        "heartbeat refresh logic for non-terminal autofix loops"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend readReviewConfig to expose autofix_heartbeat_seconds and autofix_stale_threshold_seconds with default values 30 and 120",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement deterministic run-artifact-store path resolution for autofix-progress-<phase>.json under a run_id-scoped location",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Build snapshot write and heartbeat refresh helpers that update non-terminal loop state without emitting extra events",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Derive snapshot counters and ledger_round_id references from the review ledger while preserving ledger authority",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-orchestration",
+        "run-artifact-store-conformance",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "cli-autofix-loop-observability",
+      "title": "Instrument Autofix Loop CLIs",
+      "goal": "Make design and apply autofix loops emit round progress events and snapshot transitions at each boundary and on exit.",
+      "depends_on": [
+        "schema-and-type-wiring",
+        "runtime-snapshot-and-config"
+      ],
+      "inputs": [
+        "shared AutofixRoundPayload schema and type exports",
+        "autofix progress snapshot writer keyed by run_id and phase",
+        "src/bin/specflow-review-design.ts",
+        "src/bin/specflow-review-apply.ts"
+      ],
+      "outputs": [
+        "design autofix loop emitting round-start, round-end, and terminal review_completed events",
+        "apply autofix loop emitting round-start, round-end, and terminal review_completed events",
+        "design/apply autofix loops writing snapshot updates at round boundaries and terminal exit"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Wire round-start review_completed emissions with loop_state starting or in_progress for the design and apply autofix loops",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Wire round-end review_completed emissions with awaiting_review or terminal loop states for both CLIs",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Emit the single terminal review_completed event on loop exit and synchronize final snapshot writes",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Preserve existing severity-aware gate, loop handoff semantics, LOOP_JSON output, and stderr diagnostics while integrating heartbeat lifecycle management",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-observation-events",
+        "review-orchestration",
+        "surface-event-contract"
+      ]
+    },
+    {
+      "id": "slash-command-polling-guides",
+      "title": "Update Slash Command Guides",
+      "goal": "Document the canonical background plus polling autofix-loop behavior for chat surfaces and distribute the updated guides.",
+      "depends_on": [
+        "schema-and-type-wiring"
+      ],
+      "inputs": [
+        "spec delta for slash-command background invocation and polling requirements",
+        "assets/commands/specflow.review_design.md.tmpl",
+        "assets/commands/specflow.review_apply.md.tmpl"
+      ],
+      "outputs": [
+        "updated assets/commands/specflow.review_design.md.tmpl",
+        "updated assets/commands/specflow.review_apply.md.tmpl",
+        "regenerated global command markdown for review_design and review_apply"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite the review_design Auto-fix Loop section to require background launch, snapshot or event polling, and terminal-state finalization",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Rewrite the review_apply Auto-fix Loop section to require background launch, snapshot or event polling, and terminal-state finalization",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Document round rendering and the stale-heartbeat abandoned rule in the generated command guidance",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Regenerate distributed command artifacts from the updated templates",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "verification-and-regression",
+      "title": "Verify Contract And Runtime Behavior",
+      "goal": "Prove the observability change is additive, end-to-end functional, and non-regressive for single-round review flows.",
+      "depends_on": [
+        "cli-autofix-loop-observability",
+        "slash-command-polling-guides"
+      ],
+      "inputs": [
+        "updated specs",
+        "shared AutofixRoundPayload schema and type exports",
+        "design/apply autofix loop emitting round-start, round-end, and terminal review_completed events",
+        "regenerated global command markdown for review_design and review_apply"
+      ],
+      "outputs": [
+        "passing openspec validate and specflow-spec-verify runs",
+        "updated command snapshot tests",
+        "evidence for 2N+1 event emission, deterministic snapshot visibility, abandoned classification, and single-round autofix=null behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run openspec validate and specflow-spec-verify to confirm spec and contract consistency",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update or regenerate snapshot tests for the slash-command template outputs",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Exercise a multi-round autofix loop to verify 2N+1 review_completed events and a visible run-artifact snapshot at the deterministic phase path",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Exercise process-kill and single-round review cases to confirm abandoned derivation and payload.autofix equals null for non-autofix reviews",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "workflow-observation-events",
+        "review-orchestration",
+        "slash-command-guides"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-19T13:11:25.583Z",
+  "generated_from": "design.md"
+}

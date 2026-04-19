@@ -9,12 +9,27 @@ import {
 	isRunArtifactType,
 	type RunArtifactQuery,
 	type RunArtifactRef,
+	RunArtifactType,
 	runRef,
 	UnknownArtifactTypeError,
 } from "./artifact-types.js";
 import { atomicWriteText, readText } from "./fs.js";
 
+/**
+ * Resolve the on-disk path for a run-domain artifact ref. `run-state` lives
+ * at `<runsDir>/<runId>/run.json` (historical shape). `autofix-progress`
+ * snapshots live at `<runsDir>/<runId>/autofix-progress-<phase>.json`,
+ * keyed by `run_id + phase` per the
+ * review-autofix-progress-observability contract.
+ */
 function resolvePath(runsDir: string, ref: RunArtifactRef): string {
+	if (ref.type === RunArtifactType.AutofixProgress) {
+		return resolve(
+			runsDir,
+			ref.runId,
+			`autofix-progress-${ref.qualifier}.json`,
+		);
+	}
 	return resolve(runsDir, ref.runId, "run.json");
 }
 

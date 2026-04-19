@@ -30,9 +30,10 @@ test("changeArtifactTypes enumerates all 8 types", () => {
 	assert.ok(changeArtifactTypes.includes("approval-summary"));
 });
 
-test("runArtifactTypes enumerates exactly run-state", () => {
-	assert.equal(runArtifactTypes.length, 1);
+test("runArtifactTypes enumerates run-state and autofix-progress", () => {
+	assert.equal(runArtifactTypes.length, 2);
 	assert.ok(runArtifactTypes.includes("run-state"));
+	assert.ok(runArtifactTypes.includes("autofix-progress"));
 });
 
 test("reviewLedgerKinds enumerates proposal, design, apply", () => {
