@@ -118,7 +118,32 @@ If any are incomplete, report which artifacts are missing and ask the user how t
    ```bash
    specflow-run advance "<RUN_ID>" design_review_approved
    ```
-5. Only from `design_ready`, offer `/specflow.apply`.
+5. Only from `design_ready`, offer `/specflow.apply` using the AskUserQuestion block below:
+
+   **テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+   ```
+   ✅ Design review approved — run is in `design_ready`.
+
+   次のアクションを選択してください（テキスト入力またはボタンで回答）:
+   - **Apply に進む** → `/specflow.apply`
+   - **中止** → `/specflow.reject`
+   ```
+
+   **AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+   ```
+   AskUserQuestion:
+     question: "Design review 承認済み。次のアクションを選択してください"
+     options:
+       - label: "Apply に進む"
+         description: "/specflow.apply で実装を開始し、apply review ゲートに進む"
+       - label: "中止"
+         description: "/specflow.reject で全変更を破棄して終了"
+   ```
+
+   **入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+   - 「Apply に進む」 → `Skill(skill: "specflow.apply")`
+   - 「中止」 → `Skill(skill: "specflow.reject")`
 
 Remove any path that allows `/specflow.apply` while findings remain.
 

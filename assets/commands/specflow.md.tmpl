@@ -286,9 +286,30 @@ Strict gate rules:
 
 Only when the run is in `spec_ready`, offer the next action.
 
-Recommended handoff:
+**テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+```
+✅ Spec phase complete — run is in `spec_ready`.
+
+次のアクションを選択してください（テキスト入力またはボタンで回答）:
 - **Design に進む** → `/specflow.design`
 - **中止** → `/specflow.reject`
+```
+
+**AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+```
+AskUserQuestion:
+  question: "Spec phase 完了。次のアクションを選択してください"
+  options:
+    - label: "Design に進む"
+      description: "/specflow.design で design.md / tasks.md を生成し、review ゲートに進む"
+    - label: "中止"
+      description: "/specflow.reject で全変更を破棄して終了"
+```
+
+**入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+- 「Design に進む」 → `Skill(skill: "specflow.design")`
+- 「中止」 → `Skill(skill: "specflow.reject")`
 
 Do not offer `/specflow.design` from `proposal_clarify`, `proposal_challenge`, `proposal_reclarify`, `spec_draft`, `spec_validate`, or `spec_verify`.
 

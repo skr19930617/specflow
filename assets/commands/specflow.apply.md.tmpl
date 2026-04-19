@@ -101,7 +101,36 @@ Report: `Step 1 complete — implementation completed in apply_draft`
    ```bash
    specflow-run advance "<RUN_ID>" apply_review_approved
    ```
-5. Only from `apply_ready`, offer `/specflow.approve`.
+5. Only from `apply_ready`, offer `/specflow.approve` using the AskUserQuestion block below:
+
+   **テキストプロンプト（AskUserQuestion の前に必ず表示）**:
+   ```
+   ✅ Apply review approved — run is in `apply_ready`.
+
+   次のアクションを選択してください（テキスト入力またはボタンで回答）:
+   - **Approve に進む** → `/specflow.approve`
+   - **Fix ループへ** → `/specflow.fix_apply`
+   - **中止** → `/specflow.reject`
+   ```
+
+   **AskUserQuestion（テキストプロンプトの直後に呼び出し）**:
+   ```
+   AskUserQuestion:
+     question: "Apply review 承認済み。次のアクションを選択してください"
+     options:
+       - label: "Approve に進む"
+         description: "/specflow.approve で archive・commit・push・PR 作成に進む"
+       - label: "Fix ループへ"
+         description: "/specflow.fix_apply で追加修正してから再レビュー"
+       - label: "中止"
+         description: "/specflow.reject で全変更を破棄して終了"
+   ```
+
+   **入力受理**: 最初に受理された有効入力のみ採用。無効入力時はテキストプロンプトを再表示。
+
+   - 「Approve に進む」 → `Skill(skill: "specflow.approve")`
+   - 「Fix ループへ」 → `Skill(skill: "specflow.fix_apply")`
+   - 「中止」 → `Skill(skill: "specflow.reject")`
 
 If the configured round cap is reached and findings remain, stop in place without an approve bypass.
 

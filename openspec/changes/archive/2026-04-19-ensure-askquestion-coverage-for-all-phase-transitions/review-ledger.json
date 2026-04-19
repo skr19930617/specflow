@@ -1,0 +1,51 @@
+{
+  "feature_id": "ensure-askquestion-coverage-for-all-phase-transitions",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/specs/slash-command-guides/spec.md",
+      "title": "Normative OpenSpec delta is missing from the reviewed diff",
+      "detail": "The proposal requires extending `slash-command-guides` so the `AskUserQuestion` requirement for the `spec_ready`, `design_ready`, and `apply_ready` handoffs is part of the spec contract. The current diff only updates templates, snapshots, and tests; it does not include the change-spec file, so the implementation is not complete against the accepted proposal. Add the OpenSpec delta to the committed change.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "accepted_risk",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "Accepted-risk by operator: the spec delta file exists at openspec/changes/.../specs/slash-command-guides/spec.md but is untracked. /specflow.approve will run openspec archive which promotes the delta into baseline openspec/specs/slash-command-guides/spec.md and commits that change. Reviewer only saw tracked-file git diff, hence the false-positive observation."
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/tasks.md",
+      "title": "Required manual Claude Code UI verification is not captured",
+      "detail": "The proposal’s validation section explicitly requires a `tasks.md` checklist item to manually verify that Claude Code renders buttons at `spec_ready`, `design_ready`, and `apply_ready`. The diff adds automated structural tests, but it does not include the corresponding task-tracking update, so part of the acceptance plan is missing from the implementation artifacts.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "accepted_risk",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "Accepted-risk by operator: task-graph.json bundle 'run-end-to-end-verification' task id 3 already captures 'Manually drive spec_ready, design_ready, and apply_ready in Claude Code and confirm clickable buttons appear at each handoff' and is tracked in tasks.md via the regenerated rendering. File is untracked so reviewer did not observe it."
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    }
+  ]
+}
