@@ -1,0 +1,217 @@
+{
+  "version": "1.0",
+  "change_id": "ensure-askquestion-coverage-for-all-phase-transitions",
+  "bundles": [
+    {
+      "id": "add-mainline-handoff-question-blocks",
+      "title": "Add Mainline Handoff Question Blocks",
+      "goal": "Add AskUserQuestion blocks to the three mainline terminal handoffs while preserving the existing prose guidance.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "assets/commands/specflow.md.tmpl",
+        "assets/commands/specflow.design.md.tmpl",
+        "assets/commands/specflow.apply.md.tmpl",
+        "assets/commands/specflow.review_design.md.tmpl",
+        "assets/commands/specflow.review_apply.md.tmpl"
+      ],
+      "outputs": [
+        "assets/commands/specflow.md.tmpl",
+        "assets/commands/specflow.design.md.tmpl",
+        "assets/commands/specflow.apply.md.tmpl"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add an AskUserQuestion block to specflow step 9 for the spec_ready handoff with /specflow.design and /specflow.reject targets.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add an AskUserQuestion block to specflow.design step 4 for the design_ready handoff with /specflow.apply and /specflow.reject targets.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add an AskUserQuestion block to specflow.apply step 2 for the apply_ready handoff with /specflow.approve, /specflow.fix_apply, and /specflow.reject targets.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "command-template-authoring"
+      ]
+    },
+    {
+      "id": "align-openspec-change-artifacts",
+      "title": "Align OpenSpec Change Artifacts",
+      "goal": "Ensure the change spec and task checklist encode the new handoff contract and required manual verification steps.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/specs/slash-command-guides/spec.md",
+        "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/tasks.md"
+      ],
+      "outputs": [
+        "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/specs/slash-command-guides/spec.md",
+        "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/tasks.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Tighten the slash-command-guides change delta so mainline terminal handoffs require AskUserQuestion blocks and the correct slash-command target sets, with review-loop and utility exemptions preserved.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update tasks.md to track build, structural test, snapshot, openspec validation, and non-automated Claude Code UI verification work for this change.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "task-planner",
+        "spec-consistency-verification"
+      ]
+    },
+    {
+      "id": "regenerate-distributed-command-guides",
+      "title": "Regenerate Distributed Command Guides",
+      "goal": "Rebuild the generated slash-command guides so the distributed artifacts include the new handoff blocks.",
+      "depends_on": [
+        "add-mainline-handoff-question-blocks"
+      ],
+      "inputs": [
+        "assets/commands/specflow.md.tmpl",
+        "assets/commands/specflow.design.md.tmpl",
+        "assets/commands/specflow.apply.md.tmpl",
+        "src/build.ts"
+      ],
+      "outputs": [
+        "dist/package/global/commands/specflow.md",
+        "dist/package/global/commands/specflow.design.md",
+        "dist/package/global/commands/specflow.apply.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run the standard build pipeline to regenerate the three distributed command guides from the updated templates.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Inspect the regenerated guides to confirm each terminal handoff contains an AskUserQuestion block with the expected slash-command targets.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "command-template-authoring",
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "extend-structural-regression-coverage",
+      "title": "Extend Structural Regression Coverage",
+      "goal": "Update structural tests and snapshots so regressions in mainline handoff question blocks are caught automatically.",
+      "depends_on": [
+        "add-mainline-handoff-question-blocks",
+        "regenerate-distributed-command-guides",
+        "align-openspec-change-artifacts"
+      ],
+      "inputs": [
+        "design.md",
+        "dist/package/global/commands/specflow.md",
+        "dist/package/global/commands/specflow.design.md",
+        "dist/package/global/commands/specflow.apply.md",
+        "src/tests/command-order.test.ts",
+        "src/tests/__snapshots__/specflow.md.snap",
+        "src/tests/__snapshots__/specflow.design.md.snap",
+        "src/tests/__snapshots__/specflow.apply.md.snap"
+      ],
+      "outputs": [
+        "src/tests/command-order.test.ts",
+        "src/tests/__snapshots__/specflow.md.snap",
+        "src/tests/__snapshots__/specflow.design.md.snap",
+        "src/tests/__snapshots__/specflow.apply.md.snap"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend command-order.test.ts with ordered fragments for AskUserQuestion and each required slash-command target in the three generated guides.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Regenerate the affected snapshot files for specflow.md, specflow.design.md, and specflow.apply.md.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Run the relevant structural and snapshot tests to verify the new coverage passes against the regenerated output.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "spec-consistency-verification"
+      ]
+    },
+    {
+      "id": "run-end-to-end-verification",
+      "title": "Run End-to-End Verification",
+      "goal": "Validate the change, observe the Claude Code UI behavior directly, and close out the change checklist.",
+      "depends_on": [
+        "align-openspec-change-artifacts",
+        "regenerate-distributed-command-guides",
+        "extend-structural-regression-coverage"
+      ],
+      "inputs": [
+        "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/tasks.md",
+        "dist/package/global/commands/specflow.md",
+        "dist/package/global/commands/specflow.design.md",
+        "dist/package/global/commands/specflow.apply.md",
+        "src/tests/command-order.test.ts"
+      ],
+      "outputs": [
+        "openspec/changes/ensure-askquestion-coverage-for-all-phase-transitions/tasks.md",
+        "validation: openspec validate ensure-askquestion-coverage-for-all-phase-transitions --type change",
+        "verification: full test suite green",
+        "verification: Claude Code buttons observed at spec_ready, design_ready, and apply_ready"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Run openspec validate ensure-askquestion-coverage-for-all-phase-transitions --type change and resolve any remaining contract drift.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Run the full test suite and confirm the change is green end-to-end.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Manually drive spec_ready, design_ready, and apply_ready in Claude Code and confirm clickable buttons appear at each handoff.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Mark the change tasks complete in tasks.md, including the manual verification outcome.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "spec-consistency-verification",
+        "task-planner"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-19T11:23:08.868Z",
+  "generated_from": "design.md"
+}

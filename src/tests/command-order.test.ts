@@ -37,8 +37,33 @@ test("generated /specflow command preserves detailed proposal step order", () =>
 		'openspec validate "<CHANGE_ID>" --type change --json',
 		'specflow-run advance "<RUN_ID>" spec_validated',
 		"## Step 9: Design Handoff",
+		"AskUserQuestion:",
+		"/specflow.design",
+		"/specflow.reject",
 	]);
 	assert.equal(content.includes("このまま続行"), false);
+});
+
+test("generated /specflow terminal handoff presents AskUserQuestion block", () => {
+	const content = readFileSync(
+		"dist/package/global/commands/specflow.md",
+		"utf8",
+	);
+	const handoffIndex = content.indexOf("## Step 9: Design Handoff");
+	assert.notEqual(handoffIndex, -1, "Missing Step 9 section");
+	const handoffSection = content.slice(handoffIndex);
+	assert.ok(
+		handoffSection.includes("AskUserQuestion:"),
+		"spec_ready handoff must include an AskUserQuestion block",
+	);
+	assert.ok(
+		handoffSection.includes("/specflow.design"),
+		"spec_ready handoff must reference /specflow.design",
+	);
+	assert.ok(
+		handoffSection.includes("/specflow.reject"),
+		"spec_ready handoff must reference /specflow.reject",
+	);
 });
 
 test("generated /specflow.design command starts from spec_ready and enters review directly", () => {
@@ -51,12 +76,37 @@ test("generated /specflow.design command starts from spec_ready and enters revie
 		"## Step 4: Design Review Gate",
 		'specflow-run advance "<RUN_ID>" review_design',
 		'specflow-run advance "<RUN_ID>" design_review_approved',
+		"AskUserQuestion:",
+		"/specflow.apply",
+		"/specflow.reject",
 	]);
 	assert.equal(
 		content.includes('openspec validate "<CHANGE_ID>" --type change --json'),
 		false,
 	);
 	assert.equal(content.includes("このまま続行"), false);
+});
+
+test("generated /specflow.design terminal handoff presents AskUserQuestion block", () => {
+	const content = readFileSync(
+		"dist/package/global/commands/specflow.design.md",
+		"utf8",
+	);
+	const handoffIndex = content.indexOf("design_ready");
+	assert.notEqual(handoffIndex, -1, "Missing design_ready reference");
+	const handoffSection = content.slice(handoffIndex);
+	assert.ok(
+		handoffSection.includes("AskUserQuestion:"),
+		"design_ready handoff must include an AskUserQuestion block",
+	);
+	assert.ok(
+		handoffSection.includes("/specflow.apply"),
+		"design_ready handoff must reference /specflow.apply",
+	);
+	assert.ok(
+		handoffSection.includes("/specflow.reject"),
+		"design_ready handoff must reference /specflow.reject",
+	);
 });
 
 test("generated /specflow.apply command gates approve behind apply_ready", () => {
@@ -70,8 +120,38 @@ test("generated /specflow.apply command gates approve behind apply_ready", () =>
 		"## Step 2: Apply Review Gate",
 		'specflow-run advance "<RUN_ID>" review_apply',
 		'specflow-run advance "<RUN_ID>" apply_review_approved',
-		"Only from `apply_ready`, offer `/specflow.approve`.",
+		"Only from `apply_ready`, offer `/specflow.approve`",
+		"AskUserQuestion:",
+		"/specflow.approve",
+		"/specflow.fix_apply",
+		"/specflow.reject",
 	]);
+});
+
+test("generated /specflow.apply terminal handoff presents AskUserQuestion block", () => {
+	const content = readFileSync(
+		"dist/package/global/commands/specflow.apply.md",
+		"utf8",
+	);
+	const handoffIndex = content.indexOf("apply_ready");
+	assert.notEqual(handoffIndex, -1, "Missing apply_ready reference");
+	const handoffSection = content.slice(handoffIndex);
+	assert.ok(
+		handoffSection.includes("AskUserQuestion:"),
+		"apply_ready handoff must include an AskUserQuestion block",
+	);
+	assert.ok(
+		handoffSection.includes("/specflow.approve"),
+		"apply_ready handoff must reference /specflow.approve",
+	);
+	assert.ok(
+		handoffSection.includes("/specflow.fix_apply"),
+		"apply_ready handoff must reference /specflow.fix_apply",
+	);
+	assert.ok(
+		handoffSection.includes("/specflow.reject"),
+		"apply_ready handoff must reference /specflow.reject",
+	);
 });
 
 test("generated /specflow.approve command keeps archive before commit and conditional issue closing", () => {
