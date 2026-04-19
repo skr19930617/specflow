@@ -119,10 +119,85 @@ export interface ArtifactWrittenPayload {
 	readonly content_hash: string | null;
 }
 
+/**
+ * Closed five-value loop-state enum carried by an auto-fix round event /
+ * progress snapshot. See
+ * openspec/specs/review-autofix-progress-observability/spec.md.
+ */
+export type AutofixLoopState =
+	| "starting"
+	| "in_progress"
+	| "awaiting_review"
+	| "terminal_success"
+	| "terminal_failure";
+
+export const AUTOFIX_LOOP_STATES: readonly AutofixLoopState[] = [
+	"starting",
+	"in_progress",
+	"awaiting_review",
+	"terminal_success",
+	"terminal_failure",
+] as const;
+
+/** Terminal outcomes set when `loop_state` is a terminal value. */
+export type AutofixTerminalOutcome =
+	| "loop_no_findings"
+	| "loop_with_findings"
+	| "max_rounds_reached"
+	| "no_progress"
+	| "consecutive_failures";
+
+export const AUTOFIX_TERMINAL_OUTCOMES: readonly AutofixTerminalOutcome[] = [
+	"loop_no_findings",
+	"loop_with_findings",
+	"max_rounds_reached",
+	"no_progress",
+	"consecutive_failures",
+] as const;
+
+/**
+ * Severity counters attached to an auto-fix round payload / snapshot.
+ * Derived from the review ledger via `unresolvedCriticalHighCount` and
+ * siblings; see `review-ledger` helpers.
+ */
+export interface AutofixRoundCounters {
+	readonly unresolvedCriticalHigh: number;
+	readonly totalOpen: number;
+	readonly resolvedThisRound: number;
+	readonly newThisRound: number;
+	/** Free-form severity tally (e.g. {"HIGH":1,"MEDIUM":0,"LOW":2}). */
+	readonly severitySummary: Record<string, number>;
+}
+
+/**
+ * Auto-fix round metadata carried inside `ReviewCompletedPayload.autofix`.
+ * Present (non-null) only on emissions from the auto-fix loop
+ * (`specflow-review-design autofix-loop` / `specflow-review-apply autofix-loop`).
+ */
+export interface AutofixRoundPayload {
+	readonly round_index: number;
+	readonly max_rounds: number;
+	readonly loop_state: AutofixLoopState;
+	readonly terminal_outcome: AutofixTerminalOutcome | null;
+	readonly counters: AutofixRoundCounters;
+	readonly ledger_round_id: string | null;
+}
+
+/**
+ * The `autofix_in_progress` outcome value is reserved for non-terminal
+ * autofix emissions. See workflow-observation-events spec D9.
+ */
+export type ReviewCompletedOutcome =
+	| "approved"
+	| "changes_requested"
+	| "rejected"
+	| "autofix_in_progress";
+
 export interface ReviewCompletedPayload {
-	readonly outcome: "approved" | "changes_requested" | "rejected";
+	readonly outcome: ReviewCompletedOutcome;
 	readonly reviewer: string;
 	readonly score: number | null;
+	readonly autofix: AutofixRoundPayload | null;
 }
 
 export interface BundleStartedPayload {

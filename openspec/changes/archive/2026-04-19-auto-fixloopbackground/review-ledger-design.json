@@ -1,0 +1,174 @@
+{
+  "feature_id": "auto-fixloopbackground",
+  "phase": "design",
+  "current_round": 5,
+  "status": "has_open_high",
+  "max_finding_id": 7,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "consistency",
+      "title": "The `starting` state is not separated cleanly from round-start event emission",
+      "detail": "The design says `starting` is only observable before round 1 and D2 fixes round-start `review_completed` events to `in_progress`, but task 4.1 still allows `loop_state` to be `starting or in_progress` for those events and no task explicitly creates the pre-round snapshot (`round_index = 0`, `loop_state = \"starting\"`, `ledger_round_id = null`). Split this into an explicit loop-initialization snapshot step and keep round-start event emission fixed to `in_progress`; otherwise the implementation can violate both the loop-state contract and the review-orchestration scenarios.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "The verification plan does not cover the new config override and fallback behavior",
+      "detail": "The spec adds observable runtime requirements for `autofix_heartbeat_seconds` and `autofix_stale_threshold_seconds`, including valid override handling and invalid-to-default fallback. Task 6 verifies event/snapshot behavior, abandoned detection, and non-autofix regressions, but it never exercises missing/invalid config values or a valid override case. Add explicit runtime verification for those config paths so the new review-orchestration acceptance criteria are actually tested.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F03",
+      "severity": "high",
+      "category": "consistency",
+      "file": "design.md",
+      "title": "Run-id discovery and retry semantics are still underspecified",
+      "detail": "The polling contract is keyed by `run_id` + `phase`, but the autofix CLI is invoked as `specflow-review-{design,apply} autofix-loop <CHANGE_ID>` and the design never states how the slash-command surface learns the active `run_id` early enough to compute the snapshot path or correlate events before the final `LOOP_JSON` is printed. The design also says stale prior-run snapshots are invisible because paths are run-scoped, while D6 says a fresh invocation after `abandoned` overwrites the old snapshot, which only works if the retry reuses the same `run_id`. Clarify the `run_id` source exposed to pollers, whether a retry reuses or replaces that `run_id`, and how pollers switch to the new active snapshot/event stream so abandoned recovery is implementable without ambiguity.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R2-F04",
+      "severity": "high",
+      "category": "completeness",
+      "file": "design.md",
+      "title": "Non-terminal autofix emissions do not define a complete `review_completed` payload contract",
+      "detail": "The design reuses `review_completed` for round-start and `awaiting_review` progress emissions, but it never defines what the required base payload fields `outcome`, `reviewer`, and `score` should contain before the re-review has actually completed. It also does not define how required `autofix.counters` and `ledger_round_id` are populated for the initialization snapshot and round-1/round-start states, where no current-round ledger summary exists yet. Without those rules, implementers must invent values and existing consumers can misinterpret progress-only emissions as real completed reviews. Specify the exact field values and ledger source for each non-terminal state, and document how consumers distinguish autofix progress events from actual review-result events.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R3-F05",
+      "severity": "high",
+      "category": "consistency",
+      "file": "design.md",
+      "title": "Non-terminal `review_completed.outcome` contradicts the published event schema",
+      "detail": "D9 and tasks 1.1/2.1/4.2 require non-terminal autofix events to emit `payload.outcome = \"autofix_in_progress\"`, but the modified `workflow-observation-events` schema still limits `review_completed.payload.outcome` to `\"approved\" | \"changes_requested\" | \"rejected\"`. As written, the implementation cannot both validate against the contract and emit the planned progress events. Either the spec/schema must explicitly admit the reserved outcome value, or the design must move progress discrimination entirely into `payload.autofix` without changing the base outcome enum.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R4-F06",
+      "severity": "high",
+      "category": "consistency",
+      "file": "design.md",
+      "title": "`awaiting_review` timing conflicts with current-round ledger sourcing",
+      "detail": "The design defines `awaiting_review` as the period after the fix step completes while the re-review is still running, but D9 and task 4.3 require an `awaiting_review` round-end emission to already carry `counters` and `ledger_round_id` from the current round's ledger summary, which only exists after that re-review finishes. Implementers cannot satisfy both statements: either the event/snapshot is emitted before re-review and the current-round ledger data is unavailable, or it is emitted after re-review and the state name/meaning is wrong. The design needs one coherent contract for when the non-terminal post-fix emission happens and what data source it uses, then the tasks and verification steps need to match that timing.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F07",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "design.md",
+      "title": "Run-id ownership for background autofix polling is assumed rather than specified",
+      "detail": "The guides are required to resolve the active `run_id` before launch and poll the snapshot for that same run, but the design only says the CLI 'already receives `run_id` as a required argument (or resolves it from the active run context)' and the tasks never make that interface concrete. That leaves a real gap where the background CLI can write progress under a different `run_id` than the surface is polling, especially on retry after `abandoned`. The design should define one authoritative autofix-loop contract for how `run_id` is supplied/owned, and the tasks should include implementation and verification work for that handoff.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-auto-fixloopbackground-1-design_review-1"
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 2,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2
+      },
+      "gate_id": "review_decision-auto-fixloopbackground-1-design_review-2"
+    },
+    {
+      "round": 3,
+      "total": 5,
+      "open": 3,
+      "new": 1,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3
+      },
+      "gate_id": "review_decision-auto-fixloopbackground-1-design_review-3"
+    },
+    {
+      "round": 4,
+      "total": 6,
+      "open": 1,
+      "new": 1,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1
+      },
+      "gate_id": "review_decision-auto-fixloopbackground-1-design_review-4"
+    },
+    {
+      "round": 5,
+      "total": 7,
+      "open": 2,
+      "new": 1,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-auto-fixloopbackground-1-design_review-5"
+    }
+  ]
+}

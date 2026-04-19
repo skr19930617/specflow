@@ -23,6 +23,17 @@ import {
 export interface ReviewConfig {
 	readonly diffWarnThreshold: number;
 	readonly maxAutofixRounds: number;
+	/**
+	 * Upper bound on how long a running auto-fix loop may go without
+	 * refreshing the progress snapshot heartbeat. Default 30s. See
+	 * openspec/specs/review-autofix-progress-observability/spec.md.
+	 */
+	readonly autofixHeartbeatSeconds: number;
+	/**
+	 * Wall-clock age beyond which a non-terminal snapshot MAY be classified
+	 * as `abandoned` by a surface. Default 120s.
+	 */
+	readonly autofixStaleThresholdSeconds: number;
 }
 
 export type ReviewAgentName = "codex" | "claude";
@@ -90,9 +101,26 @@ export function readReviewConfig(projectRoot: string): ReviewConfig {
 		return {
 			diffWarnThreshold: 1000,
 			maxAutofixRounds: 4,
+			autofixHeartbeatSeconds: 30,
+			autofixStaleThresholdSeconds: 120,
 		};
 	}
 	const content = readFileSync(configPath, "utf8");
+	const autofixHeartbeatSeconds = readIntegerConfig(
+		content,
+		"autofix_heartbeat_seconds",
+		30,
+		{ min: 1 },
+	);
+	// Stale threshold SHALL be >= heartbeat, otherwise fall back to default.
+	const rawStale = readIntegerConfig(
+		content,
+		"autofix_stale_threshold_seconds",
+		120,
+		{ min: 1 },
+	);
+	const autofixStaleThresholdSeconds =
+		rawStale >= autofixHeartbeatSeconds ? rawStale : 120;
 	return {
 		diffWarnThreshold: readIntegerConfig(content, "diff_warn_threshold", 1000, {
 			min: 0,
@@ -101,6 +129,8 @@ export function readReviewConfig(projectRoot: string): ReviewConfig {
 			min: 1,
 			max: 10,
 		}),
+		autofixHeartbeatSeconds,
+		autofixStaleThresholdSeconds,
 	};
 }
 
