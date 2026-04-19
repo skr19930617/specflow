@@ -19,6 +19,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import test from "node:test";
+import type { ObservationEvent } from "../types/observation-events.js";
 import {
 	createBareHome,
 	createFixtureRepo,
@@ -37,6 +38,19 @@ interface StartResult {
 	source?: { provider: string; reference: string } | null;
 	run_kind?: string;
 	previous_run_id?: string | null;
+}
+
+/** Read the observation events.jsonl for a given run under a repo's .specflow/runs. */
+function readRunEvents(
+	repoPath: string,
+	runId: string,
+): readonly ObservationEvent[] {
+	const path = join(repoPath, ".specflow/runs", runId, "events.jsonl");
+	if (!existsSync(path)) return [];
+	return readFileSync(path, "utf8")
+		.split("\n")
+		.filter((l) => l.trim())
+		.map((l) => JSON.parse(l) as ObservationEvent);
 }
 
 function startRun(
@@ -535,6 +549,372 @@ test("specflow-run advance rejects unmigrated legacy records with a clear error"
 			/specflow-migrate-records/,
 			"error should mention migration command",
 		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- Integration: observation events.jsonl through CLI ---------------------
+
+test("specflow-run start writes run_started to events.jsonl", () => {
+	const tempRoot = makeTempDir("specflow-run-obs-start-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const state = startRun(repoPath, changeId);
+		const events = readRunEvents(repoPath, state.run_id);
+		assert.equal(events.length, 1);
+		assert.equal(events[0]?.event_kind, "run_started");
+		assert.equal(events[0]?.run_id, state.run_id);
+		assert.equal(events[0]?.sequence, 1);
+		assert.equal(events[0]?.target_phase, "start");
+		assert.equal(events[0]?.source_phase, null);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run advance writes phase events to events.jsonl in order", () => {
+	const tempRoot = makeTempDir("specflow-run-obs-advance-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+		// "start" → "proposal_draft": only phase_entered (no phase_completed from start).
+		advancePhase(repoPath, runId, "propose");
+		const afterPropose = readRunEvents(repoPath, runId);
+		const kinds1 = afterPropose.map((e) => e.event_kind);
+		assert.deepEqual(kinds1, ["run_started", "phase_entered"]);
+		assert.equal(afterPropose[1]?.target_phase, "proposal_draft");
+		// "proposal_draft" → "proposal_scope": phase_completed + phase_entered.
+		advancePhase(repoPath, runId, "check_scope");
+		const afterScope = readRunEvents(repoPath, runId);
+		const kinds2 = afterScope.map((e) => e.event_kind);
+		assert.deepEqual(kinds2, [
+			"run_started",
+			"phase_entered",
+			"phase_completed",
+			"phase_entered",
+		]);
+		// Sequences are monotonically increasing.
+		const seqs = afterScope.map((e) => e.sequence);
+		for (let i = 1; i < seqs.length; i++) {
+			assert.ok(
+				(seqs[i] ?? 0) > (seqs[i - 1] ?? 0),
+				`sequence ${seqs[i]} should be > ${seqs[i - 1]}`,
+			);
+		}
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run full happy path writes run_terminal at the end", () => {
+	const tempRoot = makeTempDir("specflow-run-obs-terminal-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+		const sequence: string[] = [
+			"propose",
+			"check_scope",
+			"continue_proposal",
+			"challenge_proposal",
+			"reclarify",
+			"accept_proposal",
+			"validate_spec",
+			"spec_validated",
+			"spec_verified",
+			"accept_spec",
+			"review_design",
+			"design_review_approved",
+			"accept_design",
+			"review_apply",
+			"apply_review_approved",
+			"accept_apply",
+		];
+		for (const event of sequence) {
+			advancePhase(repoPath, runId, event);
+		}
+		const events = readRunEvents(repoPath, runId);
+		const last = events[events.length - 1];
+		assert.equal(last?.event_kind, "run_terminal");
+		assert.equal(last?.target_phase, "approved");
+		if (last?.event_kind === "run_terminal") {
+			assert.equal(last.payload.status, "approved");
+		}
+		// Verify all events have the twelve required envelope fields.
+		const requiredFields = [
+			"event_id",
+			"event_kind",
+			"run_id",
+			"change_id",
+			"sequence",
+			"timestamp",
+			"source_phase",
+			"target_phase",
+			"causal_context",
+			"gate_ref",
+			"artifact_ref",
+			"bundle_ref",
+		] as const;
+		for (const evt of events) {
+			for (const field of requiredFields) {
+				assert.ok(
+					field in evt,
+					`event ${evt.event_kind} seq=${evt.sequence} missing '${field}'`,
+				);
+			}
+		}
+		// The full happy path includes gate resolution (approval gates at
+		// spec_ready, design review, apply review). Verify gate events are
+		// present in the observation stream.
+		const kinds = events.map((e) => e.event_kind);
+		assert.ok(
+			kinds.includes("gate_resolved"),
+			"happy path should include gate_resolved events for approval gates",
+		);
+		assert.ok(
+			kinds.includes("gate_opened"),
+			"happy path should include gate_opened events",
+		);
+		// gate_resolved events must carry a non-null gate_ref.
+		for (const evt of events) {
+			if (
+				evt.event_kind === "gate_resolved" ||
+				evt.event_kind === "gate_rejected"
+			) {
+				assert.ok(
+					evt.gate_ref !== null,
+					`${evt.event_kind} at seq=${evt.sequence} must have non-null gate_ref`,
+				);
+			}
+		}
+		// gate_resolved must always precede the phase_completed it causes.
+		for (let i = 0; i < events.length; i++) {
+			const evt = events[i];
+			if (evt?.event_kind !== "gate_resolved") continue;
+			// Find the next phase_completed after this gate_resolved.
+			const nextPhaseCompleted = events
+				.slice(i + 1)
+				.find((e) => e.event_kind === "phase_completed");
+			if (nextPhaseCompleted) {
+				assert.ok(
+					nextPhaseCompleted.sequence > evt.sequence,
+					"gate_resolved must precede subsequent phase_completed",
+				);
+			}
+		}
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run suspend + resume write observation events to events.jsonl", () => {
+	const tempRoot = makeTempDir("specflow-run-obs-suspend-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+		advancePhase(repoPath, runId, "propose");
+
+		runNodeCli("specflow-run", ["suspend", runId], repoPath);
+		runNodeCli("specflow-run", ["resume", runId], repoPath);
+
+		const events = readRunEvents(repoPath, runId);
+		const kinds = events.map((e) => e.event_kind);
+		assert.ok(kinds.includes("run_suspended"), "should include run_suspended");
+		assert.ok(kinds.includes("run_resumed"), "should include run_resumed");
+		// run_suspended comes before run_resumed.
+		const suspIdx = kinds.indexOf("run_suspended");
+		const resIdx = kinds.indexOf("run_resumed");
+		assert.ok(suspIdx < resIdx, "suspended should precede resumed");
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run advance with gate resolution emits gate_resolved and threads gate_ref", () => {
+	const tempRoot = makeTempDir("specflow-run-obs-gate-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+		// Drive to accept_spec which resolves the approval gate at spec_ready.
+		const toSpec: string[] = [
+			"propose",
+			"check_scope",
+			"continue_proposal",
+			"challenge_proposal",
+			"reclarify",
+			"accept_proposal",
+			"validate_spec",
+			"spec_validated",
+			"spec_verified",
+		];
+		for (const event of toSpec) {
+			advancePhase(repoPath, runId, event);
+		}
+		// Now at spec_ready; accept_spec triggers approval gate resolution → advance.
+		advancePhase(repoPath, runId, "accept_spec");
+		const events = readRunEvents(repoPath, runId);
+		const kinds = events.map((e) => e.event_kind);
+		// The workflow creates an approval gate at spec_ready. accept_spec
+		// resolves it. Verify gate_resolved is present and gate_ref is threaded.
+		const gateResolved = events.filter((e) => e.event_kind === "gate_resolved");
+		assert.ok(
+			gateResolved.length > 0,
+			"accept_spec should emit gate_resolved for the approval gate at spec_ready",
+		);
+		const gateRef = gateResolved[0]?.gate_ref;
+		assert.ok(gateRef, "gate_resolved should have a gate_ref");
+		// Find subsequent phase events caused by this gate resolution.
+		const gateIdx = events.indexOf(gateResolved[0]!);
+		const subsequent = events.slice(gateIdx + 1);
+		for (const sub of subsequent) {
+			if (
+				sub.event_kind === "phase_completed" ||
+				sub.event_kind === "phase_entered" ||
+				sub.event_kind === "run_terminal"
+			) {
+				assert.equal(
+					sub.gate_ref,
+					gateRef,
+					`${sub.event_kind} should carry gate_ref from causing gate`,
+				);
+			}
+		}
+		// Event stream is non-empty and well-ordered.
+		assert.ok(events.length > 0, "events.jsonl should not be empty");
+		assert.ok(
+			kinds.includes("phase_entered"),
+			"should include phase_entered events",
+		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run advance resolves a review_decision gate and emits gate_rejected to events.jsonl", () => {
+	const tempRoot = makeTempDir("specflow-run-obs-review-decision-");
+	try {
+		const { repoPath, changeId } = createFixtureRepo(tempRoot);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+		// Drive to design_review.
+		const toDesignReview: string[] = [
+			"propose",
+			"check_scope",
+			"continue_proposal",
+			"challenge_proposal",
+			"reclarify",
+			"accept_proposal",
+			"validate_spec",
+			"spec_validated",
+			"spec_verified",
+			"accept_spec",
+			"review_design",
+		];
+		for (const event of toDesignReview) {
+			advancePhase(repoPath, runId, event);
+		}
+		// Manually write a review_decision gate record at design_review.
+		const gateId = `review_decision-${runId}-design_review-1`;
+		const gateRecord = {
+			gate_id: gateId,
+			gate_kind: "review_decision",
+			run_id: runId,
+			originating_phase: "design_review",
+			status: "pending",
+			reason: "Design review round completed",
+			payload: {
+				kind: "review_decision",
+				review_round_id: "design_review-round-1",
+				findings: [],
+				reviewer_actor: "ai-agent",
+				reviewer_actor_id: "codex",
+				approval_binding: "advisory",
+			},
+			eligible_responder_roles: ["human-author"],
+			allowed_responses: ["accept", "reject", "request_changes"],
+			created_at: "2026-04-19T00:00:00Z",
+			resolved_at: null,
+			decision_actor: null,
+			resolved_response: null,
+			event_ids: [],
+		};
+		const recordsDir = join(repoPath, ".specflow/runs", runId, "records");
+		mkdirSync(recordsDir, { recursive: true });
+		writeFileSync(
+			join(recordsDir, `${gateId}.json`),
+			JSON.stringify(gateRecord, null, 2),
+		);
+		// Advance with "reject" which maps to review_decision response "reject".
+		// This resolves the gate and transitions to "rejected" terminal state.
+		const result = runNodeCli(
+			"specflow-run",
+			["advance", runId, "reject"],
+			repoPath,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const events = readRunEvents(repoPath, runId);
+		const kinds = events.map((e) => e.event_kind);
+		// gate_rejected must be present (review_decision + reject → gate_rejected).
+		assert.ok(
+			kinds.includes("gate_rejected"),
+			`expected gate_rejected in events: ${kinds.join(", ")}`,
+		);
+		// gate_rejected must precede the phase_completed it causes.
+		// Use the LAST occurrence of phase_completed (from the reject transition),
+		// not the first one (from earlier advances).
+		const rejIdx = kinds.indexOf("gate_rejected");
+		const compIdx = kinds.lastIndexOf("phase_completed");
+		assert.ok(
+			compIdx === -1 || rejIdx < compIdx,
+			"gate_rejected must precede its caused phase_completed",
+		);
+		// gate_rejected must carry the gate_ref.
+		const rejEvent = events.find((e) => e.event_kind === "gate_rejected");
+		assert.equal(rejEvent?.gate_ref, gateId);
+		// Downstream phase/lifecycle events must also carry gate_ref.
+		for (const evt of events.slice(rejIdx + 1)) {
+			if (
+				evt.event_kind === "phase_completed" ||
+				evt.event_kind === "phase_entered" ||
+				evt.event_kind === "run_terminal"
+			) {
+				assert.equal(
+					evt.gate_ref,
+					gateId,
+					`${evt.event_kind} should carry gate_ref from causing review_decision gate`,
+				);
+			}
+		}
+		// run_terminal should be emitted since "rejected" is terminal.
+		assert.ok(
+			kinds.includes("run_terminal"),
+			"rejecting via review_decision gate should produce run_terminal",
+		);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run start --run-kind synthetic writes run_started to events.jsonl", () => {
+	const tempRoot = makeTempDir("specflow-run-obs-synthetic-");
+	try {
+		const { repoPath } = createFixtureRepo(tempRoot);
+		const syntheticRunId = "synthetic-obs-test-1";
+		const result = runNodeCli(
+			"specflow-run",
+			["start", syntheticRunId, "--run-kind", "synthetic"],
+			repoPath,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const events = readRunEvents(repoPath, syntheticRunId);
+		assert.equal(events.length, 1);
+		assert.equal(events[0]?.event_kind, "run_started");
+		assert.equal(events[0]?.run_id, syntheticRunId);
+		assert.equal(events[0]?.sequence, 1);
 	} finally {
 		removeTempDir(tempRoot);
 	}

@@ -1,8 +1,11 @@
+import { resolve } from "node:path";
 import type { ChangeArtifactStore } from "../lib/artifact-store.js";
 import { tryGit } from "../lib/git.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.js";
+import { withLockedPublisher } from "../lib/local-fs-observation-event-publisher.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
+import { emitGateOpened } from "../lib/observation-event-emitter.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import {
 	issueReviewDecisionGate,
@@ -154,11 +157,19 @@ function parseRunIdFlag(args: readonly string[]): string | undefined {
 
 /**
  * Issue a review_decision gate for a completed proposal challenge round.
- * Best-effort: returns null on failure.
+ *
+ * Gate issuance failure is a hard error — the spec requires exactly one
+ * `review_decision` gate per completed review round. Callers MUST NOT
+ * proceed with a successful challenge result when this function throws.
+ *
+ * The `gate_opened` event is emitted inside the event-log lock only after
+ * re-reading the gate to confirm it is still `pending`, preventing emission
+ * for a gate that was superseded by a concurrent review process.
  */
-function tryIssueChallengeGate(
+function issueChallengeGateOrFail(
 	projectRoot: string,
 	runId: string,
+	changeId: string,
 	challenges: readonly {
 		id: string;
 		category: string;
@@ -166,48 +177,59 @@ function tryIssueChallengeGate(
 		context: string;
 	}[],
 	reviewAgent: ReviewAgentName,
-): string | null {
-	try {
-		const store = createLocalFsGateRecordStore(projectRoot);
-		// Derive the next round number from existing proposal_challenge gates
-		// so re-running the challenge CLI creates distinct gates per round.
-		const existingGates = store.list(runId);
-		const challengeRound =
-			existingGates.filter(
-				(g) =>
-					g.gate_kind === "review_decision" &&
-					g.originating_phase === "proposal_challenge",
-			).length + 1;
-		const gateId = `review_decision-${runId}-challenge-${challengeRound}`;
-		const findings: ReviewFindingSnapshot[] = challenges.map((c) => ({
-			id: c.id,
-			severity: "medium" as const,
-			status: "new",
-			title: c.question,
-		}));
-		const provenance: ReviewRoundProvenance = {
-			run_id: runId,
-			review_phase: "proposal_challenge",
-			review_round_id: `proposal_challenge-round-${challengeRound}`,
-			findings,
-			reviewer_actor: "ai-agent",
-			reviewer_actor_id: reviewAgent,
-			approval_binding: "advisory",
-		};
-		const gate = issueReviewDecisionGate(provenance, {
-			store,
-			projectRoot,
-			gateId,
-			createdAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-		});
-		return gate.gate_id;
-	} catch (cause) {
-		const message = cause instanceof Error ? cause.message : String(cause);
-		process.stderr.write(
-			`Warning: failed to issue review_decision gate: ${message}\n`,
-		);
-		return null;
-	}
+): string {
+	const store = createLocalFsGateRecordStore(projectRoot);
+	// Derive the next round number from existing proposal_challenge gates
+	// so re-running the challenge CLI creates distinct gates per round.
+	const existingGates = store.list(runId);
+	const challengeRound =
+		existingGates.filter(
+			(g) =>
+				g.gate_kind === "review_decision" &&
+				g.originating_phase === "proposal_challenge",
+		).length + 1;
+	const gateId = `review_decision-${runId}-challenge-${challengeRound}`;
+	const createdAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+	const findings: ReviewFindingSnapshot[] = challenges.map((c) => ({
+		id: c.id,
+		severity: "medium" as const,
+		status: "new",
+		title: c.question,
+	}));
+	const provenance: ReviewRoundProvenance = {
+		run_id: runId,
+		review_phase: "proposal_challenge",
+		review_round_id: `proposal_challenge-round-${challengeRound}`,
+		findings,
+		reviewer_actor: "ai-agent",
+		reviewer_actor_id: reviewAgent,
+		approval_binding: "advisory",
+	};
+	const gate = issueReviewDecisionGate(provenance, {
+		store,
+		projectRoot,
+		gateId,
+		createdAt,
+	});
+	// Emit gate_opened under the event-log lock, re-reading the gate to
+	// confirm it hasn't been superseded by a concurrent process (R5-F09).
+	const runsRoot = resolve(projectRoot, ".specflow/runs");
+	withLockedPublisher(runsRoot, runId, (publisher) => {
+		const current = store.read(runId, gate.gate_id);
+		if (current && current.status === "pending") {
+			emitGateOpened({
+				publisher,
+				runId,
+				changeId,
+				gateId: gate.gate_id,
+				gateKind: "review_decision",
+				originatingPhase: "proposal_challenge",
+				timestamp: createdAt,
+				highestSequence: publisher.highestSequence(),
+			});
+		}
+	});
+	return gate.gate_id;
 }
 
 async function main(): Promise<void> {
@@ -253,9 +275,10 @@ async function main(): Promise<void> {
 	// challenge succeeded with actual challenges.
 	let gateId: string | null = null;
 	if (runId && result.status === "success" && result.challenges.length > 0) {
-		gateId = tryIssueChallengeGate(
+		gateId = issueChallengeGateOrFail(
 			projectRoot,
 			runId,
+			changeId,
 			result.challenges,
 			agent,
 		);

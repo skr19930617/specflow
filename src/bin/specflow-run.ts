@@ -45,8 +45,16 @@ import type { GateRecordStore } from "../lib/gate-record-store.js";
 import { GateRuntimeError, resolveGate } from "../lib/gate-runtime.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.js";
+import { withLockedPublisher } from "../lib/local-fs-observation-event-publisher.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { createLocalWorkspaceContext } from "../lib/local-workspace-context.js";
+import {
+	emitAdvanceEvents,
+	emitRunResumed,
+	emitRunStarted,
+	emitRunSuspended,
+	type ResolvedGateInfo,
+} from "../lib/observation-event-emitter.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import { readSourceMetadataFile } from "../lib/proposal-source.js";
 import {
@@ -133,6 +141,10 @@ function findPendingGateForPhase(
  * gate runtime. This enforces `allowed_responses`, `eligible_responder_roles`,
  * and invalid-response checks **before** the state machine advance fires.
  *
+ * Returns `ResolvedGateInfo` when a gate was resolved, so the caller can
+ * pass it to the observation event emitter (the advance's `recordMutations`
+ * will not contain the terminal update after the re-read).
+ *
  * Gate validation errors (invalid response, ineligible role, gate not
  * pending) abort the advance with a hard failure so that callers cannot
  * bypass gate rules by sending raw workflow events.
@@ -147,7 +159,7 @@ function resolveGateForEvent(
 	currentPhase: string,
 	event: string,
 	gates: readonly GateRecord[],
-): void {
+): ResolvedGateInfo | null {
 	const pendingGate = findPendingGateForPhase(gates, currentPhase);
 
 	// When no pending gate exists at the current phase, most events proceed
@@ -162,15 +174,15 @@ function resolveGateForEvent(
 					`Gate-response events require a corresponding pending gate.`,
 			);
 		}
-		return;
+		return null;
 	}
 
 	const response = eventToGateResponse(event, pendingGate.gate_kind);
-	if (!response) return;
+	if (!response) return null;
 
 	// Gate resolution failures are hard errors — the advance must not
 	// proceed if the gate runtime rejects the response.
-	resolveGate(store, {
+	const resolved = resolveGate(store, {
 		run_id: runId,
 		gate_id: pendingGate.gate_id,
 		response,
@@ -178,6 +190,12 @@ function resolveGateForEvent(
 		actor_role: "human-author",
 		resolved_at: nowIso(),
 	});
+	return {
+		gateId: resolved.gate_id,
+		gateKind: resolved.gate_kind as ResolvedGateInfo["gateKind"],
+		response: resolved.resolved_response ?? response,
+		actorLabel: resolved.decision_actor?.actor ?? "human",
+	};
 }
 
 function fail(message: string): never {
@@ -301,19 +319,110 @@ function renderResult<T>(
 	process.exit(1);
 }
 
+// ---------------------------------------------------------------------------
+// Observation-event emission helpers — scoped to the CLI wiring layer so the
+// core runtime stays unaware of transport concerns. Failures propagate to
+// `commitTransitionAndExit` which signals them via exit code 1.
+// ---------------------------------------------------------------------------
+
+function runsRootFrom(projectRoot: string): string {
+	return resolve(projectRoot, ".specflow/runs");
+}
+
+function emitStartEvent(
+	projectRoot: string,
+	runId: string,
+	state: RunStateOf<LocalRunState>,
+	timestamp: string,
+): void {
+	withLockedPublisher(runsRootFrom(projectRoot), runId, (publisher) => {
+		emitRunStarted(publisher, state, timestamp);
+	});
+}
+
+function emitAdvanceEvent(
+	projectRoot: string,
+	runId: string,
+	priorState: RunStateOf<LocalRunState>,
+	newState: RunStateOf<LocalRunState>,
+	event: string,
+	mutations: readonly RecordMutation[],
+	timestamp: string,
+	resolvedGate?: ResolvedGateInfo | null,
+): void {
+	withLockedPublisher(runsRootFrom(projectRoot), runId, (publisher) => {
+		emitAdvanceEvents({
+			publisher,
+			priorState,
+			newState,
+			event,
+			mutations,
+			timestamp,
+			highestSequence: publisher.highestSequence(),
+			resolvedGate,
+		});
+	});
+}
+
+function emitSuspendEvent(
+	projectRoot: string,
+	runId: string,
+	state: RunStateOf<LocalRunState>,
+	timestamp: string,
+): void {
+	withLockedPublisher(runsRootFrom(projectRoot), runId, (publisher) => {
+		emitRunSuspended(publisher, state, timestamp, publisher.highestSequence());
+	});
+}
+
+function emitResumeEvent(
+	projectRoot: string,
+	runId: string,
+	state: RunStateOf<LocalRunState>,
+	timestamp: string,
+): void {
+	withLockedPublisher(runsRootFrom(projectRoot), runId, (publisher) => {
+		emitRunResumed(publisher, state, timestamp, publisher.highestSequence());
+	});
+}
+
 /**
  * Commit a TransitionOk from a core command: persist state, apply record
- * mutations, print the new state as JSON, and exit successfully.
+ * mutations, emit observation events, print the new state as JSON, and exit.
+ *
+ * Observation events are emitted **after** the authoritative snapshot and
+ * gate writes succeed, so the event log never records a transition whose
+ * state commit failed. If emission fails the state is still committed (the
+ * authoritative write cannot be rolled back), but the process exits with
+ * code 1 to signal a hard failure — the spec requires the event stream to
+ * stay consistent with the snapshot, so an incomplete event log is a
+ * command failure, not a warning. Callers can detect the non-zero exit and
+ * trigger a reconciliation pass.
  */
 async function commitTransitionAndExit(
 	runStore: RunArtifactStore,
 	gates: GateRecordStore | null,
 	runId: string,
 	transitionOk: TransitionOk<LocalRunState>,
+	postCommit?: () => void,
 ): Promise<never> {
 	await persistState(runStore, runId, transitionOk.state);
 	if (gates) {
 		applyGateMutations(gates, runId, transitionOk.recordMutations);
+	}
+	if (postCommit) {
+		try {
+			postCommit();
+		} catch (cause) {
+			process.stderr.write(
+				`Error: observation event emission failed after state commit: ${cause instanceof Error ? cause.message : String(cause)}\n`,
+			);
+			// State is committed but event log is incomplete — hard failure.
+			// Print the committed state so callers know the new state, then
+			// exit non-zero so orchestration scripts can reconcile.
+			printSchemaJson("run-state", transitionOk.state);
+			process.exit(1);
+		}
 	}
 	printSchemaJson("run-state", transitionOk.state);
 	process.exit(0);
@@ -434,6 +543,7 @@ async function runStart(args: readonly string[]): Promise<never> {
 			gates,
 			parsed.positional,
 			result.value,
+			() => emitStartEvent(root, parsed.positional, result.value.state, ts),
 		);
 	}
 
@@ -456,7 +566,9 @@ async function runStart(args: readonly string[]): Promise<never> {
 		adapterSeed,
 	});
 	if (!result.ok) renderResult("run-state", result);
-	return commitTransitionAndExit(runStore, gates, nextRunId, result.value);
+	return commitTransitionAndExit(runStore, gates, nextRunId, result.value, () =>
+		emitStartEvent(root, nextRunId, result.value.state, ts),
+	);
 }
 
 async function runAdvance(args: readonly string[]): Promise<never> {
@@ -500,8 +612,15 @@ async function runAdvance(args: readonly string[]): Promise<never> {
 	// event. This enforces the first-class gate validation (eligible roles,
 	// allowed responses) before the state machine transition fires. Gate
 	// validation failures abort the advance with a hard error.
+	let resolvedGate: ResolvedGateInfo | null = null;
 	try {
-		resolveGateForEvent(gates, runId, state.current_phase, event, gateRecords);
+		resolvedGate = resolveGateForEvent(
+			gates,
+			runId,
+			state.current_phase,
+			event,
+			gateRecords,
+		);
 	} catch (cause) {
 		if (cause instanceof GateRuntimeError) {
 			fail(`Error: gate resolution rejected: ${cause.message}`);
@@ -516,17 +635,29 @@ async function runAdvance(args: readonly string[]): Promise<never> {
 	gateRecords = gates.list(runId);
 	priorRecords = gateRecordsToInteractionRecords(gateRecords);
 
+	const ts = nowIso();
 	const result = advanceRun<LocalRunState>(
 		{
 			state,
 			event,
-			nowIso: nowIso(),
+			nowIso: ts,
 			priorRecords,
 		},
 		{ workflow },
 	);
 	if (!result.ok) renderResult("run-state", result);
-	return commitTransitionAndExit(runStore, gates, runId, result.value);
+	return commitTransitionAndExit(runStore, gates, runId, result.value, () =>
+		emitAdvanceEvent(
+			root,
+			runId,
+			state,
+			result.value.state,
+			event,
+			result.value.recordMutations,
+			ts,
+			resolvedGate,
+		),
+	);
 }
 
 async function runSuspend(args: readonly string[]): Promise<never> {
@@ -545,9 +676,12 @@ async function runSuspend(args: readonly string[]): Promise<never> {
 		runStore,
 		runId,
 	)) as RunStateOf<LocalRunState>;
-	const result = suspendRun<LocalRunState>({ state, nowIso: nowIso() });
+	const ts = nowIso();
+	const result = suspendRun<LocalRunState>({ state, nowIso: ts });
 	if (!result.ok) renderResult("run-state", result);
-	return commitTransitionAndExit(runStore, null, runId, result.value);
+	return commitTransitionAndExit(runStore, null, runId, result.value, () =>
+		emitSuspendEvent(root, runId, result.value.state, ts),
+	);
 }
 
 async function runResume(args: readonly string[]): Promise<never> {
@@ -566,9 +700,12 @@ async function runResume(args: readonly string[]): Promise<never> {
 		runStore,
 		runId,
 	)) as RunStateOf<LocalRunState>;
-	const result = resumeRun<LocalRunState>({ state, nowIso: nowIso() });
+	const ts = nowIso();
+	const result = resumeRun<LocalRunState>({ state, nowIso: ts });
 	if (!result.ok) renderResult("run-state", result);
-	return commitTransitionAndExit(runStore, null, runId, result.value);
+	return commitTransitionAndExit(runStore, null, runId, result.value, () =>
+		emitResumeEvent(root, runId, result.value.state, ts),
+	);
 }
 
 async function runStatus(args: readonly string[]): Promise<never> {
