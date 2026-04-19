@@ -1,0 +1,219 @@
+{
+  "version": "1.0",
+  "change_id": "define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation",
+  "bundles": [
+    {
+      "id": "author-workflow-observation-event-contract",
+      "title": "Author Workflow Observation Event Contract",
+      "goal": "Define the transport-agnostic observation-event spec with a fixed catalog, common envelope, payload schemas, and behavioral guarantees.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "openspec/specs/workflow-run-state/spec.md",
+        "openspec/specs/workflow-gate-semantics/spec.md",
+        "openspec/specs/surface-event-contract/spec.md",
+        "openspec/specs/artifact-ownership-model/spec.md",
+        "openspec/specs/review-orchestration/spec.md"
+      ],
+      "outputs": [
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-observation-events/spec.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Translate decisions D1-D9 into a requirement map for lifecycle, phase, gate, and progress observation events.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Define the common envelope fields, nullability rules, and reference semantics for event, phase, gate, artifact, bundle, and causal context data.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Enumerate the closed 15-event catalog and specify per-event payload schemas with all allowed status and outcome values.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add scenarios for per-run ordering, at-least-once delivery, bit-identical re-emission, bounded replay, disjointness from surface events, and coupled cause-to-effect ordering.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "workflow-gate-semantics",
+        "surface-event-contract",
+        "artifact-ownership-model",
+        "review-orchestration"
+      ]
+    },
+    {
+      "id": "bind-run-state-transitions-to-observation-events",
+      "title": "Bind Run-State Transitions To Observation Events",
+      "goal": "Update workflow-run-state so authoritative transitions consistently emit the required observation events without changing snapshot ownership.",
+      "depends_on": [
+        "author-workflow-observation-event-contract"
+      ],
+      "inputs": [
+        "design.md",
+        "openspec/specs/workflow-run-state/spec.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-observation-events/spec.md"
+      ],
+      "outputs": [
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-run-state/spec.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Map run-state transitions to the lifecycle and phase observation events they must emit, including explicit 1:N transition-to-event cases.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add delta requirements that bind transition emission and snapshot consistency to the new observation contract while preserving canonical run-state authority.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "State that the run-state CLI remains snapshot-only and carries no transport or history-serving responsibility.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "canonical-workflow-state",
+        "phase-semantics"
+      ]
+    },
+    {
+      "id": "bind-gate-semantics-to-observation-events",
+      "title": "Bind Gate Semantics To Observation Events",
+      "goal": "Update workflow-gate-semantics so gate lifecycle changes emit ordered observation events while gate records remain authoritative.",
+      "depends_on": [
+        "author-workflow-observation-event-contract"
+      ],
+      "inputs": [
+        "design.md",
+        "openspec/specs/workflow-gate-semantics/spec.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-observation-events/spec.md"
+      ],
+      "outputs": [
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-gate-semantics/spec.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Map gate open, resolve, and reject lifecycle changes to the corresponding observation events and single-terminal-per-gate rules.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add ordering requirements that gate events are emitted before any phase or lifecycle effects they directly cause.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Reinforce that gate records stay authoritative and observation events are notification-side effects only.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-gate-semantics",
+        "approval-clarify-persistence",
+        "phase-semantics"
+      ]
+    },
+    {
+      "id": "validate-observation-event-cross-spec-consistency",
+      "title": "Validate Observation Event Cross-Spec Consistency",
+      "goal": "Prove the three spec deltas agree on names, ordering, replay, and transition-to-event pairings and pass change validation.",
+      "depends_on": [
+        "bind-run-state-transitions-to-observation-events",
+        "bind-gate-semantics-to-observation-events"
+      ],
+      "inputs": [
+        "design.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-observation-events/spec.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-run-state/spec.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-gate-semantics/spec.md",
+        "openspec/specs/spec-consistency-verification/spec.md"
+      ],
+      "outputs": [
+        "validation: openspec validate --type change",
+        "traceability: concern-to-requirement checklist"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Cross-check event names, envelope rules, causal context semantics, replay subset, and coupled ordering language across all three delta files.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Verify every completion condition from C-obs-catalog through C-coupled-order is covered by explicit requirements and scenarios.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Run openspec change validation and resolve any schema, naming, or traceability failures until the change passes cleanly.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "workflow-run-state",
+        "workflow-gate-semantics"
+      ]
+    },
+    {
+      "id": "prepare-review-and-archive-package",
+      "title": "Prepare Review And Archive Package",
+      "goal": "Package the validated spec-only change for review, archive, and downstream consumer announcement.",
+      "depends_on": [
+        "validate-observation-event-cross-spec-consistency"
+      ],
+      "inputs": [
+        "design.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-observation-events/spec.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-run-state/spec.md",
+        "openspec/changes/define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation/specs/workflow-gate-semantics/spec.md",
+        "validation: openspec validate --type change",
+        "traceability: concern-to-requirement checklist"
+      ],
+      "outputs": [
+        "archive-ready change review package",
+        "downstream observation-event announcement notes"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Prepare review notes summarizing scope, non-goals, authoritative boundaries, and the reasons the contract stays transport-agnostic.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Confirm the archive package includes all three deltas together and documents that no runtime migration or data migration is required.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Draft downstream handoff notes for future transport, publisher, consumer, and spec-consistency follow-up changes.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "design-planning-contract",
+        "contract-driven-distribution",
+        "task-planner"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-19T02:29:55.595Z",
+  "generated_from": "design.md"
+}

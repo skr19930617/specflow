@@ -2,6 +2,9 @@
 
 ## Purpose
 TBD - created by archiving change define-surface-event-contract-for-external-runtimes. Update Purpose after archive.
+
+Related specs:
+- `workflow-observation-events`: observation events are declarative notifications of state change emitted by the workflow core; surface events (defined here) are imperative commands to/from external surfaces. The two contracts are disjoint — they do not share an envelope schema. Each cross-references the other to disambiguate.
 ## Requirements
 ### Requirement: Surface event envelope defines the standard message wrapper
 

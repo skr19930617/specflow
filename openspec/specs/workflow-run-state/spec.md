@@ -4,6 +4,11 @@
 
 Describe the authoritative workflow state machine and the persisted run-state
 CLI used by `specflow`.
+
+Related specs:
+- `workflow-observation-events`: every run-state transition emits corresponding observation events; the event stream remains consistent with the snapshot readable via the run-state CLI.
+- `workflow-gate-semantics`: gate lifecycle events are part of the observation stream.
+
 ## Requirements
 ### Requirement: The workflow machine defines the authoritative phase graph
 

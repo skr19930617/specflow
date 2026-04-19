@@ -1,0 +1,289 @@
+{
+  "feature_id": "define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation",
+  "phase": "impl",
+  "current_round": 6,
+  "status": "has_open_high",
+  "max_finding_id": 12,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "error_handling",
+      "file": "src/bin/specflow-run.ts",
+      "title": "Event emission is outside the authoritative commit boundary",
+      "detail": "`emitStartEvent`/`emitAdvanceEvent`/`emitSuspendEvent`/`emitResumeEvent` run before `commitTransitionAndExit()`, and their failures are only logged as warnings. That lets `events.jsonl` record transitions whose snapshot/gate writes later fail, and it also lets the snapshot advance with no observation event at all when the publisher write fails. The spec requires transitions to emit observation events and requires the event stream to stay consistent with the snapshot/gate state. Move emission into the same success path as the authoritative writes, or introduce an atomic/recoverable commit protocol instead of warning-and-continuing.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/observation-event-emitter.ts",
+      "title": "Gate-caused phase/lifecycle events drop the required `gate_ref`",
+      "detail": "The envelope spec says `gate_ref` must be set not only on gate events, but also on phase/lifecycle events directly caused by a gate. In `emitAdvanceEvents()` and the suspend/resume helpers, downstream `phase_completed`, `phase_entered`, `run_terminal`, `run_suspended`, and `run_resumed` are always emitted with `gateRef: null`. On flows like `accept_spec`/`accept_design`/`accept_apply`, consumers cannot correlate the gate event chain to the resulting phase/lifecycle events as required. Thread the active gate id through the whole caused-event chain.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/observation-events.test.ts",
+      "title": "The new behavior is only unit-tested, not integration-tested through the CLI",
+      "detail": "The proposal explicitly calls for integration coverage proving that `specflow-run start|advance|suspend|resume` and gate lifecycle transitions write the expected `.specflow/runs/<run_id>/events.jsonl` sequence. The added tests only exercise the emitter and local publisher in isolation, so they do not verify the actual CLI wiring, path creation, sequencing across real commands, or the missing review-decision/synthetic-run cases. Add end-to-end assertions in the CLI test suite before approving this contract change.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R2-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-run.ts",
+      "title": "Real gate-resolution advances do not emit `gate_resolved` or `gate_rejected`",
+      "detail": "`runAdvance()` resolves pending gates through `resolveGateForEvent()` before calling `advanceRun()`, then refreshes `priorRecords`. After that refresh, `advanceRun()` no longer returns the update mutation that `emitAdvanceEvents()` depends on to publish terminal gate events. On real flows like `accept_spec`/`accept_design`/`accept_apply` (and gate rejection), the log emits phase transitions but skips the required `gate_resolved`/`gate_rejected`, so replayed open-gate state diverges from the snapshot. Emit terminal gate events from the gate-resolution step itself, or pass the resolved gate information explicitly into the emitter instead of inferring it only from `recordMutations`.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/review-decision-gate.ts",
+      "title": "`review_decision` gate lifecycle is still completely outside the observation stream",
+      "detail": "The spec requires observation events for all authoritative gate kinds, including `review_decision`. Review CLIs issue those gates via `issueReviewDecisionGate()`, but this diff only wires publishing through `specflow-run`, and `observation-event-emitter.ts` does not map `review_decision` resolutions (`accept`/`request_changes`/`reject`). As implemented, review-decision gate creation and resolution produce no required `gate_opened`/`gate_resolved`/`gate_rejected` events. Add publication on the review gate issuance/resolution path and support the `review_decision` payload mappings mandated by the spec.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/observation-event-emitter.ts",
+      "title": "`review_decision` gate lifecycle is not emitted",
+      "detail": "The spec requires observation events for all three authoritative gate kinds (`approval`, `clarify`, `review_decision`), but `toGateKind()`/`resolveGateResolution()` only handle the legacy `approval` and `clarify` record shapes and even note that `review_decision` is not wired. On top of that, the publisher hook exists only in `specflow-run.ts`, while `review_decision` gates are opened by the review CLIs. As written, review-decision gate creation produces no `gate_opened`, and resolving those gates cannot produce the required `gate_resolved`/`gate_rejected` events. Wire observation publishing into the review-gate creation/resolution path and map `accept`/`request_changes`/`reject` to the required resolutions.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F05",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/lib/local-fs-observation-event-publisher.ts",
+      "title": "Sequence allocation is race-prone across concurrent CLI processes",
+      "detail": "`createLocalFsObservationEventPublisher()` snapshots `highestSequence` once and then increments it only in memory, with no run-scoped lock or compare-and-swap around `events.jsonl`. If two commands emit for the same run concurrently, both can reserve the same next sequence and write different records with the same `sequence`/`event_id`, breaking the per-run monotonic ordering and idempotency guarantees. Reserve sequence numbers under a run lock or make append+sequence assignment atomic.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R3-F06",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/observation-event-emitter.ts",
+      "title": "Review gate_opened events point causal_context at a non-existent cause",
+      "detail": "`emitGateOpened()` hard-codes `causal_context` to `{ kind: \"user_event\", ref: \"review_completed\" }`, but this change does not emit any `review_completed` observation event and `review_completed` is not a workflow user event name. Consumers therefore cannot interpret that ref as either a valid user event or a prior `event_id`, so these envelopes violate the causal-context contract. Either emit `review_completed` first and reference its `event_id`, or use a real triggering user event / `null` until progress events are wired.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R4-F07",
+      "severity": "high",
+      "category": "completeness",
+      "file": "openspec/specs/workflow-observation-events/spec.md",
+      "title": "The proposal-mandated observation-event capability/spec updates are still missing",
+      "detail": "The proposal explicitly adds a new `workflow-observation-events` capability and requires corresponding updates to `workflow-run-state` and `workflow-gate-semantics`, but this diff only adds runtime code/types/tests. There is still no `openspec/specs/workflow-observation-events/spec.md`, and the existing specs do not reference the new contract, so the authoritative consumer-facing definition this change is supposed to introduce is absent. Add the new openspec capability and the cross-spec updates before landing the implementation.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R5-F08",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/bin/specflow-review-design.ts",
+      "title": "Completed review rounds still succeed without the required `review_decision` gate",
+      "detail": "`tryIssueReviewDecisionGate()` (and the matching helpers in `specflow-review-apply.ts` / `specflow-challenge-proposal.ts`) catches `issueReviewDecisionGate()` failures, logs a warning, and lets the command return a successful review result with `gate_id: null`. That violates `workflow-gate-semantics`, which requires exactly one `review_decision` gate per completed review round, and it also suppresses the required `gate_opened` observation event. Gate-issuance failure needs to fail the command instead of being treated as best-effort.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 6
+    },
+    {
+      "id": "R5-F09",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-review-design.ts",
+      "title": "`gate_opened` for review gates is emitted outside the gate supersede lock",
+      "detail": "The review CLIs call `issueReviewDecisionGate()` under the gate-runtime lock, release that lock, and only then acquire the event-log lock to append `gate_opened`. A concurrent review command can supersede the freshly created gate in that window, after which the first process will still publish `gate_opened` for a gate whose persisted status is already `superseded`. Because supersession has no terminal observation event, replay will incorrectly leave that gate open. Gate creation and gate-open emission need one shared commit protocol, or the CLI must re-read the gate and suppress emission once it is no longer pending.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 6
+    },
+    {
+      "id": "R5-F10",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/specs/surface-event-contract/spec.md",
+      "title": "The reciprocal `surface-event-contract` cross-reference is still missing",
+      "detail": "`workflow-observation-events/spec.md` now requires the observation-event and surface-event specs to cross-reference each other in their Purpose sections, but `surface-event-contract/spec.md` still has only the archived-placeholder Purpose text and never mentions `workflow-observation-events`. That leaves the normative spec surface short of the contract this change defines. Add the reciprocal Purpose-section reference, or narrow the new requirement.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 6
+    },
+    {
+      "id": "R6-F11",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-run.ts",
+      "title": "Review-decision gates still use approval-style advance semantics",
+      "detail": "`specflow-run` still treats `review_decision` responses like direct workflow events instead of translating them through the handoff mapping required by `workflow-gate-semantics`. In practice, `specflow-run advance <run> design_review_approved` (or `apply_review_approved`) advances the run while leaving the pending `review_decision` gate untouched, violating the rule that pending review gates block advancement. Conversely, `specflow-run advance <run> request_changes` resolves the gate first and then fails `invalid transition` because the machine only accepts `revise_design` / `revise_apply`, leaving the run in the same phase with no pending gate. `reject` is likewise still treated as the approval-level terminal reject instead of the distinct `review_rejected` handoff. The CLI needs a response-to-handoff translation for `review_decision` gates before mutating either the gate store or run state, and the new tests need to cover accept/request_changes/reject review-gate paths.",
+      "origin_round": 6,
+      "latest_round": 6,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R6-F12",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/bin/specflow-run.ts",
+      "title": "Post-commit event emission failures return the wrong exit code",
+      "detail": "`commitTransitionAndExit()` now catches observation-event emission failures after the authoritative writes, but it still exits with code `1`. The new `workflow-observation-events` spec requires exit code `2` in that branch so callers can distinguish 'state committed, event log incomplete' from an ordinary command failure and trigger reconciliation. Return `2` from the post-commit emission-failure path and add CLI coverage for that contract.",
+      "origin_round": 6,
+      "latest_round": 6,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 4,
+      "open": 4,
+      "new": 4,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 2
+      }
+    },
+    {
+      "round": 2,
+      "total": 6,
+      "open": 5,
+      "new": 2,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 2
+      }
+    },
+    {
+      "round": 3,
+      "total": 8,
+      "open": 5,
+      "new": 2,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 2
+      }
+    },
+    {
+      "round": 4,
+      "total": 9,
+      "open": 4,
+      "new": 1,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 1
+      }
+    },
+    {
+      "round": 5,
+      "total": 12,
+      "open": 4,
+      "new": 3,
+      "resolved": 8,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 1
+      }
+    },
+    {
+      "round": 6,
+      "total": 14,
+      "open": 3,
+      "new": 2,
+      "resolved": 11,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      }
+    }
+  ]
+}

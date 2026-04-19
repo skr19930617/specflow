@@ -1,0 +1,48 @@
+{
+  "feature_id": "define-workflow-event-semantics-for-state-change-gate-resolution-and-progress-observation",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Surface-event cross-reference work is missing from the plan",
+      "detail": "The proposal and the new observation-events requirement make the relationship bidirectional: workflow-observation-events and surface-event-contract must cross-reference each other in their Purpose sections. The design/tasks only plan a three-spec change and never schedule an update to surface-event-contract. Add an explicit delta/task for surface-event-contract, or narrow the requirement so the design no longer promises a two-sided cross-reference.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "The common envelope is counted incorrectly in the design",
+      "detail": "The design and completion conditions refer to an '11 field' envelope, but the spec/proposal enumerates 12 common fields: event_id, event_kind, run_id, change_id, sequence, timestamp, source_phase, target_phase, causal_context, gate_ref, artifact_ref, and bundle_ref. This mismatch can produce an incomplete contract or a false completion check. Correct the field count and make the validation/completion language explicitly cover all 12 fields.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      }
+    }
+  ]
+}

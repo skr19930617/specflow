@@ -2,6 +2,10 @@
 
 ## Purpose
 TBD - created by archiving change define-gate-semantics-for-approval-clarify-and-review-decisions-as-persistent-workflow-objects. Update Purpose after archive.
+
+Related specs:
+- `workflow-observation-events`: gate state changes (opening, resolution, rejection) emit `gate_opened`, `gate_resolved`, `gate_rejected` observation events. Gate records remain the authoritative store; observation events are notifications.
+
 ## Requirements
 ### Requirement: Gate is a first-class persistent workflow object
 

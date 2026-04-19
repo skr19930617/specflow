@@ -3,8 +3,10 @@ import type { ChangeArtifactStore } from "../lib/artifact-store.js";
 import { ReviewLedgerKind } from "../lib/artifact-types.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
 import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.js";
+import { withLockedPublisher } from "../lib/local-fs-observation-event-publisher.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { createLocalWorkspaceContext } from "../lib/local-workspace-context.js";
+import { emitGateOpened } from "../lib/observation-event-emitter.js";
 import { moduleRepoRoot, printSchemaJson, tryExec } from "../lib/process.js";
 import {
 	issueReviewDecisionGate,
@@ -401,9 +403,10 @@ async function runReviewPipeline(
 	// Issue a review_decision gate if a run_id was provided.
 	let gateId: string | null = null;
 	if (runId && !parseError) {
-		gateId = tryIssueReviewDecisionGate(
+		gateId = issueReviewDecisionGateOrFail(
 			projectRoot,
 			runId,
+			changeId,
 			"apply_review",
 			ledger,
 			reviewAgent,
@@ -822,54 +825,73 @@ function parseRunIdFlag(args: readonly string[]): string | undefined {
 
 /**
  * Issue a review_decision gate for a completed apply review round.
- * Best-effort: returns null on failure.
+ *
+ * Gate issuance failure is a hard error — the spec requires exactly one
+ * `review_decision` gate per completed review round. Callers MUST NOT
+ * proceed with a successful review result when this function throws.
+ *
+ * The `gate_opened` event is emitted inside the event-log lock only after
+ * re-reading the gate to confirm it is still `pending`, preventing emission
+ * for a gate that was superseded by a concurrent review process.
  */
-function tryIssueReviewDecisionGate(
+function issueReviewDecisionGateOrFail(
 	projectRoot: string,
 	runId: string,
+	changeId: string,
 	reviewPhase: ReviewPhase,
 	ledger: ReviewLedger,
 	reviewAgent: ReviewAgentName,
-): string | null {
-	try {
-		const store = createLocalFsGateRecordStore(projectRoot);
-		const round = Number(ledger.current_round ?? 0);
-		const roundId = `${reviewPhase}-round-${round}`;
-		const gateId = `review_decision-${runId}-${reviewPhase}-${round}`;
-		const findings: ReviewFindingSnapshot[] = (ledger.findings ?? [])
-			.filter((f) => {
-				const status = String(f.status ?? "");
-				return status === "new" || status === "open";
-			})
-			.map((f) => ({
-				id: String(f.id ?? ""),
-				severity: (f.severity ?? "medium") as ReviewFindingSnapshot["severity"],
-				status: String(f.status ?? ""),
-				title: String(f.title ?? ""),
-			}));
-		const provenance: ReviewRoundProvenance = {
-			run_id: runId,
-			review_phase: reviewPhase,
-			review_round_id: roundId,
-			findings,
-			reviewer_actor: "ai-agent",
-			reviewer_actor_id: reviewAgent,
-			approval_binding: "advisory",
-		};
-		const gate = issueReviewDecisionGate(provenance, {
-			store,
-			projectRoot,
-			gateId,
-			createdAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-		});
-		return gate.gate_id;
-	} catch (cause) {
-		const message = cause instanceof Error ? cause.message : String(cause);
-		process.stderr.write(
-			`Warning: failed to issue review_decision gate: ${message}\n`,
-		);
-		return null;
-	}
+): string {
+	const store = createLocalFsGateRecordStore(projectRoot);
+	const round = Number(ledger.current_round ?? 0);
+	const roundId = `${reviewPhase}-round-${round}`;
+	const gateId = `review_decision-${runId}-${reviewPhase}-${round}`;
+	const createdAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+	const findings: ReviewFindingSnapshot[] = (ledger.findings ?? [])
+		.filter((f) => {
+			const status = String(f.status ?? "");
+			return status === "new" || status === "open";
+		})
+		.map((f) => ({
+			id: String(f.id ?? ""),
+			severity: (f.severity ?? "medium") as ReviewFindingSnapshot["severity"],
+			status: String(f.status ?? ""),
+			title: String(f.title ?? ""),
+		}));
+	const provenance: ReviewRoundProvenance = {
+		run_id: runId,
+		review_phase: reviewPhase,
+		review_round_id: roundId,
+		findings,
+		reviewer_actor: "ai-agent",
+		reviewer_actor_id: reviewAgent,
+		approval_binding: "advisory",
+	};
+	const gate = issueReviewDecisionGate(provenance, {
+		store,
+		projectRoot,
+		gateId,
+		createdAt,
+	});
+	// Emit gate_opened under the event-log lock, re-reading the gate to
+	// confirm it hasn't been superseded by a concurrent process (R5-F09).
+	const runsRoot = resolve(projectRoot, ".specflow/runs");
+	withLockedPublisher(runsRoot, runId, (publisher) => {
+		const current = store.read(runId, gate.gate_id);
+		if (current && current.status === "pending") {
+			emitGateOpened({
+				publisher,
+				runId,
+				changeId,
+				gateId: gate.gate_id,
+				gateKind: "review_decision",
+				originatingPhase: reviewPhase,
+				timestamp: createdAt,
+				highestSequence: publisher.highestSequence(),
+			});
+		}
+	});
+	return gate.gate_id;
 }
 
 async function main(): Promise<void> {
