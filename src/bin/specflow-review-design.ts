@@ -25,16 +25,6 @@ import { createLocalFsGateRecordStore } from "../lib/local-fs-gate-record-store.
 import { withLockedPublisher } from "../lib/local-fs-observation-event-publisher.js";
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { emitGateOpened } from "../lib/observation-event-emitter.js";
-import type {
-	AutofixLoopState,
-	AutofixRoundCounters,
-	AutofixTerminalOutcome,
-} from "../types/observation-events.js";
-import {
-	AUTOFIX_SNAPSHOT_SCHEMA_VERSION,
-	buildStartingSnapshot,
-	type AutofixProgressSnapshot,
-} from "../types/autofix-progress.js";
 import { moduleRepoRoot, printSchemaJson } from "../lib/process.js";
 import {
 	issueReviewDecisionGate,
@@ -82,6 +72,10 @@ import {
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
 import { findLatestRun } from "../lib/run-store-ops.js";
+import {
+	type AutofixProgressSnapshot,
+	buildStartingSnapshot,
+} from "../types/autofix-progress.js";
 import type {
 	AutofixRoundScore,
 	DivergenceWarning,
@@ -91,6 +85,11 @@ import type {
 	ReviewResult,
 } from "../types/contracts.js";
 import type { ReviewFindingSnapshot } from "../types/gate-records.js";
+import type {
+	AutofixLoopState,
+	AutofixRoundCounters,
+	AutofixTerminalOutcome,
+} from "../types/observation-events.js";
 
 function notInGitRepo(): never {
 	process.stdout.write('{"status":"error","error":"not_in_git_repo"}\n');
@@ -554,7 +553,9 @@ async function runAutofixLoop(
 
 	const nowIso = () => new Date().toISOString();
 
-	const updateSnapshot = (mutate: (prev: AutofixProgressSnapshot) => AutofixProgressSnapshot): void => {
+	const updateSnapshot = (
+		mutate: (prev: AutofixProgressSnapshot) => AutofixProgressSnapshot,
+	): void => {
 		if (!progressEnabled || !currentSnapshot) return;
 		currentSnapshot = mutate(currentSnapshot);
 		void writeAutofixSnapshot(runArtifactStore, currentSnapshot).catch(() => {

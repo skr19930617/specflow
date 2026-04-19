@@ -80,7 +80,10 @@ export function validateAutofixSnapshot(
 			message: `expected one of ${AUTOFIX_PHASES.join("|")}`,
 		});
 	if (typeof v.round_index !== "number" || v.round_index < 0)
-		errs.push({ field: "round_index", message: "expected non-negative number" });
+		errs.push({
+			field: "round_index",
+			message: "expected non-negative number",
+		});
 	if (typeof v.max_rounds !== "number" || v.max_rounds < 1)
 		errs.push({ field: "max_rounds", message: "expected positive number" });
 	if (typeof v.loop_state !== "string")

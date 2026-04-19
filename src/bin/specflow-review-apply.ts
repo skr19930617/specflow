@@ -20,15 +20,6 @@ import { withLockedPublisher } from "../lib/local-fs-observation-event-publisher
 import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import { createLocalWorkspaceContext } from "../lib/local-workspace-context.js";
 import { emitGateOpened } from "../lib/observation-event-emitter.js";
-import {
-	buildStartingSnapshot,
-	type AutofixProgressSnapshot,
-} from "../types/autofix-progress.js";
-import type {
-	AutofixLoopState,
-	AutofixRoundCounters,
-	AutofixTerminalOutcome,
-} from "../types/observation-events.js";
 import { moduleRepoRoot, printSchemaJson, tryExec } from "../lib/process.js";
 import {
 	issueReviewDecisionGate,
@@ -74,6 +65,10 @@ import {
 } from "../lib/review-runtime.js";
 import { findLatestRun } from "../lib/run-store-ops.js";
 import type { WorkspaceContext } from "../lib/workspace-context.js";
+import {
+	type AutofixProgressSnapshot,
+	buildStartingSnapshot,
+} from "../types/autofix-progress.js";
 import type {
 	AutofixRoundScore,
 	DiffSummary,
@@ -84,6 +79,11 @@ import type {
 	ReviewResult,
 } from "../types/contracts.js";
 import type { ReviewFindingSnapshot } from "../types/gate-records.js";
+import type {
+	AutofixLoopState,
+	AutofixRoundCounters,
+	AutofixTerminalOutcome,
+} from "../types/observation-events.js";
 
 function notInGitRepo(): never {
 	process.stdout.write('{"status":"error","error":"not_in_git_repo"}\n');

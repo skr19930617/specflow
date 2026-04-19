@@ -7,13 +7,13 @@
 //
 // Spec: openspec/specs/review-autofix-progress-observability/spec.md
 
-import type { LedgerRoundSummary } from "../types/contracts.js";
-import type { AutofixRoundCounters } from "../types/observation-events.js";
 import {
 	type AutofixProgressSnapshot,
 	validateAutofixSnapshot,
 	ZERO_AUTOFIX_COUNTERS,
 } from "../types/autofix-progress.js";
+import type { LedgerRoundSummary } from "../types/contracts.js";
+import type { AutofixRoundCounters } from "../types/observation-events.js";
 import type { RunArtifactStore } from "./artifact-store.js";
 import {
 	type AutofixProgressPhase,
