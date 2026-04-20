@@ -190,3 +190,119 @@ test("validateTaskGraph: accepts empty tasks array in bundle", () => {
 	const result = validateTaskGraph(withEmptyTasks);
 	assert.equal(result.valid, true);
 });
+
+test("validateTaskGraph: accepts graph without size_score (legacy backward compat)", () => {
+	const graph = validGraph();
+	// Every bundle in validGraph() already omits size_score — this is the baseline
+	// we rely on for pre-feature task-graph.json files and archived changes.
+	const result = validateTaskGraph(graph);
+	assert.equal(result.valid, true);
+	assert.equal(result.errors.length, 0);
+});
+
+test("validateTaskGraph: accepts graph with size_score that matches tasks.length", () => {
+	// validGraph() bundles each have a single task, so size_score = 1 is the
+	// only accepted value when the field is present. This mirrors the dispatcher
+	// contract (`size_score = bundle.tasks.length`).
+	const graph = validGraph();
+	const withSizeScores = {
+		...graph,
+		bundles: [
+			{ ...graph.bundles[0], size_score: 1 },
+			{ ...graph.bundles[1], size_score: 1 },
+		],
+	};
+	const result = validateTaskGraph(withSizeScores);
+	assert.equal(result.valid, true, result.errors.join(", "));
+	assert.equal(result.errors.length, 0);
+});
+
+test("validateTaskGraph: rejects size_score that does NOT match tasks.length", () => {
+	// R2-F04: persisting a mismatched value would let a stale or corrupted graph
+	// misroute bundles between inline and subagent dispatch.
+	const graph = validGraph();
+	const bad = {
+		...graph,
+		bundles: [
+			{ ...graph.bundles[0], size_score: 3 }, // bundle has 1 task
+			graph.bundles[1],
+		],
+	};
+	const result = validateTaskGraph(bad);
+	assert.equal(result.valid, false);
+	assert.ok(
+		result.errors.some(
+			(e) => e.includes("size_score") && e.includes("tasks.length"),
+		),
+		`expected mismatch error; got: ${result.errors.join(", ")}`,
+	);
+});
+
+test("validateTaskGraph: size_score=0 is valid ONLY when tasks is empty", () => {
+	const graph = validGraph();
+	// With tasks.length=1, size_score=0 is a mismatch → invalid.
+	const mismatch = {
+		...graph,
+		bundles: [
+			{ ...graph.bundles[0], size_score: 0 }, // bundle has 1 task
+			graph.bundles[1],
+		],
+	};
+	assert.equal(validateTaskGraph(mismatch).valid, false);
+	// With tasks.length=0 AND size_score=0 → valid.
+	const aligned = {
+		...graph,
+		bundles: [
+			{ ...graph.bundles[0], tasks: [], size_score: 0 },
+			graph.bundles[1],
+		],
+	};
+	assert.equal(validateTaskGraph(aligned).valid, true);
+});
+
+test("validateTaskGraph: rejects negative size_score", () => {
+	const graph = validGraph();
+	const bad = {
+		...graph,
+		bundles: [{ ...graph.bundles[0], size_score: -1 }, graph.bundles[1]],
+	};
+	const result = validateTaskGraph(bad);
+	assert.equal(result.valid, false);
+	assert.ok(result.errors.some((e) => e.includes("size_score")));
+});
+
+test("validateTaskGraph: rejects non-integer size_score", () => {
+	const graph = validGraph();
+	const bad = {
+		...graph,
+		bundles: [{ ...graph.bundles[0], size_score: 1.5 }, graph.bundles[1]],
+	};
+	const result = validateTaskGraph(bad);
+	assert.equal(result.valid, false);
+	assert.ok(result.errors.some((e) => e.includes("size_score")));
+});
+
+test("validateTaskGraph: rejects non-number size_score", () => {
+	const graph = validGraph();
+	const bad = {
+		...graph,
+		bundles: [{ ...graph.bundles[0], size_score: "3" }, graph.bundles[1]],
+	};
+	const result = validateTaskGraph(bad);
+	assert.equal(result.valid, false);
+	assert.ok(result.errors.some((e) => e.includes("size_score")));
+});
+
+test("validateTaskGraph: accepts mixed graph where some bundles have size_score and others do not", () => {
+	const graph = validGraph();
+	const mixed = {
+		...graph,
+		bundles: [
+			{ ...graph.bundles[0], size_score: 1 },
+			graph.bundles[1], // no size_score
+		],
+	};
+	const result = validateTaskGraph(mixed);
+	assert.equal(result.valid, true, result.errors.join(", "));
+	assert.equal(result.errors.length, 0);
+});

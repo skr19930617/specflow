@@ -365,6 +365,156 @@ test("generated specflow.apply.md encodes the specflow-advance-bundle contract",
 	);
 });
 
+test("specflow.apply command body documents the subagent dispatcher branching", () => {
+	// Source-level assertions that the /specflow.apply guide documents the
+	// size_score-driven dispatcher path introduced by bundle-subagent-execution.
+	// These tests encode the slash-command-guides spec delta for /specflow.apply.
+	const apply = commandBodyText("specflow.apply");
+
+	// Config surface + default opt-in posture.
+	assert.ok(
+		apply.includes("apply.subagent_dispatch"),
+		"apply body should reference the apply.subagent_dispatch config section",
+	);
+	assert.ok(
+		apply.includes("`enabled: false`"),
+		"apply body should document that dispatch is disabled by default",
+	);
+	assert.ok(
+		apply.includes("`threshold: 5`") && apply.includes("`max_concurrency: 3`"),
+		"apply body should document the threshold and max_concurrency defaults",
+	);
+
+	// Window-uniform dispatch rule (D2).
+	assert.ok(
+		apply.includes("window-level uniform dispatch") ||
+			apply.includes("entire window") ||
+			apply.includes("ENTIRE window"),
+		"apply body should state that one eligible bundle promotes the ENTIRE window to subagent dispatch",
+	);
+	assert.ok(
+		apply.includes("size_score"),
+		"apply body should reference the size_score signal that drives classification",
+	);
+
+	// Backward-compat rule: bundles missing size_score are inline-only.
+	assert.ok(
+		apply.includes("every bundle lacks `size_score`") ||
+			apply.includes("without size_score") ||
+			apply.includes("pre-feature graphs"),
+		"apply body should document the backward-compat rule for pre-feature graphs",
+	);
+
+	// Preflight invariant (review P1 fix): no mutation on capability miss.
+	assert.ok(
+		apply.includes("Preflight the entire window"),
+		"apply body should require preflight over the entire window",
+	);
+	assert.ok(
+		apply.includes(
+			"No `specflow-advance-bundle` call SHALL occur on a preflight failure",
+		),
+		"apply body should state the zero-mutation invariant on preflight failure",
+	);
+
+	// Chunking + parallel fan-out (D3).
+	assert.ok(
+		apply.includes("max_concurrency"),
+		"apply body should document the max_concurrency chunk cap",
+	);
+	assert.ok(
+		apply.includes("Chunks run sequentially"),
+		"apply body should state that chunks run sequentially",
+	);
+	assert.ok(
+		apply.includes("subagents run in parallel"),
+		"apply body should state that subagents within a chunk run in parallel",
+	);
+
+	// Six-category context package (D5).
+	for (const item of [
+		"proposal.md",
+		"design.md",
+		"owner_capabilities",
+		"Bundle slice of `task-graph.json`",
+		"rendered section of `tasks.md`",
+		"bundle.inputs",
+	]) {
+		assert.ok(
+			apply.includes(item),
+			`apply body should enumerate context-package item: ${item}`,
+		);
+	}
+
+	// Subagent no-mutation constraint (task 5.3, bundle-subagent-execution spec).
+	assert.ok(
+		apply.includes("SHALL NOT invoke `specflow-advance-bundle`"),
+		"apply body should state that subagents must not invoke specflow-advance-bundle",
+	);
+	assert.ok(
+		apply.includes("SHALL NOT edit `task-graph.json`"),
+		"apply body should state that subagents must not edit task-graph.json",
+	);
+	assert.ok(
+		apply.includes("SHALL NOT edit `tasks.md`"),
+		"apply body should state that subagents must not edit tasks.md",
+	);
+
+	// Drain-then-stop on failure (D4).
+	assert.ok(
+		apply.includes("Drain-then-stop"),
+		"apply body should document drain-then-stop semantics",
+	);
+	assert.ok(
+		apply.includes("leave the bundle in `in_progress`") ||
+			apply.includes("leave the failed bundle in_progress") ||
+			apply.includes("leave the bundle in_progress"),
+		"apply body should state that failed bundles remain in_progress after drain-then-stop",
+	);
+
+	// Legacy fallback (review P2 fix): graph absent bypasses the dispatcher.
+	assert.ok(
+		apply.includes(
+			"This applies even when `apply.subagent_dispatch.enabled: true`",
+		),
+		"apply body should state the legacy fallback applies regardless of dispatcher enablement",
+	);
+});
+
+test("generated specflow.apply.md carries the subagent dispatcher prose", () => {
+	const applyPath = "dist/package/global/commands/specflow.apply.md";
+	assert.ok(
+		existsSync(applyPath),
+		`${applyPath} is missing; run \`npm run build\` before the test suite`,
+	);
+	const apply = readFileSync(applyPath, "utf8");
+
+	// Spot-check: the generated command exposes the dispatcher decision, the
+	// preflight invariant, and the no-mutation constraint for subagents.
+	assert.ok(
+		apply.includes("apply.subagent_dispatch"),
+		"generated apply.md should reference the config section",
+	);
+	assert.ok(
+		apply.includes("Preflight the entire window"),
+		"generated apply.md should document window-wide preflight",
+	);
+	assert.ok(
+		apply.includes("SHALL NOT invoke `specflow-advance-bundle`"),
+		"generated apply.md should carry the subagent no-mutation constraint",
+	);
+	assert.ok(
+		apply.includes("Drain-then-stop"),
+		"generated apply.md should document drain-then-stop",
+	);
+	assert.ok(
+		apply.includes(
+			"This applies even when `apply.subagent_dispatch.enabled: true`",
+		),
+		"generated apply.md should state the legacy fallback applies when task-graph is absent",
+	);
+});
+
 test("generated specflow.fix_apply.md carries the specflow-advance-bundle safety-net", () => {
 	const fixApplyPath = "dist/package/global/commands/specflow.fix_apply.md";
 	assert.ok(

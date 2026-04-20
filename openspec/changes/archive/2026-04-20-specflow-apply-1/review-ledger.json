@@ -1,0 +1,223 @@
+{
+  "feature_id": "specflow-apply-1",
+  "phase": "impl",
+  "current_round": 5,
+  "status": "in_progress",
+  "max_finding_id": 10,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-generate-task-graph.ts",
+      "title": "Production task-graph generation still omits `size_score`",
+      "detail": "The new `size_score` enrichment was added only in `src/lib/task-planner/generate.ts`, but the real `specflow-generate-task-graph` CLI still validates and persists `result.payload` directly (`validateTaskGraph(result.payload)` then `const taskGraph = result.payload`). That means newly generated `task-graph.json` files still do not carry `size_score`, so the dispatcher's backward-compat path treats them as inline-only and the spec's threshold rule never activates for normal generation. Route the CLI through `generateTaskGraph()` or apply the same deterministic enrichment before writing `task-graph.json`.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/task-planner-core.test.ts",
+      "title": "No integration test covers the real generation path",
+      "detail": "The added tests only verify the library helper and schema acceptance. There is still no end-to-end test for `specflow-generate-task-graph` or for the persisted `task-graph.json` artifact containing `size_score`. That gap is why the production CLI path was able to diverge from the helper implementation. Add a CLI/integration test that generates a graph and asserts every written bundle includes `size_score = tasks.length`.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F03",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/task-planner/enrich.ts",
+      "title": "The reviewed patch imports a new enrichment helper without adding it",
+      "detail": "Both `src/bin/specflow-generate-task-graph.ts` and `src/lib/task-planner/generate.ts` now import `task-planner/enrich.js`, but this diff never adds the corresponding tracked source file. On a clean checkout, the patch as reviewed will not compile and the size-score fix will not ship. Include `src/lib/task-planner/enrich.ts` in the diff (and any needed exports) together with these call-site changes.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/task-planner/schema.ts",
+      "title": "Schema accepts size_score values that violate the dispatcher contract",
+      "detail": "The proposal defines `size_score = bundle.tasks.length`, but the new validator only checks for any non-negative integer, and `src/tests/task-planner-schema.test.ts` now codifies mismatched values like `size_score: 3` and `size_score: 0` on one-task bundles as valid. That lets a stale or corrupted `task-graph.json` pass validation while feeding the dispatcher the wrong threshold signal. Validate `size_score === bundle.tasks.length` when present, or normalize it on read, and update the tests to reject mismatches.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F05",
+      "severity": "high",
+      "category": "quality",
+      "file": "src/lib/apply-dispatcher/context-package.ts",
+      "title": "Dispatcher trusts task-graph paths and can read files outside the repo",
+      "detail": "The new context-packaging path reads bundle.inputs via join(repoRoot, ref) without constraining the normalized path, and the same unsanitized path-building pattern is used for owner_capabilities in capability-resolution.ts. A malformed or hostile task-graph.json can supply ../../ segments or absolute paths and cause the dispatcher to pull arbitrary local files into subagent context before any CLI mutation/validation runs. Reject absolute and parent-traversal segments and verify every resolved path stays under the intended repo subtrees before reading.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R3-F06",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/task-planner/generate.ts",
+      "title": "Library generation validates stale size_score before normalizing it",
+      "detail": "generateTaskGraph still calls validateTaskGraph(parsed) before withSizeScore(parsed). Now that the schema rejects mismatched size_score values, any model output that includes an incorrect or stale size_score will fail generation instead of being normalized to tasks.length, even though the new helper and tests claim generation paths overwrite stale values. Strip or normalize size_score before validation so the helper actually protects the library path.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R3-F07",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/apply-dispatcher/config.ts",
+      "title": "YAML section lookup can leak into a different top-level section",
+      "detail": "readLeafUnder does not bound the search for later parent segments to the current section. If apply: exists but has no subagent_dispatch block, the parser will still match a later indented subagent_dispatch: under some other top-level key and treat it as apply.subagent_dispatch. That can unexpectedly enable the dispatcher or load the wrong threshold/max_concurrency from unrelated YAML. Stop each parent-segment search at the current section boundary and add a regression test for a sibling section that contains its own subagent_dispatch block.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R4-F08",
+      "severity": "high",
+      "category": "error_handling",
+      "file": "src/lib/apply-dispatcher/orchestrate.ts",
+      "title": "Failed `done` transitions are downgraded to chunk failures instead of stopping immediately",
+      "detail": "After all subagents settle, a thrown `advance(bundleId, \"done\")` is caught, converted into a `ChunkFailure`, and the loop continues advancing later successful bundles to `done`. The `/specflow.apply` contract says any non-zero `specflow-advance-bundle` exit must stop immediately and surface that CLI error verbatim. As written, one fatal mutation error can be masked and later siblings can still be marked `done`, leaving bundle state beyond the first failed CLI mutation.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R5-F09",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/lib/apply-dispatcher/context-package.ts",
+      "title": "Missing context artifacts are silently downgraded to empty strings",
+      "detail": "`assembleContextPackage` uses `readFileOrEmpty()` for `proposal.md`, `design.md`, and `tasks.md`, and `readBundleInputs()` returns `\"\"` when a declared input file is absent. That means a corrupted change or typoed `bundle.inputs` entry still dispatches a subagent with incomplete context instead of failing fast before any status transition. The context-package contract requires the full proposal/design and the contents of each listed input artifact, so missing files should abort the window rather than being silently replaced with empty content.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F10",
+      "severity": "low",
+      "category": "quality",
+      "file": "src/lib/apply-dispatcher/context-package.ts",
+      "title": "Absolute checkout-local input paths are still accepted",
+      "detail": "`resolveRepoRelative()` only rejects absolute paths when they escape `repoRoot`. A task-graph entry like `/abs/path/to/this/repo/src/foo.ts` is still accepted and later shipped to the subagent unchanged, even though the dispatcher's own contract says inputs are repo-relative artifact references. This leaves the absolute-path hardening incomplete and makes task graphs machine-specific. Reject absolute `bundle.inputs` paths outright, even when they happen to point inside the current checkout.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-apply_review-1"
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 3,
+      "new": 2,
+      "resolved": 1,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "high": 1
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-apply_review-2"
+    },
+    {
+      "round": 3,
+      "total": 7,
+      "open": 3,
+      "new": 3,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-apply_review-3"
+    },
+    {
+      "round": 4,
+      "total": 8,
+      "open": 2,
+      "new": 1,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-apply_review-4"
+    },
+    {
+      "round": 5,
+      "total": 10,
+      "open": 2,
+      "new": 2,
+      "resolved": 8,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "low": 1
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-apply_review-5"
+    }
+  ]
+}

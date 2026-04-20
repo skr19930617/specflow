@@ -133,6 +133,27 @@ export function validateTaskGraph(input: unknown): ValidationResult {
 			);
 		}
 
+		// Optional size_score: when present, SHALL be a non-negative integer AND
+		// SHALL equal `bundle.tasks.length`. The dispatcher contract (see
+		// `bundle-subagent-execution` spec) defines `size_score = tasks.length`;
+		// persisting a mismatched value would let a stale or corrupted graph
+		// silently misroute bundles between inline and subagent dispatch.
+		if (bundle.size_score !== undefined) {
+			const score = bundle.size_score;
+			if (typeof score !== "number" || !Number.isInteger(score) || score < 0) {
+				errors.push(
+					`${prefix}.size_score: expected non-negative integer when present`,
+				);
+			} else if (Array.isArray(bundle.tasks)) {
+				const taskCount = (bundle.tasks as unknown[]).length;
+				if (score !== taskCount) {
+					errors.push(
+						`${prefix}.size_score (${score}) must equal bundle.tasks.length (${taskCount})`,
+					);
+				}
+			}
+		}
+
 		// String arrays
 		if (!isStringArray(bundle.depends_on)) {
 			errors.push(`${prefix}.depends_on: expected string array`);

@@ -138,6 +138,96 @@ test("generateTaskGraph: retries on JSON parse error", async () => {
 	assert.equal(result.ok, true);
 });
 
+test("generateTaskGraph: emits size_score = tasks.length on every bundle", async () => {
+	const graph = sampleGraph();
+	// The fixture's LLM response intentionally omits size_score so we can verify
+	// the generator attaches it during post-processing (not via the LLM).
+	const client = mockLlmClient([JSON.stringify(graph)]);
+	const result = await generateTaskGraph(
+		"# Design",
+		"test-change",
+		["artifact-ownership-model", "task-planner"],
+		client,
+	);
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	for (const bundle of result.taskGraph.bundles) {
+		assert.equal(
+			bundle.size_score,
+			bundle.tasks.length,
+			`bundle ${bundle.id} size_score should equal tasks.length`,
+		);
+	}
+});
+
+test("generateTaskGraph: normalizes LLM-emitted stale size_score (R3-F06)", async () => {
+	// Simulate an LLM that emits size_score inconsistent with tasks.length.
+	// After the R2-F04 schema tightening, validating the raw LLM output would
+	// fail. The generator must strip size_score BEFORE validation and reapply
+	// the canonical value via withSizeScore.
+	const rawWithStaleScore = {
+		version: "1.0",
+		change_id: "test-change",
+		generated_at: "2026-04-14T00:00:00Z",
+		generated_from: "design.md",
+		bundles: [
+			{
+				id: "one",
+				title: "One",
+				goal: "g",
+				depends_on: [],
+				inputs: [],
+				outputs: ["o"],
+				status: "pending",
+				tasks: [
+					{ id: "1", title: "a", status: "pending" },
+					{ id: "2", title: "b", status: "pending" },
+				],
+				owner_capabilities: ["task-planner"],
+				size_score: 99, // stale / mismatched
+			},
+		],
+	};
+	const client = mockLlmClient([JSON.stringify(rawWithStaleScore)]);
+	const result = await generateTaskGraph(
+		"# Design",
+		"test-change",
+		["task-planner"],
+		client,
+		{ maxRetries: 1 },
+	);
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	assert.equal(result.taskGraph.bundles[0]?.size_score, 2);
+});
+
+test("generateTaskGraph: size_score is zero for bundles with empty tasks", async () => {
+	const graph: TaskGraph = {
+		version: "1.0",
+		change_id: "test-change",
+		generated_at: "2026-04-14T00:00:00Z",
+		generated_from: "design.md",
+		bundles: [
+			{
+				id: "empty",
+				title: "Empty Bundle",
+				goal: "No tasks yet",
+				depends_on: [],
+				inputs: [],
+				outputs: [],
+				status: "pending",
+				tasks: [],
+				owner_capabilities: ["task-planner"],
+			},
+		],
+	};
+	const client = mockLlmClient([JSON.stringify(graph)]);
+	const result = await generateTaskGraph("# Design", "test-change", [], client);
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	assert.equal(result.taskGraph.bundles[0]?.size_score, 0);
+});
+
 // --- renderTasksMd tests ---
 
 test("renderTasksMd: renders all bundles", () => {

@@ -20,6 +20,7 @@ export interface Bundle {
 	readonly status: BundleStatus;
 	readonly tasks: readonly Task[];
 	readonly owner_capabilities: readonly string[];
+	readonly size_score?: number;
 }
 
 export interface TaskGraph {

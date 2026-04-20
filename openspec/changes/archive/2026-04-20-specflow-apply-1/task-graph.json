@@ -1,0 +1,237 @@
+{
+  "version": "1.0",
+  "change_id": "specflow-apply-1",
+  "bundles": [
+    {
+      "id": "task-graph-size-score",
+      "title": "Add Size Score to Task Graphs",
+      "goal": "Persist deterministic bundle size metadata in generated task graphs while keeping validation backward-compatible.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "src/lib/task-planner/types.ts",
+        "src/lib/task-planner/schema.ts",
+        "src/lib/task-planner/generate.ts"
+      ],
+      "outputs": [
+        "src/lib/task-planner/types.ts",
+        "src/lib/task-planner/schema.ts",
+        "src/lib/task-planner/generate.ts",
+        "task-planner schema/generator tests"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend Bundle types and schema to accept optional non-negative size_score values",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Emit size_score = bundle.tasks.length during task graph generation without changing tasks.md rendering",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add validation tests covering graphs with size_score, without size_score, and archived legacy graphs",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner",
+        "design-planning-contract",
+        "spec-consistency-verification"
+      ]
+    },
+    {
+      "id": "dispatch-config-guard",
+      "title": "Add Dispatcher Config Guard",
+      "goal": "Read subagent dispatch settings from openspec config and gate dispatcher activation on config plus task-graph existence.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "openspec/config.yaml",
+        "src/lib/review-runtime.ts",
+        "/specflow.apply Step 1 contract"
+      ],
+      "outputs": [
+        "src/lib/apply-dispatcher/dispatch config helpers",
+        "dispatcher config/guard tests"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define DispatchConfig defaults and shouldUseDispatcher guard semantics",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement readDispatchConfig for enabled, threshold, and max_concurrency using the existing YAML reader pattern",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add tests for missing config, partial config, invalid values, and task-graph absent fallback behavior",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-gate-semantics",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "dispatcher-context-preflight",
+      "title": "Build Dispatcher Context and Preflight",
+      "goal": "Implement window classification, capability preflight, and deterministic context-package assembly for subagent-ready bundles.",
+      "depends_on": [
+        "task-graph-size-score",
+        "dispatch-config-guard"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/task-planner/window.ts",
+        "src/lib/task-planner/render.ts",
+        "openspec/specs/<cap>/spec.md",
+        "openspec/changes/<CHANGE_ID>/specs/<cap>/spec.md"
+      ],
+      "outputs": [
+        "src/contracts/apply-dispatcher.ts",
+        "src/lib/apply-dispatcher/",
+        "dispatcher classification/context tests"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define dispatcher contracts for ContextPackage and SubagentResult and export classifyWindow and preflightWindow APIs",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement window-uniform classification with deterministic chunking from bundle order and maxConcurrency",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Implement capability resolution rules that require a baseline or delta spec for every owner capability",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Implement assembleContextPackage to produce the six-category payload from proposal, design, specs, bundle slice, tasks section, and inputs",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add tests for all-small, all-large, mixed windows and baseline-only, delta-only, both, and missing capability cases",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "agent-context-template",
+        "workspace-context",
+        "artifact-ownership-model",
+        "task-planner"
+      ]
+    },
+    {
+      "id": "dispatcher-chunk-orchestration",
+      "title": "Implement Chunked Subagent Orchestration",
+      "goal": "Execute subagent-mode windows in bounded parallel chunks while preserving serialized bundle status mutations and fail-fast semantics.",
+      "depends_on": [
+        "dispatcher-context-preflight",
+        "dispatch-config-guard"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/apply-dispatcher/",
+        "src/bin/specflow-advance-bundle.ts",
+        "src/lib/task-planner/advance.ts"
+      ],
+      "outputs": [
+        "src/lib/apply-dispatcher/runDispatchedWindow",
+        "dispatcher orchestration tests"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement runDispatchedWindow to preflight the full window before any in_progress transition or subagent dispatch",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Advance each dispatched bundle to in_progress, invoke chunked subagents in parallel, and serialize done transitions through the main agent",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Use Promise.allSettled-style draining to record successful siblings, keep failed bundles in_progress, and return every chunk failure",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add tests for all-success, multi-failure drain-then-stop, and zero-mutation preflight failure behavior",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "agent-session-manager",
+        "canonical-workflow-state",
+        "workflow-run-state"
+      ]
+    },
+    {
+      "id": "apply-command-dispatch-integration",
+      "title": "Integrate Dispatcher Into Apply Command",
+      "goal": "Update /specflow.apply guidance and tests so the apply loop branches between legacy inline execution and dispatcher-driven subagent windows.",
+      "depends_on": [
+        "dispatcher-chunk-orchestration",
+        "dispatch-config-guard"
+      ],
+      "inputs": [
+        "design.md",
+        "assets/commands/specflow.apply.md.tmpl",
+        "src/tests/__snapshots__/specflow.apply.md.snap",
+        "slash-command-guides spec delta"
+      ],
+      "outputs": [
+        "assets/commands/specflow.apply.md.tmpl",
+        "src/tests/__snapshots__/specflow.apply.md.snap",
+        "apply command/template tests"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Rewrite Step 1 to read config, call shouldUseDispatcher, and branch between legacy tasks.md and dispatcher paths per window",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Document inline versus subagent window execution, chunked fan-out, window preflight, drain-then-stop, and sole-mutation-entry-point behavior",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Embed the mandatory subagent no-mutation constraint covering specflow-advance-bundle, task-graph.json, and tasks.md",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Regenerate snapshots and add template tests for legacy, inline-mode, and subagent-mode control flow",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "command-template-authoring",
+        "slash-command-guides",
+        "workflow-gate-semantics"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-20T07:45:43.507Z",
+  "generated_from": "design.md"
+}
