@@ -1,0 +1,301 @@
+{
+  "version": "1.0",
+  "change_id": "dbui",
+  "bundles": [
+    {
+      "id": "watch-run-readers",
+      "title": "Run Readers and Resolution",
+      "goal": "Resolve the tracked run and load all read-only watcher inputs from disk with tolerant parsing.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "src/lib/gate-runtime.ts",
+        ".specflow/runs/<run_id>/run.json",
+        ".specflow/runs/<run_id>/autofix-progress-<phase>.json",
+        ".specflow/runs/<run_id>/events.jsonl",
+        "openspec/changes/<change_name>/task-graph.json"
+      ],
+      "outputs": [
+        "src/lib/observation-event-reader.ts",
+        "specflow-watch run-resolution helper",
+        "specflow-watch artifact reader helpers",
+        "unit tests for run resolution and tolerant artifact parsing"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement run scanning and resolution order with run_id, change_name active-run lookup, and current-branch fallback",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add read-only loaders for run-state, optional autofix snapshots, and validated task-graph input with graceful degraded states",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add a JSONL tailer that returns the last N events for the tracked run and ignores torn final lines",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Cover resolution and reader edge cases with unit tests for missing, malformed, and partially written artifacts",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "run-identity-model",
+        "workflow-run-state",
+        "workflow-observation-events",
+        "task-planner",
+        "review-autofix-progress-observability"
+      ]
+    },
+    {
+      "id": "watch-fs-runtime",
+      "title": "Filesystem Watch Runtime",
+      "goal": "Provide a disposable watch runtime that coalesces file events and polling fallback into a single redraw signal.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "watched artifact path contract for run.json, autofix-progress files, events.jsonl, and task-graph.json"
+      ],
+      "outputs": [
+        "src/lib/watch-fs.ts",
+        "unit tests for parent-directory watches, polling fallback, and debounce behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement watchPaths for explicit file paths, including parent-directory watches when a watched file does not yet exist",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Combine fs.watch notifications with an 80 ms redraw debounce and a 2 second mtime and size polling fallback",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Expose normalized change callbacks and cleanup semantics that remove watchers and timers cleanly",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add temp-directory tests covering create, update, delete, and atomic-replace scenarios across the watched paths",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "utility-cli-suite",
+        "workspace-context",
+        "run-artifact-store-conformance"
+      ]
+    },
+    {
+      "id": "watch-renderer",
+      "title": "ANSI Watch Renderer",
+      "goal": "Render the watcher model as a full-screen ANSI TUI with stable sections, bundle progress bars, and degraded-state placeholders.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "run-state artifact schema",
+        "AutofixProgressSnapshot",
+        "TaskGraph",
+        "observation events reader output"
+      ],
+      "outputs": [
+        "src/lib/watch-renderer/",
+        "renderer model contract for specflow-watch",
+        "golden-frame tests for startup, inactive runs, and narrow terminals"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Define the render model for header, review status, bundle progress, and recent events",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement 16-color ANSI frame rendering with alt-screen sections, per-section diffing, and resize-safe layout",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Render topological bundle bars, placeholder states, parse-error banners, and frozen-run messaging",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add golden tests for startup, degraded artifacts, inactive runs, and width-clamped progress bars",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "task-planner",
+        "review-autofix-progress-observability",
+        "workflow-observation-events"
+      ]
+    },
+    {
+      "id": "specflow-watch-cli",
+      "title": "Watch CLI Adapter",
+      "goal": "Ship the specflow-watch binary that wires readers, watcher runtime, and renderer into a clean terminal lifecycle.",
+      "depends_on": [
+        "watch-run-readers",
+        "watch-fs-runtime",
+        "watch-renderer"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/observation-event-reader.ts",
+        "specflow-watch run-resolution helper",
+        "specflow-watch artifact reader helpers",
+        "src/lib/watch-fs.ts",
+        "src/lib/watch-renderer/",
+        "package.json"
+      ],
+      "outputs": [
+        "src/bin/specflow-watch.ts",
+        "package.json bin entry for specflow-watch",
+        "CLI usage contract for specflow-watch arguments and exit behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement CLI argument parsing, git branch detection, and initial tracked-run resolution",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Wire initial reads, redraw pipeline, resize handling, and watch loop updates into the process adapter",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Implement read-only terminal lifecycle behavior including alt-screen enter and exit, q and Ctrl+C shutdown, and frozen-run banner handling",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Register the binary in package.json and lock the invocation contract consumed by slash-command guides",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "utility-cli-suite",
+        "run-identity-model",
+        "workflow-run-state",
+        "workspace-context"
+      ]
+    },
+    {
+      "id": "specflow-watch-command",
+      "title": "Slash Command Guide",
+      "goal": "Expose the watcher through the existing command contract pipeline and generate the /specflow.watch guide.",
+      "depends_on": [
+        "specflow-watch-cli"
+      ],
+      "inputs": [
+        "design.md",
+        "src/contracts/commands.ts",
+        "src/contracts/command-bodies.ts",
+        "assets/commands/",
+        "CLI usage contract for specflow-watch arguments and exit behavior"
+      ],
+      "outputs": [
+        "src/contracts/commands.ts entry for specflow.watch",
+        "src/contracts/command-bodies.ts entry for specflow.watch",
+        "assets/commands/specflow.watch.md.tmpl",
+        "global/commands/specflow.watch.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add the specflow.watch command contract entry with no phase handoff and no run hook",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Register the command body so the template-resolver pipeline emits the new guide",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Author the guide template with tmux-first launch, macOS open fallback, and explicit manual launch instructions",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Generate and verify the rendered global command artifact for specflow.watch",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "command-template-authoring",
+        "contract-driven-distribution"
+      ]
+    },
+    {
+      "id": "watch-verification",
+      "title": "Acceptance and Guardrails",
+      "goal": "Prove the watcher meets the read-only and real-time acceptance criteria and does not regress existing contracts.",
+      "depends_on": [
+        "specflow-watch-cli",
+        "specflow-watch-command"
+      ],
+      "inputs": [
+        "design.md",
+        "src/bin/specflow-watch.ts",
+        "src/lib/observation-event-reader.ts",
+        "src/lib/watch-fs.ts",
+        "src/lib/watch-renderer/",
+        "assets/commands/specflow.watch.md.tmpl",
+        "global/commands/specflow.watch.md"
+      ],
+      "outputs": [
+        "import-graph regression test for specflow-watch read-only dependencies",
+        "seeded-run integration tests for redraws, placeholders, and clean exit",
+        "passing npm run check for the specflow-watch change"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add an import-graph or module-boundary test that blocks writer and mutation paths from the watcher binary",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add seeded-run integration coverage for startup render, file-change redraws, inactive-run banner, resize, and clean exit",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Validate command guide generation and end-to-end CLI behavior under missing or malformed optional artifacts",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Run npm run check and resolve any typecheck, lint, format, test, or contract validation failures",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "artifact-ownership-model",
+        "repo-responsibility",
+        "run-artifact-store-conformance"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-19T15:49:49.659Z",
+  "generated_from": "design.md"
+}

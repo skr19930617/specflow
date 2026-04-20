@@ -19,7 +19,8 @@
 		"specflow-generate-task-graph": "bin/specflow-generate-task-graph",
 		"specflow-migrate-records": "bin/specflow-migrate-records",
 		"specflow-run": "bin/specflow-run",
-		"specflow-spec-verify": "bin/specflow-spec-verify"
+		"specflow-spec-verify": "bin/specflow-spec-verify",
+		"specflow-watch": "bin/specflow-watch"
 	},
 	"exports": {
 		"./conformance": "./dist/conformance/index.js"

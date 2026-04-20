@@ -195,6 +195,11 @@ export const commandContracts: readonly CommandContract[] = [
 		[],
 	),
 	command(
+		"specflow.watch",
+		"run-state / autofix snapshot / task-graph / observation events を読み取る read-only TUI を別ターミナルで起動",
+		[],
+	),
+	command(
 		"specflow.setup",
 		"Repository profile を生成・更新し、CLAUDE.md の managed セクションを再レンダリング",
 		[],

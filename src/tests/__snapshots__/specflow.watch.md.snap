@@ -1,0 +1,129 @@
+---
+description: run-state / autofix snapshot / task-graph / observation events を読み取る read-only TUI を別ターミナルで起動
+---
+## User Input
+
+
+```text
+$ARGUMENTS
+```
+
+## Purpose
+
+
+`/specflow.watch` launches the `specflow-watch` TUI in a **separate terminal**
+so you can observe a single specflow run's progress in real time while you
+keep working in the main chat. The TUI is:
+
+- **read-only** — it never calls `specflow-run advance` or mutates any run
+  artifact;
+- **no server, no database** — it reads run-state, the autofix progress
+  snapshot, `task-graph.json`, and the observation events log directly from
+  the local filesystem under `.specflow/runs/` and
+  `openspec/changes/<change_name>/`;
+- **auto-redrawing** — it watches those files with `fs.watch` plus a 2 s
+  polling fallback and redraws on change.
+
+This command does NOT consume or parse `tasks.md`; the canonical bundled
+progress source is `openspec/changes/<change_name>/task-graph.json`.
+
+## Step 1: Determine the run to track
+
+
+`specflow-watch` accepts one optional positional argument:
+
+- `specflow-watch <run-id>` — track that exact run (regardless of status).
+- `specflow-watch <change-name>` — track the latest active run whose
+  `change_name` matches, ordered by `updated_at DESC` then `created_at DESC`,
+  picking the first.
+- `specflow-watch` (no argument) — resolve the same way as `<change-name>`,
+  using the current git branch name as the implicit `change_name`.
+
+The CLI first attempts to interpret the argument as a `run_id`. If no run
+with that id exists, it falls back to treating it as a `change_name`. If
+nothing resolves, it exits with a clear error and does **not** open the TUI.
+
+From `$ARGUMENTS`, set `WATCH_TARGET` to either the argument the user
+provided or an empty string. If empty, the no-argument form is used.
+
+## Step 2: Launch the TUI in a separate terminal
+
+
+Detect the environment and pick the first applicable launch path. Each
+path runs the same invocation (with or without `WATCH_TARGET`).
+
+### Launch path A — inside tmux
+
+Detect via Bash:
+```bash
+if [[ -n "$TMUX" ]]; then echo tmux; fi
+```
+
+If `$TMUX` is set, launch via Bash using `tmux split-window`:
+```bash
+tmux split-window -h "specflow-watch $WATCH_TARGET"
+```
+Use `-h` for a vertical split (preferred) or `-v` for horizontal — pick
+whichever fits the user's existing layout. Report which pane was opened.
+
+### Launch path B — macOS with `open` available
+
+Only when path A does not apply. Detect via Bash:
+```bash
+if command -v open >/dev/null 2>&1 && [[ "$(uname)" == "Darwin" ]]; then
+  echo macos-open
+fi
+```
+
+Launch a new Terminal window running the watcher:
+```bash
+CMD="cd \"$(pwd)\" && specflow-watch $WATCH_TARGET"
+open -a Terminal -n --args bash -lc "$CMD"
+```
+Fall back to the manual-command path (C) if `open` returns non-zero.
+
+### Launch path C — manual-command fallback
+
+When neither A nor B applies (bare Linux, VSCode integrated terminal,
+remote SSH without tmux, etc.):
+
+1. Print the ready-to-paste command for the user:
+
+   ```
+   Separate-terminal launch is not available in this environment. Run the
+   following command in another terminal to start the watcher:
+
+       specflow-watch <WATCH_TARGET>
+
+   Press q or Ctrl+C in that terminal to exit the watcher.
+   ```
+
+   Replace `<WATCH_TARGET>` with the resolved argument, or omit it to use
+   the branch-based default.
+
+2. End this slash command. Do **not** spawn the watcher in the current
+   terminal — that would take over the Claude chat session.
+
+## Step 3: Exit and lifecycle
+
+
+- The watcher exits on `q`, `Q`, or `Ctrl+C`.
+- When the tracked run transitions to a non-active status (completed,
+  failed, canceled, suspended, or archived), the watcher keeps the window
+  open and displays a "Run <status> — press q to quit" banner. If the run
+  re-enters `active`, the watcher resumes live updates without needing a
+  restart.
+- `/specflow.watch` does NOT wait for the watcher to exit — it only
+  launches it and returns control to the main chat.
+
+## Important Rules
+
+
+- Use the git repository root (`git rev-parse --show-toplevel`) as the base
+  for all relative paths.
+- Never run `specflow-watch` in the foreground of the main Claude chat —
+  the TUI will take over the terminal. Always use tmux, `open`, or the
+  manual-command fallback.
+- `specflow-watch` reads only local filesystem artifacts and never writes
+  to any run artifact; it never calls `specflow-run advance` or any other
+  mutating specflow subcommand.
