@@ -105,8 +105,36 @@ Pass raw input directly to the local entry helper. Source normalization is handl
 4. Parse the returned run-state JSON. Set `CHANGE_ID = RUN_STATE.change_name` and `RUN_ID = RUN_STATE.run_id`. `RUN_ID` has the format `<CHANGE_ID>-<N>` (e.g., `my-feature-1`). All subsequent `specflow-run` subcommands require `RUN_ID`.
 5. Read `openspec/changes/<CHANGE_ID>/proposal.md`.
 6. If the seeded draft clearly misses obvious scope/details from the source, refine `proposal.md` immediately before moving on.
+7. **Auto-launch Watch TUI** — launch `specflow-watch` in a separate terminal so the user can monitor progress in real time. The watcher is read-only and does not affect the main workflow. Skip this step entirely if `SPECFLOW_NO_WATCH=1` is set.
 
-Report: `Step 3 complete — proposal created and run entered proposal_draft`
+   Check via Bash:
+   ```bash
+   echo "${SPECFLOW_NO_WATCH:-0}"
+   ```
+   If the output is `1`, skip to the report line below.
+
+   Otherwise, detect the environment and pick the first applicable launch path:
+
+   **Path A — inside tmux** (detect via `[[ -n "$TMUX" ]]`):
+   ```bash
+   tmux split-window -h "specflow-watch $RUN_ID"
+   ```
+   Set `WATCH_METHOD=tmux`.
+
+   **Path B — macOS with `open`** (only when A does not apply; detect via `command -v open` + `uname == Darwin`):
+   ```bash
+   CMD="cd \"$(pwd)\" && specflow-watch $RUN_ID"
+   open -a Terminal -n --args bash -lc "$CMD"
+   ```
+   Set `WATCH_METHOD=terminal`. Fall back to Path C if `open` returns non-zero.
+
+   **Path C — manual fallback** (when neither A nor B applies):
+   Print a single line: `💡 別ターミナルで specflow-watch $RUN_ID を実行すると進捗をリアルタイムで確認できます`
+   Set `WATCH_METHOD=manual`.
+
+   If any launch command fails, log the error silently and continue — watch launch failure must never block the main workflow.
+
+Report: `Step 3 complete — proposal created and run entered proposal_draft (watch: $WATCH_METHOD)`
 
 ## Step 4: Scope Check
 
