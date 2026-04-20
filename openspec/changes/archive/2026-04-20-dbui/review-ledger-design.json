@@ -1,0 +1,78 @@
+{
+  "feature_id": "dbui",
+  "phase": "design",
+  "current_round": 2,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "consistency",
+      "title": "Autofix snapshot selection does not match the active-review requirement",
+      "detail": "The review section is required to reflect the active review gate, but D4 says both design/apply snapshot files are watched and \"whichever exists is rendered.\" If both files exist, the watcher can show stale data from the wrong gate. Define a deterministic selection rule tied to run-state (for example current_phase and/or allowed_events), fall back to \"No active review\" when neither gate is active, and add reader/render tests for the case where both snapshot files are present.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Re-activation after terminal status is not explicitly planned in the task breakdown",
+      "detail": "The design correctly states that the watcher must resume live updates if a run moves from a terminal status back to active, but the tasks only call out frozen-run banner handling and inactive-run coverage. There is no explicit implementation or integration-test task for active -> terminal -> active transitions, so this required lifecycle path is easy to miss. Add a task and acceptance coverage that verifies the watcher keeps its watches installed and resumes updating after re-activation.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "TASKS CONTENT",
+      "title": "Slash-command guide tasks do not explicitly cover all required guide contents",
+      "detail": "Task 5.3 only calls out tmux/open/manual launch text, but the slash-command-guides spec also requires the generated guide to document the three invocation forms, run_id-first-then-change_name resolution, the default branch-derived lookup rule with ordering and no-match error behavior, and the read-only artifact contract including that tasks.md is not consumed and no mutating subcommands are called. Add these requirements to the guide-authoring and verification tasks so the command can ship fully compliant documentation.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-dbui-1-design_review-1"
+    },
+    {
+      "round": 2,
+      "total": 3,
+      "open": 1,
+      "new": 1,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1
+      },
+      "gate_id": "review_decision-dbui-1-design_review-2"
+    }
+  ]
+}

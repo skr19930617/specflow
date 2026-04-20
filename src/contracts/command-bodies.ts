@@ -80,4 +80,8 @@ export const commandBodies: Record<string, CommandBody> = {
 		"specflow.spec",
 		"既存コードベースを解析し、openspec/specs/ にベースライン spec を一括生成",
 	),
+	"specflow.watch": command(
+		"specflow.watch",
+		"run-state / autofix snapshot / task-graph / observation events を読み取る read-only TUI を別ターミナルで起動",
+	),
 };

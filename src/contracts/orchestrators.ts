@@ -135,4 +135,13 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
 		stdoutSchemaId: "spec-verify-result",
 		references: [],
 	},
+	{
+		id: "specflow-watch",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-watch",
+		entryModule: "dist/bin/specflow-watch.js",
+		// Real-time TUI adapter: stdout is ANSI-rendered frames, not a
+		// structured JSON envelope, so no stdoutSchemaId applies.
+		references: [],
+	},
 ];
