@@ -5,6 +5,7 @@
 // TUI; redraws on filesystem changes with a polling fallback. Exits cleanly
 // on `q` or Ctrl+C, restoring the terminal.
 
+import { dirname } from "node:path";
 import { argv, exit, stdin, stdout } from "node:process";
 
 import { tryGit } from "../lib/git.js";
@@ -14,7 +15,10 @@ import {
 } from "../lib/observation-event-reader.js";
 import type { ArtifactReadResult } from "../lib/specflow-watch/artifact-readers.js";
 import {
+	approvalSummaryPath,
 	autofixSnapshotPath,
+	phaseIsLiveReviewGate,
+	readApprovalSummary,
 	readAutofixSnapshotFile,
 	readRunStateFile,
 	readTaskGraphFile,
@@ -29,6 +33,7 @@ import { watchPaths } from "../lib/watch-fs.js";
 import {
 	ALT_SCREEN_ENTER,
 	ALT_SCREEN_LEAVE,
+	buildApprovalSummary,
 	buildEventsView,
 	buildHeader,
 	buildReviewView,
@@ -37,6 +42,7 @@ import {
 	CURSOR_HIDE,
 	CURSOR_HOME,
 	CURSOR_SHOW,
+	deriveManualFixKind,
 	moveTo,
 	renderFrame,
 	terminalBannerFor,
@@ -108,27 +114,28 @@ function buildModel(inputs: ModelInputs): WatchModel {
 	const { run, runRead, repoRoot, branch, eventTail } = inputs;
 	const phase = run.current_phase;
 	const status = run.status;
+	const manualFixKind = deriveManualFixKind(run);
 	const header = buildHeader({
 		run_id: run.run_id,
 		change_name: run.change_name ?? null,
 		current_phase: phase,
 		status,
 		branch,
+		manual_fix_kind: manualFixKind,
 	});
 
-	// Autofix snapshot: select by current_phase, never mix gates.
+	// Autofix snapshot: select by phase family (sticky across draft/ready/approved).
 	const selected = selectActiveAutofixPhase(phase);
-	let reviewRead: ArtifactReadResult<
-		NonNullable<
-			Parameters<typeof buildReviewView>[1]
-		> extends ArtifactReadResult<infer U>
-			? U
-			: never
-	> = { kind: "absent" };
-	if (selected !== null) {
-		reviewRead = readAutofixSnapshotFile(repoRoot, run.run_id, selected);
-	}
-	const review = buildReviewView(selected !== null, reviewRead);
+	const reviewRead =
+		selected === null
+			? ({ kind: "absent" } as const)
+			: readAutofixSnapshotFile(repoRoot, run.run_id, selected);
+	const review = buildReviewView({
+		phase_is_review_gate: phaseIsLiveReviewGate(phase),
+		phase_in_review_family: selected !== null,
+		snapshot: reviewRead,
+		manual_fix_kind: manualFixKind,
+	});
 
 	// Task graph
 	const changeForGraph = run.change_name ?? "";
@@ -150,12 +157,17 @@ function buildModel(inputs: ModelInputs): WatchModel {
 	);
 	const eventsView = buildEventsView(events);
 
+	// Approval summary
+	const approvalRead = readApprovalSummary(repoRoot, run);
+	const approvalSummary = buildApprovalSummary(approvalRead);
+
 	return {
 		header,
 		terminal_banner: runRead.kind === "ok" ? terminalBannerFor(status) : null,
 		review,
 		task_graph: taskGraphView,
 		events: eventsView,
+		approval_summary: approvalSummary,
 	};
 }
 
@@ -307,6 +319,14 @@ function main(): void {
 	];
 	if (run.change_name) {
 		watchedPaths.push(taskGraphPath(repoRoot, run.change_name));
+	}
+	// Watch the directory containing approval-summary.md so a missing→present
+	// transition (first approve) triggers a redraw. Falls back to the file
+	// itself; the 2s polling fallback catches atomic writes either way.
+	if (run.last_summary_path) {
+		const approvalPath = approvalSummaryPath(repoRoot, run.last_summary_path);
+		watchedPaths.push(approvalPath);
+		watchedPaths.push(dirname(approvalPath));
 	}
 	let sub: Disposable | null = watchPaths(watchedPaths, {
 		onChange: redraw,

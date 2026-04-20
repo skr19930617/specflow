@@ -4,16 +4,20 @@ import { join } from "node:path";
 import test from "node:test";
 import { tailRunEvents } from "../lib/observation-event-reader.js";
 import {
+	phaseIsLiveReviewGate,
+	readApprovalSummary,
 	readAutofixSnapshotFile,
 	readRunStateFile,
 	readTaskGraphFile,
 	selectActiveAutofixPhase,
 } from "../lib/specflow-watch/artifact-readers.js";
 import {
+	buildApprovalSummary,
 	buildEventsView,
 	buildHeader,
 	buildReviewView,
 	buildTaskGraphView,
+	deriveManualFixKind,
 	renderFrame,
 	stripAnsi,
 	terminalBannerFor,
@@ -170,6 +174,7 @@ function writeEvents(
 function buildModelFor(root: string, run: RunState) {
 	const runRead = readRunStateFile(root, run.run_id);
 	const current = runRead.kind === "ok" ? runRead.value : run;
+	const manualFixKind = deriveManualFixKind(current);
 	const selected = selectActiveAutofixPhase(current.current_phase);
 	const reviewRead = selected
 		? readAutofixSnapshotFile(root, run.run_id, selected)
@@ -178,6 +183,7 @@ function buildModelFor(root: string, run: RunState) {
 		? readTaskGraphFile(root, current.change_name)
 		: { kind: "absent" as const };
 	const events = tailRunEvents(root, run.run_id, 5);
+	const approvalRead = readApprovalSummary(root, current);
 	return {
 		header: buildHeader({
 			run_id: current.run_id,
@@ -185,9 +191,15 @@ function buildModelFor(root: string, run: RunState) {
 			current_phase: current.current_phase,
 			status: current.status,
 			branch: current.change_name ?? "",
+			manual_fix_kind: manualFixKind,
 		}),
 		terminal_banner: terminalBannerFor(current.status),
-		review: buildReviewView(selected !== null, reviewRead),
+		review: buildReviewView({
+			phase_is_review_gate: phaseIsLiveReviewGate(current.current_phase),
+			phase_in_review_family: selected !== null,
+			snapshot: reviewRead,
+			manual_fix_kind: manualFixKind,
+		}),
 		task_graph: buildTaskGraphView(
 			taskGraphRead.kind === "ok"
 				? { kind: "ok", value: { bundles: taskGraphRead.value.bundles } }
@@ -195,6 +207,7 @@ function buildModelFor(root: string, run: RunState) {
 			(bs) => topologicalOrder([...bs]),
 		),
 		events: buildEventsView(events),
+		approval_summary: buildApprovalSummary(approvalRead),
 	};
 }
 
@@ -364,31 +377,31 @@ test("integration: terminal → active re-activation lifecycle resumes live upda
 	}
 });
 
-test("integration: autofix snapshot selection ignores wrong-gate file when both exist", () => {
-	// Both design_review and apply_review snapshots exist on disk; the
-	// renderer must use only the one matching current_phase and fall back
-	// to "No active review" for any phase outside the review gates.
+test("integration: apply_draft shows only apply_review snapshot, never design_review", () => {
+	// Both family snapshots exist on disk. current_phase `apply_draft` belongs
+	// to the apply family, so the renderer must pick the apply_review snapshot
+	// (round 42) and never leak the design_review snapshot (round 99).
 	const root = makeTempDir("watch-int-selector-");
 	try {
 		seedRun(root, {
 			runId: "sel-1",
 			changeName: "sel",
-			currentPhase: "apply_draft", // <- not a review gate
+			currentPhase: "apply_draft",
 			status: "active",
 		});
 		writeAutofixSnapshot(root, "sel-1", "design_review", {
 			round_index: 99,
 			max_rounds: 99,
-			loop_state: "should_not_appear",
+			loop_state: "design_should_not_appear",
 			high: 42,
 			medium: 42,
 		});
 		writeAutofixSnapshot(root, "sel-1", "apply_review", {
 			round_index: 42,
-			max_rounds: 42,
-			loop_state: "also_should_not_appear",
-			high: 42,
-			medium: 42,
+			max_rounds: 99,
+			loop_state: "apply_expected",
+			high: 7,
+			medium: 3,
 		});
 		const model = buildModelFor(root, {
 			run_id: "sel-1",
@@ -399,15 +412,14 @@ test("integration: autofix snapshot selection ignores wrong-gate file when both 
 		const frame = renderFrame(model, 100, 40)
 			.map((l) => stripAnsi(l))
 			.join("\n");
-		assert.match(frame, /No active review/);
+		// Apply snapshot surfaces as the completed-family line.
+		assert.match(frame, /Round 42\/99/);
+		assert.match(frame, /completed — apply_expected/);
 		assert.ok(
-			!/should_not_appear/.test(frame),
-			"stale snapshot must not leak into the render",
+			!/design_should_not_appear/.test(frame),
+			"wrong-family snapshot must not leak into the render",
 		);
-		assert.ok(
-			!/Round 99\/99/.test(frame),
-			"stale snapshot values must not leak",
-		);
+		assert.ok(!/Round 99\/99/.test(frame), "wrong-family values must not leak");
 	} finally {
 		removeTempDir(root);
 	}

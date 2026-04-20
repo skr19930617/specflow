@@ -108,15 +108,31 @@ export function readAutofixSnapshotFile(
 
 /**
  * Deterministic rule for which autofix snapshot to render, keyed by the run's
- * `current_phase`. A phase outside the two review gates yields `null`, which
- * the renderer surfaces as "No active review".
+ * `current_phase`. Phases are grouped by review family so the TUI can keep
+ * the most recent snapshot visible across adjacent drafting / ready / approved
+ * states. Non-review families (`proposal_*`, `spec_*`, etc.) yield `null`.
  */
 export function selectActiveAutofixPhase(
 	currentPhase: string,
 ): AutofixReviewPhase | null {
-	if (currentPhase === "design_review") return "design_review";
-	if (currentPhase === "apply_review") return "apply_review";
-	return null;
+	switch (currentPhase) {
+		case "design_draft":
+		case "design_review":
+		case "design_ready":
+			return "design_review";
+		case "apply_draft":
+		case "apply_review":
+		case "apply_ready":
+		case "approved":
+			return "apply_review";
+		default:
+			return null;
+	}
+}
+
+/** True when the run's `current_phase` is itself a live review gate. */
+export function phaseIsLiveReviewGate(currentPhase: string): boolean {
+	return currentPhase === "design_review" || currentPhase === "apply_review";
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +141,82 @@ export function selectActiveAutofixPhase(
 
 export function taskGraphPath(projectRoot: string, changeName: string): string {
 	return join(projectRoot, "openspec/changes", changeName, "task-graph.json");
+}
+
+// ---------------------------------------------------------------------------
+// Approval summary (per run — resolved from run.last_summary_path)
+// ---------------------------------------------------------------------------
+
+export interface ApprovalSummaryExtract {
+	readonly status_line: string | null;
+	readonly diffstat_line: string | null;
+}
+
+/**
+ * Resolve the absolute path for `run.last_summary_path`. Absolute inputs are
+ * returned unchanged; relative inputs are joined against `projectRoot`.
+ */
+export function approvalSummaryPath(
+	projectRoot: string,
+	lastSummaryPath: string,
+): string {
+	if (lastSummaryPath.startsWith("/")) return lastSummaryPath;
+	return join(projectRoot, lastSummaryPath);
+}
+
+const STATUS_LINE_REGEX = /^Status:\s.*$/m;
+const DIFFSTAT_LINE_REGEX =
+	/(^|\n)\s*(\d+\s+files?\s+changed(?:,\s*\d+\s+insertions?\(\+\))?(?:,\s*\d+\s+deletions?\(-\))?)\s*(\n|$)/;
+
+function extractWhatChangedSection(md: string): string {
+	const match = /^##\s+What Changed\s*$/m.exec(md);
+	if (!match) return "";
+	const startIdx = match.index + match[0].length;
+	const tail = md.slice(startIdx);
+	const nextHeading = /^##\s+/m.exec(tail);
+	return nextHeading ? tail.slice(0, nextHeading.index) : tail;
+}
+
+function extractApprovalSummary(md: string): ApprovalSummaryExtract {
+	const statusMatch = STATUS_LINE_REGEX.exec(md);
+	const status_line = statusMatch ? statusMatch[0].trim() : null;
+	const whatChanged = extractWhatChangedSection(md);
+	let diffstat_line: string | null = null;
+	if (whatChanged) {
+		const diffMatch = DIFFSTAT_LINE_REGEX.exec(whatChanged);
+		diffstat_line = diffMatch ? diffMatch[2].trim() : null;
+	}
+	return { status_line, diffstat_line };
+}
+
+/**
+ * Read `approval-summary.md` referenced by `run.last_summary_path`. Returns:
+ * - `absent` when `last_summary_path` is null/empty (no approval recorded);
+ * - `unreadable` with `reason: "missing"` when `last_summary_path` is set but
+ *   the file does not exist — the renderer surfaces this as the
+ *   `Approval summary missing` warning per the spec's degradation contract;
+ * - `unreadable` for other I/O errors;
+ * - `ok` with a tagged extract that may have null `status_line` or
+ *   `diffstat_line` when the markdown is partial.
+ */
+export function readApprovalSummary(
+	projectRoot: string,
+	run: { readonly last_summary_path?: string | null },
+): ArtifactReadResult<ApprovalSummaryExtract> {
+	const raw = run.last_summary_path;
+	if (!raw) return { kind: "absent" };
+	const path = approvalSummaryPath(projectRoot, raw);
+	if (!existsSync(path)) return { kind: "unreadable", reason: "missing" };
+	let md: string;
+	try {
+		md = readFileSync(path, "utf8");
+	} catch (err) {
+		return {
+			kind: "unreadable",
+			reason: err instanceof Error ? err.message : String(err),
+		};
+	}
+	return { kind: "ok", value: extractApprovalSummary(md) };
 }
 
 export function readTaskGraphFile(

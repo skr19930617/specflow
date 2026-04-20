@@ -1,0 +1,278 @@
+{
+  "version": "1.0",
+  "change_id": "specflow-watch-ux-1",
+  "bundles": [
+    {
+      "id": "watch-model-contracts",
+      "title": "Extend Watch Model Contracts",
+      "goal": "Define the pure model interfaces required for manual-fix state, sticky review visibility, child tasks, and approval summary data.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/task-planner/types.ts"
+      ],
+      "outputs": [
+        "src/lib/watch-renderer/model.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend WatchModelHeader, ReviewRoundView, BundleView, ApprovalSummaryView, and WatchModel with the new fields described in the design",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Thread the new task and section-state shapes through the existing model contracts so downstream builders and renderers can consume them without changing section order",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "task-planner"
+      ]
+    },
+    {
+      "id": "watch-artifact-readers",
+      "title": "Expand Watch Artifact Readers",
+      "goal": "Add the pure reader behavior needed to keep review snapshots visible across phase families and to extract approval summary data from archived artifacts.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "src/lib/specflow-watch/artifact-readers.ts",
+        "run.json:last_summary_path",
+        "openspec/changes/archive/*/approval-summary.md"
+      ],
+      "outputs": [
+        "src/lib/specflow-watch/artifact-readers.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Expand selectActiveAutofixPhase to map design_draft/design_review/design_ready to design_review and apply_draft/apply_review/apply_ready/approved to apply_review",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add ApprovalSummaryExtract and readApprovalSummary with tolerant Status and diffstat extraction plus tagged absent/missing/ok outcomes",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "approval-clarify-persistence"
+      ]
+    },
+    {
+      "id": "watch-review-and-events",
+      "title": "Improve Review And Event Visibility",
+      "goal": "Make recent events concrete and keep review/manual-fix context visible across adjacent phases without changing the existing watch layout.",
+      "depends_on": [
+        "watch-model-contracts",
+        "watch-artifact-readers"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts",
+        "events.jsonl RawObservationEvent fields",
+        ".specflow/runs/<run>/autofix-progress-{design,apply}_review.json"
+      ],
+      "outputs": [
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update eventSummary to render concrete phase, gate, trigger, outcome, and resolved-response text from RawObservationEvent fields",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add manual-fix derivation plus review-family visibility and manual_fix_open_count logic in buildHeader and buildReviewView",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Render the header manual-fix badge and review live/completed plus manual-fix lines while preserving the current section order and renderer diff behavior",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "workflow-observation-events"
+      ]
+    },
+    {
+      "id": "watch-task-tree",
+      "title": "Expose Bundle Child Tasks",
+      "goal": "Project bundle child tasks into the watch model and render them as a persistent tree beneath each bundle summary.",
+      "depends_on": [
+        "watch-model-contracts"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts",
+        "src/lib/task-planner/types.ts",
+        "task-graph.json bundle/task structure"
+      ],
+      "outputs": [
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Populate BundleView.tasks from the task graph and force child display_status to done when the parent bundle is done",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Render the child task tree with box-drawing glyphs, task status markers, and existing truncation behavior for narrow terminals",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "task-planner"
+      ]
+    },
+    {
+      "id": "watch-approval-section-and-cli",
+      "title": "Wire Approval Summary Into Watch",
+      "goal": "Surface approval summary data in the watch frame and watch process without introducing any new write-side behavior.",
+      "depends_on": [
+        "watch-model-contracts",
+        "watch-artifact-readers"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts",
+        "src/bin/specflow-watch.ts",
+        "src/lib/specflow-watch/artifact-readers.ts",
+        "run.json:last_summary_path",
+        "openspec/changes/archive/*/approval-summary.md"
+      ],
+      "outputs": [
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts",
+        "src/bin/specflow-watch.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add buildApprovalSummary to translate readApprovalSummary results into the new WatchModel approval_summary section state",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement renderApprovalSection and append it after Recent events in renderFrame",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Update src/bin/specflow-watch.ts to pass the expanded model shape and add approval-summary.md to watchedPaths only when last_summary_path is present",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "run-artifact-store-conformance"
+      ]
+    },
+    {
+      "id": "watch-launcher-dispatcher",
+      "title": "Unify Watch Launch Dispatcher",
+      "goal": "Replace fragile platform-specific watch launch snippets with one inline cross-platform Bash dispatcher used by both command templates.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "assets/commands/specflow.watch.md.tmpl",
+        "assets/commands/specflow.md.tmpl"
+      ],
+      "outputs": [
+        "assets/commands/specflow.watch.md.tmpl",
+        "assets/commands/specflow.md.tmpl"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add the inline launch_watch Bash dispatcher to specflow.watch.md.tmpl with tmux, screen, osascript, TERMINAL, Linux emulator, and manual fallback branches",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Replace /specflow Step 3.7 with the same dispatcher while preserving SPECFLOW_NO_WATCH opt-out semantics only for /specflow",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides"
+      ]
+    },
+    {
+      "id": "watch-tests-and-snapshots",
+      "title": "Verify Watch UX Regression Coverage",
+      "goal": "Protect the new watch UX and launcher behavior with targeted reader, renderer, integration, and snapshot coverage.",
+      "depends_on": [
+        "watch-review-and-events",
+        "watch-task-tree",
+        "watch-approval-section-and-cli",
+        "watch-launcher-dispatcher"
+      ],
+      "inputs": [
+        "design.md",
+        "src/tests/watch-renderer.test.ts",
+        "src/tests/specflow-watch-readers.test.ts",
+        "src/tests/specflow-watch-integration.test.ts",
+        "src/tests/__snapshots__/specflow.{watch,md}.snap",
+        "archive/2026-04-20-specflow-apply-1/approval-summary.md"
+      ],
+      "outputs": [
+        "src/tests/watch-renderer.test.ts",
+        "src/tests/specflow-watch-readers.test.ts",
+        "src/tests/specflow-watch-integration.test.ts",
+        "src/tests/__snapshots__/specflow.{watch,md}.snap"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add reader unit tests for expanded selectActiveAutofixPhase mappings and approval summary extraction outcomes",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Extend watch-renderer tests to cover concrete event summaries, sticky review visibility, manual-fix indicators, and task tree rendering",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Extend the --once integration coverage with apply_ready persistence plus manual-fix and approval-summary fixtures",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Regenerate template and renderer snapshots and verify the new dispatcher text replaces the old open -a Terminal flow",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "realtime-progress-ui",
+        "slash-command-guides"
+      ]
+    }
+  ],
+  "generated_at": "2026-04-20T11:16:03.591Z",
+  "generated_from": "design.md"
+}
