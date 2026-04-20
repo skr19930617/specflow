@@ -1,0 +1,203 @@
+{
+  "feature_id": "specflow-watch-ux-1",
+  "phase": "design",
+  "current_round": 5,
+  "status": "has_open_high",
+  "max_finding_id": 9,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "feasibility",
+      "title": "Linux launcher assumes a single terminal invocation contract that the declared emulator list does not share",
+      "detail": "The proposed `launch_watch()` recipe runs every Linux candidate as `\"$terminal\" -e \"specflow-watch $target\"`, but the required fallback chain includes emulators with different command syntaxes and quoting rules. That means the core fix can still fail on supported Linux setups even if the right terminal is detected. Define the concrete launch form per emulator (or narrow the supported list to terminals that truly share one contract) and add behavior-level validation of the dispatcher branches, not just template snapshots.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "consistency",
+      "title": "Approval-summary refresh-on-create is left ambiguous by conflicting watcher guidance",
+      "detail": "The design says new watched paths are added only when the file already exists, but the acceptance criteria require `Approval summary missing` to redraw when the referenced `approval-summary.md` is later written. Task 5.3 instead says to add the path whenever `last_summary_path` is present, so the design and tasks disagree on a blocking behavior. Resolve this explicitly: the watch loop must observe the target path or its parent directory even when the file is absent, or must guarantee polling re-reads that missing path, and the test plan should cover the missing-to-present transition.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Event-summary fallback and missing-field degradation are not explicitly planned",
+      "detail": "The spec requires unknown `event_kind` values to keep the existing `payload.summary`/`payload.loop_state` fallback and requires missing payload fields to elide the parenthesized suffix rather than render `undefined`. The tasks and completion conditions only enumerate the happy-path formatted events, so a straightforward formatter rewrite can miss these normative cases. Add explicit implementation/test coverage for missing `triggered_event`/`outcome`/similar fields and for unknown kinds retaining the legacy fallback.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/lib/watch-renderer/render.ts",
+      "title": "Completed review badge does not explicitly include loop_state",
+      "detail": "The spec requires completed-family review snapshots to render a badge that references `loop_state` (for example, `completed — terminal_success`). The design reduces this to `visibility: \"live\" | \"completed\"`, and task 3.3 only says to render live/completed badges, so the implementation can satisfy the current plan while omitting the required `loop_state` suffix. Specify the completed-badge text contract and add renderer coverage for it.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F05",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "assets/commands/specflow.md.tmpl",
+      "title": "Step 3.7 omits the required WATCH_METHOD report line",
+      "detail": "The modified `/specflow` guide must end the auto-launch block with a report line indicating the chosen `WATCH_METHOD`, but the design and task 6.2 only describe replacing Step 3.7 with the dispatcher and preserving `SPECFLOW_NO_WATCH`. Without an explicit `WATCH_METHOD` variable/report requirement, this acceptance criterion is easy to miss. Add the report line to the design/tasks and verify it in the template snapshot.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F06",
+      "severity": "medium",
+      "category": "feasibility",
+      "file": "assets/commands/specflow.watch.md.tmpl, assets/commands/specflow.md.tmpl",
+      "title": "Launcher recipe does not define safe quoting for repo paths and targets",
+      "detail": "The inline dispatcher interpolates raw repo and target values into string-based launch commands such as `tmux split-window -h \"specflow-watch $target\"`, `osascript ... \"cd $(pwd) && specflow-watch $target\"`, and `xfce4-terminal -e \"specflow-watch $target\"`. The design never specifies shell/AppleScript escaping, so repositories in paths with spaces or targets containing shell-sensitive characters can launch the wrong command or fail entirely. Define a quoting/escaping strategy for every string-based branch and cover it in tests.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F07",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/lib/specflow-watch/artifact-readers.ts",
+      "title": "Approval summary parser is not constrained to the `What Changed` section",
+      "detail": "The spec requires the diffstat line to be extracted from inside the `What Changed` section, but D5/task 2.2 only describe taking a matching diffstat line by regex. That allows an implementation to grab an unrelated diffstat-like line elsewhere in `approval-summary.md`. The reader design should define section-scoped parsing (from `## What Changed` until the next heading) and add coverage with multiple diffstat-like lines to prove the correct one is selected.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 4
+    },
+    {
+      "id": "R4-F08",
+      "severity": "high",
+      "category": "feasibility",
+      "file": "assets/commands/specflow.watch.md.tmpl, assets/commands/specflow.md.tmpl",
+      "title": "Launcher control flow reports success before verifying terminal launch and prevents fallback",
+      "detail": "Most launcher branches are written as `terminal_cmd & { watch_method=...; return 0; }`, and the `$TERMINAL` branch similarly backgrounds the command before an unconditional success return. In shell, that means the brace block runs regardless of whether the launch command actually starts successfully, so the dispatcher will stop at the first detected candidate instead of falling through to the next emulator or the manual hint. Rework the recipe so each branch only returns success after a checked command invocation, and add a failure-path test that proves a detected branch can fail and the dispatcher continues to the next candidate.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R5-F09",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/lib/specflow-watch/artifact-readers.ts, src/lib/watch-renderer/model.ts, src/lib/watch-renderer/render.ts",
+      "title": "Approval-summary `Status: (unknown)` degradation path is not specified end-to-end",
+      "detail": "The spec requires an existing `approval-summary.md` with no `Status:` line to render `Status: (unknown)` and still show the diffstat line if present. The design only models `status_line: string | null`, describes tolerant extraction, and the tasks/tests cover absent/missing/ok outcomes without explicitly requiring the builder or renderer to synthesize `Status: (unknown)` for the no-status case. Add that rule to the contract and cover both no-status and no-diffstat cases in tests.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      },
+      "gate_id": "review_decision-specflow-watch-ux-1-1-design_review-1"
+    },
+    {
+      "round": 2,
+      "total": 6,
+      "open": 4,
+      "new": 3,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 3,
+        "high": 1
+      },
+      "gate_id": "review_decision-specflow-watch-ux-1-1-design_review-2"
+    },
+    {
+      "round": 3,
+      "total": 7,
+      "open": 3,
+      "new": 1,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "high": 1
+      },
+      "gate_id": "review_decision-specflow-watch-ux-1-1-design_review-3"
+    },
+    {
+      "round": 4,
+      "total": 8,
+      "open": 2,
+      "new": 1,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2
+      },
+      "gate_id": "review_decision-specflow-watch-ux-1-1-design_review-4"
+    },
+    {
+      "round": 5,
+      "total": 9,
+      "open": 3,
+      "new": 1,
+      "resolved": 6,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2,
+        "high": 1
+      }
+    }
+  ]
+}

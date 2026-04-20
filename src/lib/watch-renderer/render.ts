@@ -3,6 +3,7 @@
 // alt-screen entry/exit and cursor positioning). Each frame is produced
 // deterministically from the model so snapshot tests remain stable.
 
+import type { TaskStatus } from "../task-planner/index.js";
 import {
 	BOLD,
 	color,
@@ -17,6 +18,7 @@ import {
 	truncateVisible,
 } from "./ansi.js";
 import type {
+	BundleTaskView,
 	BundleView,
 	SectionState,
 	WatchModel,
@@ -52,12 +54,19 @@ function statusColor(status: string): (s: string) => string {
 	}
 }
 
+function manualFixBadgeOrEmpty(
+	kind: WatchModelHeader["manual_fix_kind"],
+): string {
+	if (kind === "idle") return "";
+	return ` ${color("(manual fix)", FG_YELLOW, BOLD)}`;
+}
+
 function renderHeader(h: WatchModelHeader, cols: number): string[] {
 	const title = color("specflow watch", BOLD);
 	const runLine = `${title}  ${color(h.run_id, FG_CYAN)}`;
 	const meta = [
 		`change: ${h.change_name ?? "(none)"}`,
-		`phase: ${h.current_phase}`,
+		`phase: ${h.current_phase}${manualFixBadgeOrEmpty(h.manual_fix_kind)}`,
 		`status: ${statusBadge(h.status)}`,
 		`branch: ${h.branch}`,
 	].join("  ");
@@ -120,21 +129,48 @@ function renderSectionState<T>(
 	return renderWarning(state.message);
 }
 
+function visibilityBadge(
+	visibility: "live" | "completed",
+	loop_state: string,
+): string {
+	if (visibility === "live") {
+		return color("live", FG_GREEN, BOLD);
+	}
+	const suffix = loop_state ? ` — ${loop_state}` : "";
+	return color(`completed${suffix}`, DIM);
+}
+
 function renderReviewSection(
 	state: SectionState<
 		NonNullable<WatchModel["review"] & { kind: "ok" }>["value"]
 	>,
-	cols: number,
+	_cols: number,
 ): readonly string[] {
 	return renderSectionState(state, (r) => {
-		const parts = [
-			`Round ${color(`${r.round_index}/${r.max_rounds}`, BOLD)}`,
-			`loop_state=${r.loop_state}`,
-			`unresolved HIGH=${r.unresolved_high}`,
-			`CRITICAL=${r.unresolved_critical}`,
-			`MEDIUM=${r.unresolved_medium}`,
-		];
-		return [parts.join("  ")];
+		const lines: string[] = [];
+		if (r.has_snapshot) {
+			const badge = visibilityBadge(r.visibility, r.loop_state);
+			const parts = [
+				`Round ${color(`${r.round_index}/${r.max_rounds}`, BOLD)}`,
+				badge,
+				`loop_state=${r.loop_state}`,
+				`unresolved HIGH=${r.unresolved_high}`,
+				`CRITICAL=${r.unresolved_critical}`,
+				`MEDIUM=${r.unresolved_medium}`,
+			];
+			lines.push(parts.join("  "));
+		}
+		if (r.manual_fix.active) {
+			const countSuffix =
+				r.manual_fix.count === null
+					? "? unresolved"
+					: `${r.manual_fix.count} unresolved findings`;
+			lines.push(color(`Manual fix in progress — ${countSuffix}`, FG_YELLOW));
+		}
+		if (lines.length === 0) {
+			lines.push(color("No active review", DIM));
+		}
+		return lines;
 	});
 }
 
@@ -150,6 +186,10 @@ function renderTaskGraphSection(
 		const labelWidth = computeLabelWidth(g.bundles, cols);
 		for (const b of g.bundles) {
 			lines.push(renderBundleRow(b, labelWidth, cols));
+			for (const [i, t] of b.tasks.entries()) {
+				const last = i === b.tasks.length - 1;
+				lines.push(renderChildTaskRow(t, last, cols));
+			}
 		}
 		return lines;
 	});
@@ -166,6 +206,38 @@ function renderBundleRow(
 	const count = `${b.tasks_done}/${b.tasks_total}`;
 	const status = statusColor(b.status)(`(${b.status})`);
 	return `${label}  ${progress} ${count}  ${status}`;
+}
+
+/**
+ * Status glyph mapping per design D4 / spec delta:
+ *   done → `[✓]`, in_progress → `[◐]`, pending → `[ ]`, skipped → `[·]`.
+ * `display_status` already accounts for bundle-done override.
+ */
+function taskStatusGlyph(status: TaskStatus): string {
+	switch (status) {
+		case "done":
+			return color("[✓]", FG_GREEN);
+		case "in_progress":
+			return color("[◐]", FG_CYAN);
+		case "skipped":
+			return color("[·]", DIM);
+		case "pending":
+			return "[ ]";
+	}
+}
+
+function renderChildTaskRow(
+	t: BundleTaskView,
+	last: boolean,
+	cols: number,
+): string {
+	const glyph = last ? "└─" : "├─";
+	const indent = "  ";
+	const prefix = `${indent}${glyph} ${taskStatusGlyph(t.display_status)} ${t.id}.`;
+	const prefixWidth = visibleLen(prefix);
+	const remaining = Math.max(1, cols - prefixWidth - 1);
+	const title = truncateVisible(t.title, remaining);
+	return `${prefix} ${title}`;
 }
 
 function computeLabelWidth(
@@ -191,6 +263,18 @@ function renderEventsSection(
 			const summary = ev.summary ? `  ${ev.summary}` : "";
 			lines.push(`${ts} ${kind}${summary}`.trimStart());
 		}
+		return lines;
+	});
+}
+
+function renderApprovalSection(
+	state: WatchModel["approval_summary"],
+	_cols: number,
+): readonly string[] {
+	return renderSectionState(state, (v) => {
+		const lines: string[] = [];
+		if (v.status_line !== null) lines.push(v.status_line);
+		if (v.diffstat_line !== null) lines.push(color(v.diffstat_line, DIM));
 		return lines;
 	});
 }
@@ -232,6 +316,14 @@ export function renderFrame(
 	lines.push(padEndVisible("", c));
 	lines.push(
 		...renderSection("Recent events", renderEventsSection(model.events, c), c),
+	);
+	lines.push(padEndVisible("", c));
+	lines.push(
+		...renderSection(
+			"Approval summary",
+			renderApprovalSection(model.approval_summary, c),
+			c,
+		),
 	);
 	return lines;
 }

@@ -12,19 +12,26 @@ export {
 	visibleWidth,
 } from "./ansi.js";
 export type {
+	ApprovalSummaryView,
+	BuildReviewViewInput,
+	BundleTaskView,
 	BundleView,
 	EventView,
+	ManualFixKind,
 	ReviewRoundView,
+	ReviewRoundVisibility,
 	SectionState,
 	TaskGraphView,
 	WatchModel,
 	WatchModelHeader,
 } from "./model.js";
 export {
+	buildApprovalSummary,
 	buildEventsView,
 	buildHeader,
 	buildReviewView,
 	buildTaskGraphView,
+	deriveManualFixKind,
 	terminalBannerFor,
 } from "./model.js";
 export { renderFrame } from "./render.js";

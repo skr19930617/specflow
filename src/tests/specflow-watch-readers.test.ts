@@ -8,7 +8,9 @@ import {
 	tailRunEvents,
 } from "../lib/observation-event-reader.js";
 import {
+	approvalSummaryPath,
 	autofixSnapshotPath,
+	readApprovalSummary,
 	readAutofixSnapshotFile,
 	readRunStateFile,
 	readTaskGraphFile,
@@ -278,11 +280,19 @@ test("readAutofixSnapshotFile: absent when file missing, malformed when broken, 
 	}
 });
 
-test("selectActiveAutofixPhase: maps review gates only, else null", () => {
+test("selectActiveAutofixPhase: sticky family mapping", () => {
+	// Design family
+	assert.equal(selectActiveAutofixPhase("design_draft"), "design_review");
 	assert.equal(selectActiveAutofixPhase("design_review"), "design_review");
+	assert.equal(selectActiveAutofixPhase("design_ready"), "design_review");
+	// Apply family (including approved)
+	assert.equal(selectActiveAutofixPhase("apply_draft"), "apply_review");
 	assert.equal(selectActiveAutofixPhase("apply_review"), "apply_review");
-	assert.equal(selectActiveAutofixPhase("apply_draft"), null);
-	assert.equal(selectActiveAutofixPhase("design_ready"), null);
+	assert.equal(selectActiveAutofixPhase("apply_ready"), "apply_review");
+	assert.equal(selectActiveAutofixPhase("approved"), "apply_review");
+	// Outside review families
+	assert.equal(selectActiveAutofixPhase("proposal_draft"), null);
+	assert.equal(selectActiveAutofixPhase("spec_verify"), null);
 	assert.equal(selectActiveAutofixPhase("terminal"), null);
 });
 
@@ -364,4 +374,88 @@ test("tailEventsForRun: filters by run_id and returns last N in order", () => {
 
 test("tailEventsForRun: n == 0 returns [] without reading", () => {
 	assert.deepEqual(tailEventsForRun("/does/not/exist", "x", 0), []);
+});
+
+test("readApprovalSummary: null last_summary_path → absent", () => {
+	const root = makeTempDir("approval-absent-");
+	try {
+		const got = readApprovalSummary(root, { last_summary_path: null });
+		assert.equal(got.kind, "absent");
+	} finally {
+		removeTempDir(root);
+	}
+});
+
+test("readApprovalSummary: path set but file missing → unreadable(missing)", () => {
+	const root = makeTempDir("approval-missing-");
+	try {
+		const got = readApprovalSummary(root, {
+			last_summary_path: "openspec/changes/archive/foo/approval-summary.md",
+		});
+		assert.equal(got.kind, "unreadable");
+		if (got.kind === "unreadable") assert.equal(got.reason, "missing");
+	} finally {
+		removeTempDir(root);
+	}
+});
+
+test("readApprovalSummary: extracts Status + diffstat from What Changed section", () => {
+	const root = makeTempDir("approval-ok-");
+	try {
+		const rel = "openspec/changes/archive/foo/approval-summary.md";
+		const md = `# Approval Summary
+
+**Status**: ✅ No unresolved high
+Status: ✅ No unresolved high
+
+## What Changed
+
+\`\`\`
+ a.ts | 10 +
+ b.ts |  5 -
+ 22 files changed, 3049 insertions(+), 13 deletions(-)
+\`\`\`
+
+## Files Touched
+
+\`\`\`
+a.ts
+b.ts
+ 99 files changed, 999 insertions(+), 999 deletions(-)
+\`\`\`
+`;
+		const path = approvalSummaryPath(root, rel);
+		mkdirSync(join(path, ".."), { recursive: true });
+		writeFileSync(path, md, "utf8");
+		const got = readApprovalSummary(root, { last_summary_path: rel });
+		assert.equal(got.kind, "ok");
+		if (got.kind === "ok") {
+			assert.equal(got.value.status_line, "Status: ✅ No unresolved high");
+			// Must pick the diffstat from `## What Changed`, not `## Files Touched`.
+			assert.equal(
+				got.value.diffstat_line,
+				"22 files changed, 3049 insertions(+), 13 deletions(-)",
+			);
+		}
+	} finally {
+		removeTempDir(root);
+	}
+});
+
+test("readApprovalSummary: file exists but missing Status/What Changed → nulls", () => {
+	const root = makeTempDir("approval-partial-");
+	try {
+		const rel = "openspec/changes/archive/foo/approval-summary.md";
+		const path = approvalSummaryPath(root, rel);
+		mkdirSync(join(path, ".."), { recursive: true });
+		writeFileSync(path, "# Just a heading\n\nnothing relevant here\n", "utf8");
+		const got = readApprovalSummary(root, { last_summary_path: rel });
+		assert.equal(got.kind, "ok");
+		if (got.kind === "ok") {
+			assert.equal(got.value.status_line, null);
+			assert.equal(got.value.diffstat_line, null);
+		}
+	} finally {
+		removeTempDir(root);
+	}
 });
