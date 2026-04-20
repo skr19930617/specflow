@@ -11,6 +11,7 @@ import {
 	loadConfigEnv,
 	resolveReviewAgent,
 } from "../lib/review-runtime.js";
+import { withSizeScore } from "../lib/task-planner/enrich.js";
 import { renderTasksMd } from "../lib/task-planner/render.js";
 import { validateTaskGraph } from "../lib/task-planner/schema.js";
 import type { TaskGraph } from "../lib/task-planner/types.js";
@@ -18,6 +19,27 @@ import type { TaskGraph } from "../lib/task-planner/types.js";
 function die(message: string): never {
 	process.stderr.write(`${message}\n`);
 	process.exit(1);
+}
+
+/**
+ * R3-F06: mirror the library generator's sanitisation so the CLI's validation
+ * path is tolerant of LLM-emitted stale `size_score` fields. The canonical
+ * value is applied post-validation by `withSizeScore`.
+ */
+function stripSizeScore(graph: unknown): unknown {
+	if (typeof graph !== "object" || graph === null || Array.isArray(graph)) {
+		return graph;
+	}
+	const obj = graph as Record<string, unknown>;
+	if (!Array.isArray(obj.bundles)) return obj;
+	return {
+		...obj,
+		bundles: (obj.bundles as unknown[]).map((b) => {
+			if (typeof b !== "object" || b === null) return b;
+			const { size_score: _dropped, ...rest } = b as Record<string, unknown>;
+			return rest;
+		}),
+	};
 }
 
 function ensureGitRepo(): string {
@@ -128,7 +150,11 @@ async function main(): Promise<void> {
 			continue;
 		}
 
-		const validation = validateTaskGraph(result.payload);
+		// R3-F06: strip any LLM-emitted size_score BEFORE validation so stale or
+		// mismatched values do not fail the schema check. The canonical value
+		// (`size_score = tasks.length`) is applied by `withSizeScore` below.
+		const sanitized = stripSizeScore(result.payload);
+		const validation = validateTaskGraph(sanitized);
 		if (!validation.valid) {
 			lastErrors = [...validation.errors];
 			process.stderr.write(
@@ -137,8 +163,10 @@ async function main(): Promise<void> {
 			continue;
 		}
 
-		// Success — write task-graph.json and render tasks.md
-		const taskGraph = result.payload;
+		// Success — enrich with deterministic size_score (required by the
+		// bundle-subagent-execution spec so the dispatcher can classify bundles),
+		// then write task-graph.json and render tasks.md.
+		const taskGraph = withSizeScore(sanitized as TaskGraph);
 		const taskGraphRef = changeRef(changeId, ChangeArtifactType.TaskGraph);
 		await store.write(taskGraphRef, JSON.stringify(taskGraph, null, 2) + "\n");
 

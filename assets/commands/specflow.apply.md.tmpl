@@ -67,10 +67,13 @@ $ARGUMENTS
 
 1. Confirm the run is in `apply_draft`.
 2. **Pre-apply path detection.** Check `openspec/changes/<CHANGE_ID>/task-graph.json` via Read tool.
-   - **Absent** → legacy fallback (see step 3a).
-   - **Present** → CLI-mandatory path (see step 3b). `specflow-advance-bundle` is the sole mutation entry point and validates the task graph on every invocation, so a malformed `task-graph.json` surfaces as a CLI error in step 3b (fail-fast; the apply stops in `apply_draft` and does NOT silently fall back to the legacy path).
-3a. **Legacy fallback (task-graph.json absent).** Load `openspec/changes/<CHANGE_ID>/tasks.md` and `openspec/changes/<CHANGE_ID>/design.md` directly. Execute tasks phase-by-phase. Mark completed tasks in `tasks.md`.
-3b. **CLI-mandatory path (task-graph.json present).** Load `task-graph.json` as the source of truth. Use the bundle structure to determine execution order and eligible bundles (bundles whose `depends_on` outputs are available and whose `status` is `pending`).
+   - **Absent** → legacy fallback (see step 3a). This applies even when `apply.subagent_dispatch.enabled: true` — no `task-graph.json` means no dispatcher; legacy `tasks.md` is the authoritative source.
+   - **Present** → CLI-mandatory path. Read `apply.subagent_dispatch` from `openspec/config.yaml` (or use defaults: `enabled: false`, `threshold: 5`, `max_concurrency: 3`).
+     - If `enabled: false` (the default) → **inline path** (step 3b).
+     - If `enabled: true` → **dispatcher path** (step 3c). The dispatcher classifies every window; within each window, per-bundle `size_score` from `task-graph.json` decides inline vs. subagent execution.
+   - `specflow-advance-bundle` remains the sole mutation entry point in both 3b and 3c. A malformed `task-graph.json` surfaces as a CLI error (fail-fast; the apply stops in `apply_draft` and does NOT silently fall back to the legacy path).
+3a. **Legacy fallback (task-graph.json absent).** Load `openspec/changes/<CHANGE_ID>/tasks.md` and `openspec/changes/<CHANGE_ID>/design.md` directly. Execute tasks phase-by-phase. Mark completed tasks in `tasks.md`. The subagent dispatcher SHALL NOT engage on this path regardless of `apply.subagent_dispatch.enabled`.
+3b. **Inline CLI-mandatory path (task-graph.json present, dispatcher disabled).** Load `task-graph.json` as the source of truth. Use the bundle structure to determine execution order and eligible bundles (bundles whose `depends_on` outputs are available and whose `status` is `pending`). Execute every bundle inline on the main agent.
    - **Every bundle status transition MUST be performed via `specflow-advance-bundle`.** This applies to all four logical transitions: `pending → in_progress`, `in_progress → done`, `pending → skipped`, `pending → done`. Invoke:
      ```bash
      specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>
@@ -81,6 +84,34 @@ $ARGUMENTS
      - Regenerate `task-graph.json` (for example via `specflow-generate-task-graph <CHANGE_ID>`) when the schema error indicates a stale or corrupted graph.
      - Run `/specflow.fix_apply` when the error reflects an implementation problem surfaced by a prior review.
      - Manual repair of the graph is permitted only OUTSIDE apply-class workflows; inside this Step 1 path, manual edits remain a contract violation.
+3c. **Dispatcher path (task-graph.json present, dispatcher enabled).** Iterate windows returned by `selectNextWindow` over `task-graph.json`. For each window:
+   1. **Classify the window.** Any bundle with `size_score > threshold` promotes the ENTIRE window to subagent dispatch (window-level uniform dispatch — mixed inline + subagent inside a single window is NOT supported). A window where no bundle has `size_score > threshold` — including the case where every bundle lacks `size_score` (pre-feature graphs) — runs inline on the main agent exactly as in step 3b.
+   2. **If the window is inline:** fall through to the inline execution rules in step 3b. The dispatcher introduces no new mutation path.
+   3. **If the window is subagent-dispatched:**
+      a. **Preflight the entire window BEFORE any mutation.** For every bundle, for every `cap` in `owner_capabilities`, confirm at least one of `openspec/specs/<cap>/spec.md` (baseline) OR `openspec/changes/<CHANGE_ID>/specs/<cap>/spec.md` (spec-delta) exists. If any `cap` resolves to neither file, STOP the apply immediately, surface a fail-fast error naming the offending `<bundle_id>` and `<cap>`, and leave the run in `apply_draft`. **No `specflow-advance-bundle` call SHALL occur on a preflight failure.**
+      b. **Split the window into chunks of size ≤ `max_concurrency`**, preserving bundle order from `task-graph.json`. Chunks run sequentially; within a chunk, subagents run in parallel.
+      c. **For each chunk, in order:**
+         - Assemble the context package for every bundle in the chunk (closed six-category set):
+           1. Full contents of `openspec/changes/<CHANGE_ID>/proposal.md`
+           2. Full contents of `openspec/changes/<CHANGE_ID>/design.md`
+           3. For each `cap` in `owner_capabilities`: the baseline spec at `openspec/specs/<cap>/spec.md` (if it exists) and/or the spec-delta at `openspec/changes/<CHANGE_ID>/specs/<cap>/spec.md` (if it exists)
+           4. Bundle slice of `task-graph.json` (the bundle object + `outputs` of each direct `depends_on`)
+           5. The bundle's rendered section of `tasks.md`
+           6. Contents of each artifact listed in `bundle.inputs`
+         - For each bundle in the chunk (serialized through the main agent), invoke `specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> in_progress`.
+         - Spawn one subagent per bundle via the Agent tool, running all subagents in the chunk in parallel. Each subagent receives its bundle's context package and MUST observe the following constraints:
+           ```
+           Subagent constraints (MANDATORY — violations are contract breaches per task-planner):
+           - SHALL NOT invoke `specflow-advance-bundle`.
+           - SHALL NOT edit `task-graph.json`.
+           - SHALL NOT edit `tasks.md`.
+           Only the main agent records bundle status transitions.
+           ```
+           The subagent SHALL return a structured result: `{"status": "success"|"failure", "produced_artifacts": [...], "error"?: {"message": "..."}}`.
+         - **Drain-then-stop on any failure.** After all subagents in the chunk settle, for each subagent that returned `"success"` invoke `specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> done`. For each subagent that returned `"failure"` (or threw), leave the bundle in `in_progress` and record the failure. If AT LEAST ONE failure occurred in the chunk: STOP the apply after the chunk drains. Do NOT start the next chunk or the next window. The run SHALL remain in `apply_draft`. Surface every failure's `error.message` to the user and document recovery paths (`/specflow.fix_apply` or manual intervention).
+         - Only if the chunk completed with zero failures SHALL the next chunk (or next window) be processed.
+   - **All status transitions remain CLI-mandatory.** The dispatcher does NOT change the sole-mutation-entry-point contract: every `pending → in_progress` and `in_progress → done` transition is a `specflow-advance-bundle` invocation made by the main agent. Subagents MUST NOT invoke `specflow-advance-bundle`, MUST NOT edit `task-graph.json`, and MUST NOT edit `tasks.md`.
+   - **Fail-fast and recovery paths are identical to step 3b.** A non-zero `specflow-advance-bundle` exit stops the apply immediately with the CLI error envelope surfaced verbatim; the subagent-failure path documented above adds nothing to the recovery surface (the run stays in `apply_draft` and the operator chooses between `/specflow.fix_apply` and manual intervention).
 4. Validate implementation against `openspec/changes/<CHANGE_ID>/proposal.md`.
 
 Report: `Step 1 complete — implementation completed in apply_draft`

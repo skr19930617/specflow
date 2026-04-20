@@ -1,0 +1,135 @@
+{
+  "feature_id": "specflow-apply-1",
+  "phase": "design",
+  "current_round": 3,
+  "status": "in_progress",
+  "max_finding_id": 6,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "ordering",
+      "title": "Missing window-wide context preflight before first dispatch",
+      "detail": "The spec requires aborting a subagent-dispatched window before any subagent is spawned if any bundle in that window has an owner capability with neither a baseline spec nor a spec-delta. The design only defines per-bundle `assembleContextPackage(...)` and the tasks wire packaging into orchestration bundle-by-bundle, which allows an implementation to advance early bundles to `in_progress` or spawn chunk 1 before discovering a missing capability in a later bundle. Add an explicit pre-dispatch validation/assembly step for every bundle in a subagent window, and add task/test coverage for the 'missing capability aborts the window before first subagent dispatch' scenario.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Legacy no-task-graph fallback is not carried through design and tasks",
+      "detail": "The spec requires that when `apply.subagent_dispatch.enabled` is true but `task-graph.json` is absent, `/specflow.apply` must stay on the legacy `tasks.md` path and spawn no subagents. That behavior is not explicitly modeled in the design contracts/lifecycle and is not called out in the task list or guide-update tasks. Add an explicit fallback path in the design, implementation task coverage for the absent-graph case, and guide/snapshot verification that documents this legacy bypass.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F03",
+      "severity": "high",
+      "category": "completeness",
+      "file": "design.md",
+      "title": "Dispatcher call-site integration is underspecified",
+      "detail": "The design defines helper APIs (`shouldUseDispatcher`, `classifyWindow`, `runDispatchedWindow`) and a guide update, but it never specifies the concrete `/specflow.apply` Step 1 control flow that invokes them. There is no owned implementation step for rewriting the apply loop to branch between legacy fallback, inline-window execution, and subagent-window execution, and no concrete invoker/prompt wrapper that carries the mandatory constraint that subagents must not call `specflow-advance-bundle` or edit `task-graph.json` / `tasks.md`. Without that integration point, the dispatcher can land as dead code or be used inconsistently, which blocks correct implementation of the feature.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "risk",
+      "file": "design.md",
+      "title": "Failure contract only models one failed bundle per chunk",
+      "detail": "`runDispatchedWindow` returns only one `failedBundleId` and one `error`, and the task list only tests a single failing sibling. In a parallel chunk, multiple subagents can fail before `Promise.allSettled` completes; all such bundles would remain `in_progress`, but the current contract cannot report all failed bundle IDs or diagnostics. Define deterministic multi-failure handling (preferably a list of failures) and add coverage for a chunk with more than one failure so recovery and user-facing reporting are complete.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F05",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "design.md",
+      "title": "Dispatcher gate omits the spec's schema-valid task-graph precondition",
+      "detail": "The spec makes subagent dispatch contingent on a present and schema-valid task-graph.json, but the current design exposes `shouldUseDispatcher(config, taskGraphExists)` and Tasks 2.3/2.4/6.1 only gate on file existence. As written, Step 1 can enter the dispatcher path for an invalid graph, and the task list does not force the required 'present-and-valid' condition into implementation or tests. Make the gate depend on a validated graph (or state that validation always happens before the gate) and add coverage for invalid-graph behavior.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F06",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "design.md",
+      "title": "Delta-only capability support is not reconciled with task-planner ownership rules",
+      "detail": "The dispatcher design correctly treats a capability with only `openspec/changes/<CHANGE_ID>/specs/<cap>/spec.md` as valid, but the unchanged task-planner contract still says generated `owner_capabilities` must correspond to directories under `openspec/specs/`. Without an explicit design/task change to relax generation/validation or to explain why generated graphs never need delta-only capabilities, the accepted 'new capability with no baseline spec' scenario is only partially supported and may be unreachable in normal workflows.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-design_review-1"
+    },
+    {
+      "round": 2,
+      "total": 4,
+      "open": 2,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-design_review-2"
+    },
+    {
+      "round": 3,
+      "total": 6,
+      "open": 2,
+      "new": 2,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      },
+      "gate_id": "review_decision-specflow-apply-1-1-design_review-3"
+    }
+  ]
+}

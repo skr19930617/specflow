@@ -1,5 +1,6 @@
 // LLM-based task graph generation from design.md.
 
+import { withSizeScore } from "./enrich.js";
 import { validateTaskGraph } from "./schema.js";
 import type { TaskGraph } from "./types.js";
 
@@ -11,6 +12,28 @@ function deepFreeze<T>(obj: T): T {
 		deepFreeze(value);
 	}
 	return obj;
+}
+
+/**
+ * Return a shallow structural copy with `size_score` removed from every bundle.
+ * Used before schema validation so an LLM-emitted mismatched `size_score` does
+ * not fail validation — `withSizeScore` reapplies the canonical value after.
+ */
+function stripSizeScore(graph: unknown): unknown {
+	if (typeof graph !== "object" || graph === null || Array.isArray(graph)) {
+		return graph;
+	}
+	const obj = graph as Record<string, unknown>;
+	if (!Array.isArray(obj.bundles)) return obj;
+	return {
+		...obj,
+		bundles: (obj.bundles as unknown[]).map((b) => {
+			if (typeof b !== "object" || b === null) return b;
+			// Biome convention: use rest destructuring to drop the field.
+			const { size_score: _dropped, ...rest } = b as Record<string, unknown>;
+			return rest;
+		}),
+	};
 }
 
 export interface LlmClient {
@@ -102,9 +125,17 @@ ${designContent}`;
 			continue;
 		}
 
-		const validation = validateTaskGraph(parsed);
+		// R3-F06: the schema now requires `size_score === tasks.length` when the
+		// field is present. If the LLM includes a stale or mismatched size_score,
+		// validation would fail even though the post-process step (`withSizeScore`)
+		// is designed to overwrite stale values. Strip `size_score` before
+		// validation so only the core structural/content rules gate generation;
+		// the deterministic value is then applied by `withSizeScore`.
+		const sanitized = stripSizeScore(parsed);
+		const validation = validateTaskGraph(sanitized);
 		if (validation.valid) {
-			return { ok: true, taskGraph: deepFreeze(parsed) as TaskGraph };
+			const enriched = withSizeScore(sanitized as TaskGraph);
+			return { ok: true, taskGraph: deepFreeze(enriched) as TaskGraph };
 		}
 
 		lastErrors = validation.errors;
