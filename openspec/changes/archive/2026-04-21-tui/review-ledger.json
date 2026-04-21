@@ -1,0 +1,148 @@
+{
+  "feature_id": "tui",
+  "phase": "impl",
+  "current_round": 3,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R2-F01",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/bin/specflow-launch-watch.ts",
+      "title": "Manual fallback breaks the empty-target contract",
+      "detail": "`emitManual()` always appends `posixQuote(target)`, so `specflow-launch-watch \"\"` tells the user to run `specflow-watch ''`. The proposal explicitly requires the empty-target case to preserve `specflow-watch`'s no-argument branch-resolution behavior. Omit the extra token when `target === \"\"`, and add a regression test for the empty-target manual fallback.",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "open",
+      "relation": "same",
+      "supersedes": "R1-F01",
+      "notes": ""
+    },
+    {
+      "id": "R2-F02",
+      "severity": "high",
+      "category": "testing",
+      "file": "src/tests/specflow-launch-watch.test.ts",
+      "title": "Required dispatcher branch coverage is missing",
+      "detail": "The proposal requires stubbed-PATH tests that cover each dispatcher branch, but this suite never exercises `tmux`, `screen`, `osascript`, `x-terminal-emulator`, `konsole`, or `alacritty`. That leaves the original macOS `osascript` regression and the sync branches unverified, so the acceptance criteria are not met. Add per-branch tests that assert the expected argv/cwd behavior.",
+      "origin_round": 2,
+      "latest_round": 3,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": "R1-F02",
+      "notes": ""
+    },
+    {
+      "id": "R3-F01",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/specflow-launch-watch.test.ts",
+      "title": "Launcher coverage misses required dispatcher and cwd scenarios",
+      "detail": "The proposal explicitly called for unit coverage of each dispatcher branch plus git-root and non-git cwd resolution. The new suite covers manual fallback, `$TERMINAL`, `gnome-terminal`, `xfce4-terminal`, `kitty`, `wezterm`, `xterm`, and one fallthrough case, but it does not exercise `tmux`, `screen`, `osascript`, `x-terminal-emulator`, `alacritty`, or assert the repo-root / `process.cwd()` cwd behavior that the spec makes part of the launcher contract. Add stubbed-PATH tests for those branches and cwd semantics.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "open",
+      "relation": "reframed",
+      "supersedes": "R2-F02",
+      "notes": ""
+    },
+    {
+      "id": "R3-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/build.ts",
+      "title": "Template lint only scans registered command templates, not every assets/commands template",
+      "detail": "The new build-time guard is wired to `contracts.commands.map(c => c.body.templatePath)`, so it only checks templates that are currently referenced by command contracts. The accepted command-template-authoring spec says the build must reject forbidden `$1..$9` / `$ARGUMENTS` placeholders in any `.md.tmpl` under `assets/commands/`. As written, an unregistered template in that directory bypasses the lint entirely. Enumerate `assets/commands/*.md.tmpl` directly (or equivalent) and add a test proving an unregistered template still fails the build.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F03",
+      "severity": "low",
+      "category": "completeness",
+      "file": "assets/commands/specflow.watch.md.tmpl",
+      "title": "Watch guide still references the removed `_try_bg` helper",
+      "detail": "After switching the guide to `specflow-launch-watch`, the per-emulator table still says `wezterm` and `xterm` use `_try_bg`. That helper no longer exists once the inline Bash dispatcher is removed, so the guide no longer accurately reflects the new CLI contract. Update those rows to the new liveness-probe wording and keep the snapshot aligned.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/bin/specflow-launch-watch.ts",
+      "title": "Templates now depend on a launcher that was never implemented",
+      "detail": "The spec’s main requirement is a new `specflow-launch-watch` CLI with the dispatcher, stdout, manual-fallback, and always-exit-0 contract. This diff updates the templates and `package.json` to call/export that command, but there is no new launcher implementation in the diff. As written, `/specflow` and `/specflow.watch` would replace the broken inline helper with a missing binary. Add the new CLI and wire it into the build/distribution path before switching the templates over.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/specflow-launch-watch.test.ts",
+      "title": "Required launcher test coverage is missing",
+      "detail": "The proposal explicitly calls for unit tests covering dispatcher precedence, empty-target handling, and manual fallback for `specflow-launch-watch`. No such test file or equivalent coverage was added here; the only test-related changes are snapshot updates. The cross-platform launcher is non-trivial behavior and needs direct tests before this can be accepted.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "reframed",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-tui-1-apply_review-1"
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 3,
+      "new": 1,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 1,
+        "high": 1,
+        "low": 1
+      },
+      "gate_id": "review_decision-tui-1-apply_review-2"
+    },
+    {
+      "round": 3,
+      "total": 7,
+      "open": 3,
+      "new": 1,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 3
+      },
+      "gate_id": "review_decision-tui-1-apply_review-3"
+    }
+  ]
+}

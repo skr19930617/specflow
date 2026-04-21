@@ -12,6 +12,7 @@
 		"specflow-filter-diff": "bin/specflow-filter-diff",
 		"specflow-init": "bin/specflow-init",
 		"specflow-install": "bin/specflow-install",
+		"specflow-launch-watch": "bin/specflow-launch-watch",
 		"specflow-prepare-change": "bin/specflow-prepare-change",
 		"specflow-review-apply": "bin/specflow-review-apply",
 		"specflow-review-design": "bin/specflow-review-design",

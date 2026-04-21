@@ -1,0 +1,149 @@
+{
+  "feature_id": "tui",
+  "phase": "design",
+  "current_round": 3,
+  "status": "in_progress",
+  "max_finding_id": 7,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "feasibility",
+      "title": "Dispatcher design drops required launch semantics for repo-root and failed-branch fallthrough",
+      "detail": "D2/D3/D5 and tasks 1.1-1.2 treat argv-based `spawn(..., { cwd })` as sufficient for all non-AppleScript branches, but the spec requires the spawned terminal itself to start at the git root and to fall through when a branch exits non-zero or dies before the 200ms liveness probe. That is not guaranteed for tmux/screen, and the tasks never explicitly implement or test the 200ms probe / no-`WATCH_METHOD` emission on failed branches. Specify per-branch cwd handling (for example tmux/screen-specific repo-root handling) and add explicit implementation and tests for failed-branch fallthrough before this is implementation-ready.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Empty-target behavior is specified as an empty argv instead of no argv",
+      "detail": "D6 says `specflow-launch-watch` should pass an empty string argument through to `specflow-watch`, but the proposal/spec require invoking `specflow-watch` with no positional argument when the target is omitted or empty. Passing `\"\"` is not the same contract and can change downstream resolution and quoting behavior. Update the design and tasks so command argv is built conditionally and add tests for both `specflow-launch-watch` and `specflow-launch-watch \"\"`.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Template tasks add a fallback path that conflicts with the direct-delegation acceptance criteria",
+      "detail": "The spec and the design's Contracts / Interfaces section require the generated guides to delegate via direct single-line `specflow-launch-watch \"$RUN_ID\"` / `\"$WATCH_TARGET\"` calls, with only the existing `SPECFLOW_NO_WATCH` skip path. Tasks 3.1 and 3.2 instead add a template-side missing-binary manual fallback from OQ1, which is extra behavior and can violate the slash-command-guides requirement that the non-skip branch call `specflow-launch-watch` directly. Resolve OQ1 and remove this fallback from the task plan unless the spec is intentionally changed.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "DESIGN CONTENT",
+      "title": "Lint rule still conflicts with allowed escaped placeholders",
+      "detail": "D8/2.1 still describe the authoring guard as a raw-line match on `\\$[0-9]\\b|\\$ARGUMENTS\\b`. That pattern also hits allowed escaped literals such as `\\$1` and `\\$ARGUMENTS`, even though the spec explicitly permits backslash-escaped forms. Make the design/task contract explicit that escaped placeholders are excluded from matches (for example via a token scanner or negative-lookbehind logic) and add coverage for both escaped numeric and escaped `$ARGUMENTS` cases.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F05",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "TASKS CONTENT",
+      "title": "Regression coverage does not validate the full rendered-guide contract",
+      "detail": "Task 4.1 only checks that the regenerated guides delegate to `specflow-launch-watch` and no longer contain `launch_watch()`. The slash-command-guides spec also requires the rendered `.claude/commands/specflow.md` and `.claude/commands/specflow.watch.md` to contain no fenced `bash`/`sh` references to `$1..$9` or `$ARGUMENTS`, and `/specflow` must preserve the `SPECFLOW_NO_WATCH` branch that sets `WATCH_METHOD=skipped` while the non-skip branch directly delegates. Add explicit rendered-output assertions for those conditions.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F06",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "TASKS CONTENT",
+      "title": "Template delegation steps leave WATCH_METHOD reporting underspecified",
+      "detail": "The design still says `/specflow` keeps reporting `(watch: $WATCH_METHOD)` from the launcher output (D7, completion conditions, manual smoke check), but tasks 3.1/3.2 only call for replacing the block with a bare `specflow-launch-watch \"$RUN_ID\"` / `\"$WATCH_TARGET\"` line and task 4.1 only checks direct delegation. There is no explicit contract for how the non-skip path propagates the emitted `WATCH_METHOD=<method>` back into the rendered guide, so implementation can either lose the watch-method report or add ad-hoc wrapper logic that conflicts with the 'single-line delegation' requirement. Specify the exact rendered-template form that preserves reporting and add regression coverage for that path.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F07",
+      "severity": "medium",
+      "category": "feasibility",
+      "file": "DESIGN CONTENT",
+      "title": "Dispatcher execution model is still ambiguous for tmux/screen and sync launches",
+      "detail": "D2/D3 and task 1.2 still describe the launcher as using 'spawn and spawnSync' and as argv-based everywhere except `osascript`/`xfce4-terminal`, but the proposed tmux and screen branches both consume command strings (`split-window ... \"specflow-watch <target>\"`, `screen ... 'screen specflow-watch <target>'`), and any actual `spawnSync` launch would block the helper instead of supporting the required 200ms liveness probe and fast return. Tighten the design so all terminal-launch branches are async `spawn`, reserve sync execution only for prerequisite/root-resolution work if needed, and extend the shared quoting/test contract to tmux/screen (and the manual hint) so empty and shell-sensitive targets are defined on those paths too.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "gate_id": "review_decision-tui-1-design_review-1"
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 3,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "gate_id": "review_decision-tui-1-design_review-2"
+    },
+    {
+      "round": 3,
+      "total": 7,
+      "open": 2,
+      "new": 2,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      },
+      "gate_id": "review_decision-tui-1-design_review-3"
+    }
+  ]
+}

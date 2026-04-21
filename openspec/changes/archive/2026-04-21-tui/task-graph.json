@@ -1,0 +1,184 @@
+{
+  "version": "1.0",
+  "change_id": "tui",
+  "bundles": [
+    {
+      "id": "launch-watch-cli",
+      "title": "Extract Watch Launcher CLI",
+      "goal": "Introduce a standalone specflow-launch-watch CLI that preserves the existing launch contract while removing fragile inline shell dispatch from templates.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "package.json",
+        "src/lib/git.ts",
+        "src/lib/process.ts",
+        "src/bin/specflow-watch.ts"
+      ],
+      "outputs": [
+        "src/bin/specflow-launch-watch.ts",
+        "package.json#bin.specflow-launch-watch",
+        "src/tests/specflow-launch-watch.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement the CLI entrypoint, empty-target pass-through, git-root cwd resolution, and always-exit-0 behavior.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Port the 12-branch launcher dispatcher to child_process spawn and spawnSync, using argv-based invocation everywhere except the osascript and xfce4-terminal string branches.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Centralize quoting for osascript and xfce4-terminal, preserve the Japanese manual hint, and emit exactly one WATCH_METHOD line using the basename form for TERMINAL.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Register the new binary in the package bin map and add unit coverage for dispatcher selection, cwd fallback, and stdout contract preservation.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "utility-cli-suite",
+        "workspace-context",
+        "contract-driven-distribution"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "template-positional-arg-lint",
+      "title": "Add Template Positional-Arg Lint",
+      "goal": "Fail builds before template resolution when command templates embed forbidden positional placeholders inside fenced bash or sh blocks.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "src/build.ts",
+        "src/contracts/template-resolver.ts",
+        "assets/commands/*.md.tmpl"
+      ],
+      "outputs": [
+        "src/contracts/template-resolver.ts#lintCommandTemplates",
+        "src/build.ts#command-template-lint",
+        "src/tests/command-template-lint.test.ts"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement line-by-line fenced-block scanning for bash and sh sections and detect $1 through $9 plus $ARGUMENTS against raw template line numbers.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Wire lint execution into src/build.ts before resolveAllTemplates so failures use the existing build error path and point at raw template locations.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add targeted tests for valid text fences, rejected bash placeholders, and escaped examples that should still build.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "command-template-authoring",
+        "spec-consistency-verification",
+        "slash-command-guides"
+      ],
+      "size_score": 3
+    },
+    {
+      "id": "watch-command-template-delegation",
+      "title": "Delegate Watch Launch From Templates",
+      "goal": "Replace inline launch_watch helpers in both slash-command templates with CLI delegation while preserving runtime fallback behavior.",
+      "depends_on": [
+        "launch-watch-cli",
+        "template-positional-arg-lint"
+      ],
+      "inputs": [
+        "design.md",
+        "assets/commands/specflow.md.tmpl",
+        "assets/commands/specflow.watch.md.tmpl",
+        "src/bin/specflow-launch-watch.ts"
+      ],
+      "outputs": [
+        "assets/commands/specflow.md.tmpl",
+        "assets/commands/specflow.watch.md.tmpl",
+        ".claude/commands/specflow.md",
+        ".claude/commands/specflow.watch.md"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Replace the Step 3 inline launcher in specflow.md.tmpl with a specflow-launch-watch RUN_ID call and a missing-binary manual fallback.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Replace the Step 2 inline launcher in specflow.watch.md.tmpl with the matching specflow-launch-watch WATCH_TARGET delegation and fallback.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Regenerate the resolved Claude command files so the shipped command bodies no longer contain launch_watch definitions.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "slash-command-guides",
+        "command-template-authoring",
+        "utility-cli-suite"
+      ],
+      "size_score": 3
+    },
+    {
+      "id": "watch-launch-regression-verification",
+      "title": "Lock In Regression Coverage",
+      "goal": "Add regression checks and verification steps that prove the auto-launch fix and template-authoring guard remain intact.",
+      "depends_on": [
+        "watch-command-template-delegation"
+      ],
+      "inputs": [
+        "design.md",
+        "src/tests/specflow-launch-watch.test.ts",
+        ".claude/commands/specflow.md",
+        ".claude/commands/specflow.watch.md",
+        "src/build.ts"
+      ],
+      "outputs": [
+        "src/tests/specflow-template-regression.test.ts",
+        "verification:tui-auto-launch"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add regression assertions that regenerated specflow command bodies invoke specflow-launch-watch and never embed a launch_watch function.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Run build and test verification for the launcher contract, template regeneration, and positional-arg lint enforcement.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Complete the macOS Terminal.app smoke check for auto-launch from specflow and record any follow-up fixes if the reported watch method diverges.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "slash-command-guides",
+        "utility-cli-suite"
+      ],
+      "size_score": 3
+    }
+  ],
+  "generated_at": "2026-04-21T04:31:21.593Z",
+  "generated_from": "design.md"
+}
