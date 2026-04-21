@@ -46,124 +46,34 @@ nothing resolves, it exits with a clear error and does **not** open the TUI.
 From `$ARGUMENTS`, set `WATCH_TARGET` to either the argument the user
 provided or an empty string. If empty, the no-argument form is used.
 
-## Step 2: Launch the TUI via the cross-platform dispatcher
+## Step 2: Launch the TUI via `specflow-launch-watch`
 
 
-Paste the following Bash function into the shell and call
-`launch_watch "$WATCH_TARGET"`. The dispatcher tries tmux → screen → macOS
-Terminal via `osascript` → `$TERMINAL` → known Linux emulators → manual
-fallback, in that order. Each successful branch prints
-`WATCH_METHOD=<method>` so the calling guide can report which path was
-taken. All branches exit with status 0 (watch is optional; launch failure
-is non-fatal).
+Delegate to the `specflow-launch-watch` CLI. It encapsulates the
+cross-platform dispatcher (tmux → screen → macOS `osascript` → `$TERMINAL`
+→ known Linux emulators → manual fallback), prints `WATCH_METHOD=<method>`
+on the selected branch, and always exits 0 (watch is optional; launch
+failure is non-fatal).
 
 ```bash
-launch_watch() {
-  local target="$1"
-  local repo_dir
-  repo_dir="$(pwd)"
-  local watch_method=""
-
-  # Helper: escape single-quotes for AppleScript single-quoted literals.
-  _qs() { printf '%s' "$1" | sed "s/'/'\\\\''/g"; }
-  # Helper: shell-quote a single argument via printf '%q'.
-  _shell_quote() { printf '%q' "$1"; }
-  # Helper: background a command and verify its PID survives 200ms.
-  _try_bg() {
-    "$@" &
-    local pid=$!
-    sleep 0.2
-    kill -0 "$pid" 2>/dev/null
-  }
-
-  # --- Synchronous branches (exit-code check via &&) ---
-  if [ -n "$TMUX" ]; then
-    tmux split-window -h "specflow-watch $(_shell_quote "$target")" \
-      && { watch_method="tmux"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0; }
-  fi
-  if [ -n "$STY" ]; then
-    screen -X screen specflow-watch "$target" \
-      && { watch_method="screen"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0; }
-  fi
-  if [ "$(uname -s)" = "Darwin" ] && command -v osascript >/dev/null 2>&1; then
-    local qs_dir; qs_dir="$(_qs "$repo_dir")"
-    local qs_target; qs_target="$(_qs "$target")"
-    osascript -e "tell application \"Terminal\" to do script \"cd '${qs_dir}' && specflow-watch '${qs_target}'\"" \
-              -e 'tell application "Terminal" to activate' >/dev/null \
-      && { watch_method="osascript"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0; }
-  fi
-
-  # --- Backgrounded branches (_try_bg PID probe) ---
-  if [ -n "$TERMINAL" ] && command -v "$TERMINAL" >/dev/null 2>&1; then
-    if _try_bg "$TERMINAL" -e specflow-watch "$target"; then
-      watch_method="\$TERMINAL($TERMINAL)"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v x-terminal-emulator >/dev/null 2>&1; then
-    if _try_bg x-terminal-emulator -e specflow-watch "$target"; then
-      watch_method="x-terminal-emulator"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v gnome-terminal >/dev/null 2>&1; then
-    if _try_bg gnome-terminal -- specflow-watch "$target"; then
-      watch_method="gnome-terminal"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v konsole >/dev/null 2>&1; then
-    if _try_bg konsole -e specflow-watch "$target"; then
-      watch_method="konsole"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v xfce4-terminal >/dev/null 2>&1; then
-    if _try_bg xfce4-terminal -e "specflow-watch $(_shell_quote "$target")"; then
-      watch_method="xfce4-terminal"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v alacritty >/dev/null 2>&1; then
-    if _try_bg alacritty -e specflow-watch "$target"; then
-      watch_method="alacritty"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v kitty >/dev/null 2>&1; then
-    if _try_bg kitty specflow-watch "$target"; then
-      watch_method="kitty"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v wezterm >/dev/null 2>&1; then
-    if _try_bg wezterm start -- specflow-watch "$target"; then
-      watch_method="wezterm"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-  if command -v xterm >/dev/null 2>&1; then
-    if _try_bg xterm -e specflow-watch "$target"; then
-      watch_method="xterm"; printf 'WATCH_METHOD=%s\n' "$watch_method"; return 0
-    fi
-  fi
-
-  # --- Manual fallback (all dispatchers unavailable) ---
-  watch_method="manual"
-  printf 'WATCH_METHOD=%s\n' "$watch_method"
-  printf '💡 別ターミナルで specflow-watch %s を実行すると進捗をリアルタイムで確認できます\n' "$(_shell_quote "$target")"
-  return 0
-}
-
-launch_watch "$WATCH_TARGET"
+specflow-launch-watch "$WATCH_TARGET"
 ```
 
-Per-emulator argument contract:
+Per-emulator argument contract (enforced by `specflow-launch-watch`; see
+`utility-cli-suite` spec for the authoritative contract):
 
 | Emulator | Launch form | Verification | Notes |
 | --- | --- | --- | --- |
-| `tmux` | `split-window -h "..."` | `&&` (sync) | target escaped via `printf '%q'` |
-| `screen` | `-X screen cmd args` | `&&` (sync) | runs inside the screen session |
-| `osascript` | `do script "..."` | `&&` (sync) | `repo_dir` and `target` escaped via `_qs` |
-| `$TERMINAL` | `-e cmd args` | `_try_bg` (PID probe) | best-effort; non-`-e` emulators fall through |
-| `x-terminal-emulator` | `-e cmd args` | `_try_bg` | Debian alternatives |
-| `gnome-terminal` | `-- cmd args` | `_try_bg` | `-e` is deprecated; `--` separator |
-| `konsole` | `-e cmd args` | `_try_bg` | |
-| `xfce4-terminal` | `-e "cmd args"` | `_try_bg` | single-string `-e`; args shell-quoted |
-| `alacritty` | `-e cmd args` | `_try_bg` | |
-| `kitty` | `cmd args` (direct exec) | `_try_bg` | no subcommand |
+| `tmux` | `split-window -h -c <root> "..."` | sync `spawnSync` | pane cwd set via `-c` |
+| `screen` | `-X eval "chdir <root>" "screen cmd args"` | sync `spawnSync` | runs inside the screen session |
+| `osascript` | `do script "..."` | sync `spawnSync` | `repo_dir` and `target` escaped |
+| `$TERMINAL` | `-e cmd args` | 200ms liveness probe | best-effort; non-`-e` emulators fall through |
+| `x-terminal-emulator` | `-e cmd args` | 200ms liveness probe | Debian alternatives |
+| `gnome-terminal` | `-- cmd args` | 200ms liveness probe | `-e` is deprecated; `--` separator |
+| `konsole` | `-e cmd args` | 200ms liveness probe | |
+| `xfce4-terminal` | `-e "cmd args"` | 200ms liveness probe | single-string `-e`; args shell-quoted |
+| `alacritty` | `-e cmd args` | 200ms liveness probe | |
+| `kitty` | `cmd args` (direct exec) | 200ms liveness probe | no subcommand |
 | `wezterm` | `start -- cmd args` | `_try_bg` | `start` subcommand + `--` separator |
 | `xterm` | `-e cmd args` | `_try_bg` | |
 
@@ -188,8 +98,8 @@ because Terminal.app ignores `--args` and opens an empty window.
 - Use the git repository root (`git rev-parse --show-toplevel`) as the base
   for all relative paths.
 - Never run `specflow-watch` in the foreground of the main Claude chat —
-  the TUI will take over the terminal. Always use the `launch_watch`
-  dispatcher.
+  the TUI will take over the terminal. Always use the
+  `specflow-launch-watch` CLI dispatcher.
 - `specflow-watch` reads only local filesystem artifacts and never writes
   to any run artifact; it never calls `specflow-run advance` or any other
   mutating specflow subcommand.

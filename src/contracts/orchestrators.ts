@@ -66,6 +66,15 @@ export const orchestratorContracts: readonly OrchestratorContract[] = [
 		references: [],
 	},
 	{
+		id: "specflow-launch-watch",
+		type: AssetType.Orchestrator,
+		filePath: "bin/specflow-launch-watch",
+		entryModule: "dist/bin/specflow-launch-watch.js",
+		// stdout is a human-readable `WATCH_METHOD=<method>` line plus an
+		// optional Japanese hint on manual fallback — not a JSON envelope.
+		references: [],
+	},
+	{
 		id: "specflow-prepare-change",
 		type: AssetType.Orchestrator,
 		filePath: "bin/specflow-prepare-change",

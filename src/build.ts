@@ -1,5 +1,8 @@
 import { contracts } from "./contracts/install.js";
-import { resolveAllTemplates } from "./contracts/template-resolver.js";
+import {
+	lintCommandTemplates,
+	resolveAllTemplates,
+} from "./contracts/template-resolver.js";
 import { renderCommands } from "./generators/commands.js";
 import { renderInstallPlan } from "./generators/install-plan.js";
 import { renderPrompts } from "./generators/prompts.js";
@@ -29,6 +32,20 @@ function main(): void {
 				`[${error.check}] ${error.id} (${error.type}) at ${error.filePath}`,
 			);
 			console.error(`  ${error.message}`);
+		}
+		process.exit(1);
+	}
+
+	// Template lint runs BEFORE resolution so errors point at raw template
+	// files rather than resolved output (which inlines insertion snippets).
+	const templatePaths = contracts.commands
+		.map((c) => c.body.templatePath)
+		.filter((p): p is string => p !== undefined)
+		.map((p) => fromRepo(p));
+	const lintErrors = lintCommandTemplates(templatePaths);
+	if (lintErrors.length > 0) {
+		for (const err of lintErrors) {
+			console.error(`[command-template-lint] ${err.message}`);
 		}
 		process.exit(1);
 	}

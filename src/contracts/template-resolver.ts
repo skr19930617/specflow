@@ -161,6 +161,94 @@ export function resolveTemplate(
 	return { sections: splitIntoSections(resolved) };
 }
 
+export interface TemplateLintError {
+	readonly filePath: string;
+	readonly line: number;
+	readonly token: string;
+	readonly message: string;
+}
+
+/**
+ * Scan `.md.tmpl` files for forbidden positional-arg placeholders inside
+ * fenced `bash`/`sh` code blocks.
+ *
+ * Motivation: Claude Code's slash-command renderer substitutes `$1`, `$2`,
+ * ..., `$9`, and `$ARGUMENTS` at invocation time. Any inline shell helper
+ * that references these placeholders will be silently corrupted (they
+ * collapse to empty strings when the command is invoked without positional
+ * args). This lint rejects such patterns at build time so authors cannot
+ * reintroduce the class of bug that caused the TUI auto-launch failure
+ * tracked in issue #180.
+ *
+ * Rules:
+ *   • Only fenced blocks whose language tag is `bash` or `sh` are scanned.
+ *   • Matches are literal — regex `(?<!\\)\$[0-9]\b|(?<!\\)\$ARGUMENTS\b` —
+ *     so backslash-escaped forms (`\$1`, `\$ARGUMENTS`), brace-delimited
+ *     forms (`${1}`, `${ARGUMENTS}`), and two-digit references (`$10`) do
+ *     NOT trigger the lint.
+ *   • `text`-fenced blocks (used by every command for the user-input
+ *     placeholder `\`\`\`text\n$ARGUMENTS\n\`\`\``) are unaffected.
+ *   • Fenced blocks with no language tag are treated as out-of-scope (to
+ *     opt in, tag them `bash` or `sh`).
+ *
+ * Returns an empty array on success; non-empty array on failure.
+ */
+export function lintCommandTemplates(
+	templatePaths: readonly string[],
+): readonly TemplateLintError[] {
+	const errors: TemplateLintError[] = [];
+	// Scan character-by-character is unnecessary — a line-by-line walk is
+	// enough because code fences are line-based in CommonMark. The state
+	// machine is: either inside a fenced block (tracked by language tag) or
+	// outside. `(?<!\\)` excludes backslash-escaped tokens.
+	const FORBIDDEN = /(?<!\\)\$[0-9]\b|(?<!\\)\$ARGUMENTS\b/g;
+	for (const filePath of templatePaths) {
+		let content: string;
+		try {
+			content = readFileSync(filePath, "utf8");
+		} catch (err) {
+			errors.push({
+				filePath,
+				line: 0,
+				token: "",
+				message: `cannot read template file "${filePath}": ${err instanceof Error ? err.message : String(err)}`,
+			});
+			continue;
+		}
+		const lines = content.split("\n");
+		let inForbiddenFence = false;
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			const fenceMatch = /^(\s*)```(\S*)\s*$/.exec(line);
+			if (fenceMatch !== null) {
+				if (inForbiddenFence) {
+					// closing fence
+					inForbiddenFence = false;
+				} else {
+					const lang = fenceMatch[2].trim().toLowerCase();
+					inForbiddenFence = lang === "bash" || lang === "sh";
+				}
+				continue;
+			}
+			if (!inForbiddenFence) continue;
+			FORBIDDEN.lastIndex = 0;
+			let match: RegExpExecArray | null;
+			match = FORBIDDEN.exec(line);
+			while (match !== null) {
+				const token = match[0];
+				errors.push({
+					filePath,
+					line: i + 1,
+					token,
+					message: `${filePath}:${i + 1}: forbidden positional-arg placeholder ${token} in fenced bash/sh block (Claude Code substitutes $1..$9 / $ARGUMENTS at invocation time; extract the shell to a standalone binary or use \\$1 to escape)`,
+				});
+				match = FORBIDDEN.exec(line);
+			}
+		}
+	}
+	return errors;
+}
+
 /**
  * Resolve every command whose body declares a `templatePath`, producing new
  * `CommandContract` objects with `body.sections` populated from the template.
