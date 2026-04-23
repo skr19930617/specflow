@@ -46,7 +46,24 @@ export interface SubagentResult {
 	};
 }
 
-export type SubagentInvoker = (pkg: ContextPackage) => Promise<SubagentResult>;
+/**
+ * apply-worktree-isolation: when a bundle is dispatched in subagent-worktree
+ * mode, the main agent passes the ephemeral worktree handle so the subagent
+ * knows where to write its implementation. The handle is `undefined` for
+ * test fixtures and for any non-worktree dispatch path (none supported in
+ * production post-feature; `subagent-shared` is NOT a supported mode).
+ */
+export interface SubagentWorktreeHandle {
+	readonly path: string;
+	readonly baseSha: string;
+	readonly runId: string;
+	readonly bundleId: string;
+}
+
+export type SubagentInvoker = (
+	pkg: ContextPackage,
+	worktree?: SubagentWorktreeHandle,
+) => Promise<SubagentResult>;
 
 /**
  * Window-level dispatch decision. `subagent` mode is used when at least one

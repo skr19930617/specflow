@@ -1,0 +1,296 @@
+{
+  "version": "1.0",
+  "change_id": "apply-worktree-isolation",
+  "bundles": [
+    {
+      "id": "extend-bundle-status-model",
+      "title": "Extend Bundle Status Model",
+      "goal": "Add the new terminal bundle statuses and transition rules so apply, recovery, and rendering can distinguish subagent execution failure from integration rejection.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "proposal.md",
+        "specs/task-planner/spec.md",
+        "openspec/changes/<CHANGE_ID>/task-graph.json",
+        "openspec/changes/<CHANGE_ID>/tasks.md"
+      ],
+      "outputs": [
+        "task-planner status enum supporting subagent_failed and integration_rejected",
+        "updateBundleStatus transition rules for pending/in_progress/done/subagent_failed/integration_rejected",
+        "tasks.md renderer markers for the new statuses",
+        "schema and reducer tests for new status transitions"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend the task-planner bundle status enum to include subagent_failed and integration_rejected",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update bundle transition validation to allow the new terminal states and pending resets only from fix-apply/operator reset flows",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Render the new statuses distinctly in tasks.md output",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add schema, reducer, and rendering tests covering valid and invalid transitions",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "task-planner",
+        "canonical-workflow-state",
+        "workflow-run-state"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "build-worktree-helper-primitives",
+      "title": "Build Worktree Helper Primitives",
+      "goal": "Provide the git-backed worktree lifecycle and diff/import helpers needed to isolate subagent execution per bundle.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "specs/apply-worktree-integration/spec.md",
+        "git worktree add/remove/list",
+        "git diff --binary",
+        "git apply --binary"
+      ],
+      "outputs": [
+        "createWorktree helper returning worktree path and base SHA",
+        "computeDiff helper producing binary-safe patches",
+        "importPatch helper applying binary patches at repo root",
+        "removeWorktree helper for cleanup",
+        "listTouchedPaths helper for patch path inspection",
+        "unit tests for worktree helper behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement createWorktree to create .specflow/worktrees/<run-id>/<bundle-id>/ from current HEAD and capture the base SHA",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement computeDiff, importPatch, and removeWorktree using binary-safe git commands",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Implement listTouchedPaths to extract all touched repo-relative paths from patch content",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add unit tests for success and failure behavior of the helper primitives",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "utility-cli-suite",
+        "workspace-context",
+        "run-artifact-store-conformance"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "enforce-integration-authority",
+      "title": "Enforce Integration Authority",
+      "goal": "Validate subagent worktree output before import so only declared, non-protected, non-empty changes can advance a bundle to done.",
+      "depends_on": [
+        "build-worktree-helper-primitives",
+        "extend-bundle-status-model"
+      ],
+      "inputs": [
+        "design.md",
+        "specs/apply-worktree-integration/spec.md",
+        "SubagentResult contract",
+        "worktree helper primitives",
+        "protected path rules for .specflow/ and workflow state artifacts"
+      ],
+      "outputs": [
+        "main-agent integration step for worktree diffs",
+        "integration rejection causes surfaced to user output",
+        "bundle transitions to done or integration_rejected based on validation",
+        "positive and negative integration tests covering all rejection causes"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add an integration validation step that computes the worktree diff and rejects undeclared or protected-path changes",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Reject successful subagent results that produce an empty diff and surface the empty_diff_on_success cause",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Import accepted patches with git apply --binary and transition bundles to done only after successful import",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add tests covering undeclared_path, protected_path, empty_diff_on_success, patch_apply_failure, and the success path",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "bundle-subagent-execution",
+        "artifact-ownership-model",
+        "repo-responsibility"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "route-bundles-by-execution-mode",
+      "title": "Route Bundles By Execution Mode",
+      "goal": "Assign each bundle to inline-main or subagent-worktree deterministically from the existing subagent-eligibility rule.",
+      "depends_on": [
+        "enforce-integration-authority"
+      ],
+      "inputs": [
+        "design.md",
+        "specs/bundle-subagent-execution/spec.md",
+        "assignExecutionMode contract",
+        "bundle size_score and subagent configuration"
+      ],
+      "outputs": [
+        "dispatcher execution-mode assignment logic",
+        "tests covering enabled true/false, size_score above/below threshold, and undefined size_score",
+        "execution-mode routing from dispatcher to inline or worktree path"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement assignExecutionMode to return subagent-worktree only for bundles that are subagent-eligible under the existing rule",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Wire dispatcher routing so eligible bundles go through the worktree integration path and others stay inline-main",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add dispatch tests for all required configuration and size-score combinations",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "bundle-subagent-execution",
+        "phase-router",
+        "task-planner"
+      ],
+      "size_score": 3
+    },
+    {
+      "id": "wire-fail-fast-and-retention",
+      "title": "Wire Fail-Fast And Retention",
+      "goal": "Integrate worktree mode into apply orchestration with fail-fast semantics on worktree creation errors and retention of failed worktrees for diagnosis.",
+      "depends_on": [
+        "build-worktree-helper-primitives",
+        "enforce-integration-authority",
+        "route-bundles-by-execution-mode",
+        "extend-bundle-status-model"
+      ],
+      "inputs": [
+        "design.md",
+        ".specflow/runs/<RUN_ID>/ state handling",
+        "chunk-drain-then-stop apply flow",
+        "worktree lifecycle and integration outputs"
+      ],
+      "outputs": [
+        "apply orchestration using worktree mode for eligible bundles",
+        "fail-fast stop on git worktree add failure without inline fallback",
+        "retention policy removing successful worktrees and preserving failed/rejected ones",
+        "integration tests for worktree-unavailable stop behavior and retention outcomes"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Create and prepare per-bundle worktrees during apply orchestration and run subagents inside them",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Stop the apply immediately when createWorktree fails and leave the run in apply_draft with no further subagents spawned",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Retain worktrees for subagent_failed and integration_rejected bundles and remove them after successful integration",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add end-to-end tests covering successful cleanup, retained failure worktrees, and fail-fast behavior on worktree add errors",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "bundle-subagent-execution",
+        "workflow-run-state",
+        "workspace-context"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "document-fix-apply-recovery",
+      "title": "Document Fix Apply Recovery",
+      "goal": "Document how operators and /specflow.fix_apply recover from subagent_failed and integration_rejected bundles using retained worktrees.",
+      "depends_on": [
+        "wire-fail-fast-and-retention",
+        "extend-bundle-status-model"
+      ],
+      "inputs": [
+        "design.md",
+        "specs/task-planner/spec.md",
+        "specs/bundle-subagent-execution/spec.md",
+        "retained worktree paths",
+        "new bundle status semantics"
+      ],
+      "outputs": [
+        "recovery documentation for /specflow.fix_apply covering retained worktrees and reset-to-pending rules",
+        "operator guidance for diagnosing subagent_failed versus integration_rejected"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Document the new terminal bundle statuses and the allowed reset-to-pending recovery path",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Document how retained worktrees are located and used during fix-apply recovery",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add operator-facing notes distinguishing subagent execution failure from integration rejection",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-autofix-progress-observability",
+        "task-planner",
+        "bundle-subagent-execution"
+      ],
+      "size_score": 3
+    }
+  ],
+  "generated_at": "2026-04-22T04:57:18.048Z",
+  "generated_from": "design.md"
+}

@@ -23,6 +23,10 @@ function bundleStatusLabel(status: string): string {
 			return " (in progress)";
 		case "skipped":
 			return " (skipped)";
+		case "subagent_failed":
+			return " ✗ (subagent failed — retained worktree)";
+		case "integration_rejected":
+			return " ⚠ (integration rejected — retained worktree)";
 		default:
 			return "";
 	}
