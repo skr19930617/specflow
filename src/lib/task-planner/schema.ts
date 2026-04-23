@@ -7,7 +7,22 @@ export interface ValidationResult {
 	readonly errors: readonly string[];
 }
 
-const VALID_STATUSES = ["pending", "in_progress", "done", "skipped"] as const;
+// Bundles MAY carry the two apply-worktree-specific statuses. Child tasks
+// MAY NOT — those values are bundle-only.
+const VALID_BUNDLE_STATUSES = [
+	"pending",
+	"in_progress",
+	"done",
+	"skipped",
+	"subagent_failed",
+	"integration_rejected",
+] as const;
+const VALID_TASK_STATUSES = [
+	"pending",
+	"in_progress",
+	"done",
+	"skipped",
+] as const;
 
 function isNonEmptyString(v: unknown): v is string {
 	return typeof v === "string" && v.length > 0;
@@ -126,10 +141,12 @@ export function validateTaskGraph(input: unknown): ValidationResult {
 		// Status
 		if (
 			typeof bundle.status !== "string" ||
-			!VALID_STATUSES.includes(bundle.status as (typeof VALID_STATUSES)[number])
+			!VALID_BUNDLE_STATUSES.includes(
+				bundle.status as (typeof VALID_BUNDLE_STATUSES)[number],
+			)
 		) {
 			errors.push(
-				`${prefix}.status: expected one of ${VALID_STATUSES.join(", ")}`,
+				`${prefix}.status: expected one of ${VALID_BUNDLE_STATUSES.join(", ")}`,
 			);
 		}
 
@@ -204,12 +221,12 @@ export function validateTaskGraph(input: unknown): ValidationResult {
 				}
 				if (
 					typeof task.status !== "string" ||
-					!VALID_STATUSES.includes(
-						task.status as (typeof VALID_STATUSES)[number],
+					!VALID_TASK_STATUSES.includes(
+						task.status as (typeof VALID_TASK_STATUSES)[number],
 					)
 				) {
 					errors.push(
-						`${tPrefix}.status: expected one of ${VALID_STATUSES.join(", ")}`,
+						`${tPrefix}.status: expected one of ${VALID_TASK_STATUSES.join(", ")}`,
 					);
 				}
 			}

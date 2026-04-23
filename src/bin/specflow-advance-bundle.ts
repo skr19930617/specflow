@@ -18,6 +18,8 @@ const VALID_STATUSES: readonly BundleStatus[] = [
 	"in_progress",
 	"done",
 	"skipped",
+	"subagent_failed",
+	"integration_rejected",
 ];
 
 interface DieContext {
@@ -56,11 +58,16 @@ function isBundleStatus(value: string): value is BundleStatus {
 }
 
 async function main(): Promise<void> {
-	const args = process.argv.slice(2);
+	const allArgs = process.argv.slice(2);
+	// Extract --allow-reset flag; remaining positional args are CHANGE_ID BUNDLE_ID NEW_STATUS.
+	// Only /specflow.fix_apply or an explicit operator reset flow should pass this flag.
+	const allowReset = allArgs.includes("--allow-reset");
+	const args = allArgs.filter((a) => a !== "--allow-reset");
 	if (args.length < 3) {
 		die(
-			"Usage: specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>. " +
-				`NEW_STATUS must be one of: ${VALID_STATUSES.join(" | ")}`,
+			"Usage: specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS> [--allow-reset]. " +
+				`NEW_STATUS must be one of: ${VALID_STATUSES.join(" | ")}. ` +
+				"--allow-reset is required for subagent_failed|integration_rejected → pending transitions.",
 		);
 	}
 
@@ -106,6 +113,7 @@ async function main(): Promise<void> {
 		taskGraph,
 		bundleId,
 		newStatus: rawStatus,
+		allowReset,
 		writer: {
 			writeTaskGraph(content) {
 				void store.write(taskGraphRef, content);

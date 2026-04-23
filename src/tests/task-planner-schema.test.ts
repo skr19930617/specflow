@@ -306,3 +306,70 @@ test("validateTaskGraph: accepts mixed graph where some bundles have size_score 
 	assert.equal(result.valid, true, result.errors.join(", "));
 	assert.equal(result.errors.length, 0);
 });
+
+// --- apply-worktree-isolation schema extensions ---
+
+test("validateTaskGraph: accepts subagent_failed as a bundle status", () => {
+	const graph = validGraph();
+	const g = {
+		...graph,
+		bundles: [
+			{ ...graph.bundles[0], status: "subagent_failed" },
+			graph.bundles[1],
+		],
+	};
+	const result = validateTaskGraph(g);
+	assert.equal(result.valid, true, result.errors.join(", "));
+});
+
+test("validateTaskGraph: accepts integration_rejected as a bundle status", () => {
+	const graph = validGraph();
+	const g = {
+		...graph,
+		bundles: [
+			{ ...graph.bundles[0], status: "integration_rejected" },
+			graph.bundles[1],
+		],
+	};
+	const result = validateTaskGraph(g);
+	assert.equal(result.valid, true, result.errors.join(", "));
+});
+
+test("validateTaskGraph: rejects subagent_failed on a child task (bundle-only status)", () => {
+	const graph = validGraph();
+	const g = {
+		...graph,
+		bundles: [
+			{
+				...graph.bundles[0],
+				tasks: [{ id: "a-1", title: "Task A1", status: "subagent_failed" }],
+			},
+			graph.bundles[1],
+		],
+	};
+	const result = validateTaskGraph(g);
+	assert.equal(result.valid, false);
+	assert.ok(
+		result.errors.some((e) => e.includes("tasks[0].status")),
+		`expected child-task status error, got: ${result.errors.join(" | ")}`,
+	);
+});
+
+test("validateTaskGraph: rejects integration_rejected on a child task (bundle-only status)", () => {
+	const graph = validGraph();
+	const g = {
+		...graph,
+		bundles: [
+			{
+				...graph.bundles[0],
+				tasks: [
+					{ id: "a-1", title: "Task A1", status: "integration_rejected" },
+				],
+			},
+			graph.bundles[1],
+		],
+	};
+	const result = validateTaskGraph(g);
+	assert.equal(result.valid, false);
+	assert.ok(result.errors.some((e) => e.includes("tasks[0].status")));
+});

@@ -37,6 +37,12 @@ export interface AdvanceBundleOptions {
 	readonly newStatus: BundleStatus;
 	readonly writer: AdvanceBundleWriter;
 	readonly logger?: AdvanceBundleLogger;
+	/**
+	 * Permit reset transitions out of `subagent_failed` or `integration_rejected`
+	 * back to `pending`. Only /specflow.fix_apply or an operator reset flow
+	 * should set this. Apply-class workflows MUST NOT.
+	 */
+	readonly allowReset?: boolean;
 }
 
 export interface AdvanceBundleSuccess {
@@ -70,6 +76,7 @@ export function advanceBundleStatus(
 		options.taskGraph,
 		options.bundleId,
 		options.newStatus,
+		{ allowReset: options.allowReset === true },
 	);
 	if (!result.ok) {
 		return result;

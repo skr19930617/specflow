@@ -639,3 +639,161 @@ test("renderTasksMd: unchanged — produces the same output when invoked directl
 	const second = renderTasksMd(result.taskGraph);
 	assert.equal(first, second);
 });
+
+// --- apply-worktree-isolation: subagent_failed / integration_rejected ---
+
+test("updateBundleStatus: in_progress → subagent_failed succeeds without child coercion", () => {
+	const graph = inProgressSchemaGraph();
+	const result = updateBundleStatus(graph, "schema", "subagent_failed");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	assert.equal(updated?.status, "subagent_failed");
+	// Child statuses preserved (no normalization): the bundle started at
+	// in_progress over pending children, so children stay pending.
+	for (const task of updated?.tasks ?? []) {
+		assert.equal(task.status, "pending");
+	}
+	assert.equal(result.coercions.length, 0);
+});
+
+test("updateBundleStatus: in_progress → integration_rejected succeeds without child coercion", () => {
+	const graph = inProgressSchemaGraph();
+	const result = updateBundleStatus(graph, "schema", "integration_rejected");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const updated = result.taskGraph.bundles.find((b) => b.id === "schema");
+	assert.equal(updated?.status, "integration_rejected");
+	for (const task of updated?.tasks ?? []) {
+		assert.equal(task.status, "pending");
+	}
+	assert.equal(result.coercions.length, 0);
+});
+
+test("updateBundleStatus: pending → subagent_failed is rejected (must go through in_progress)", () => {
+	const result = updateBundleStatus(sampleGraph(), "schema", "subagent_failed");
+	assert.equal(result.ok, false);
+});
+
+test("updateBundleStatus: pending → integration_rejected is rejected (must go through in_progress)", () => {
+	const result = updateBundleStatus(
+		sampleGraph(),
+		"schema",
+		"integration_rejected",
+	);
+	assert.equal(result.ok, false);
+});
+
+test("updateBundleStatus: subagent_failed → done directly is rejected", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{ ...base.bundles[0], status: "subagent_failed" },
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "done");
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.ok(result.error.includes("Invalid status transition"));
+	}
+});
+
+test("updateBundleStatus: integration_rejected → in_progress directly is rejected", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{ ...base.bundles[0], status: "integration_rejected" },
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "in_progress");
+	assert.equal(result.ok, false);
+});
+
+test("updateBundleStatus: subagent_failed → pending rejected without allowReset", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{ ...base.bundles[0], status: "subagent_failed" },
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "pending");
+	assert.equal(result.ok, false);
+});
+
+test("updateBundleStatus: subagent_failed → pending succeeds with allowReset", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{ ...base.bundles[0], status: "subagent_failed" },
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "pending", {
+		allowReset: true,
+	});
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	assert.equal(
+		result.taskGraph.bundles.find((b) => b.id === "schema")?.status,
+		"pending",
+	);
+});
+
+test("updateBundleStatus: integration_rejected → pending succeeds with allowReset", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [
+			{ ...base.bundles[0], status: "integration_rejected" },
+			...base.bundles.slice(1),
+		],
+	};
+	const result = updateBundleStatus(graph, "schema", "pending", {
+		allowReset: true,
+	});
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	assert.equal(
+		result.taskGraph.bundles.find((b) => b.id === "schema")?.status,
+		"pending",
+	);
+});
+
+test("updateBundleStatus: done → pending rejected even with allowReset (reset only from new statuses)", () => {
+	const base = sampleGraph();
+	const graph: TaskGraph = {
+		...base,
+		bundles: [{ ...base.bundles[0], status: "done" }, ...base.bundles.slice(1)],
+	};
+	const result = updateBundleStatus(graph, "schema", "pending", {
+		allowReset: true,
+	});
+	assert.equal(result.ok, false);
+});
+
+test("renderTasksMd: subagent_failed renders a distinct marker", () => {
+	const graph = inProgressSchemaGraph();
+	const result = updateBundleStatus(graph, "schema", "subagent_failed");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const md = renderTasksMd(result.taskGraph);
+	assert.ok(md.includes("subagent failed"));
+	assert.ok(md.includes("## 1. Define Schema ✗"));
+});
+
+test("renderTasksMd: integration_rejected renders a distinct marker", () => {
+	const graph = inProgressSchemaGraph();
+	const result = updateBundleStatus(graph, "schema", "integration_rejected");
+	assert.equal(result.ok, true);
+	if (!result.ok) return;
+	const md = renderTasksMd(result.taskGraph);
+	assert.ok(md.includes("integration rejected"));
+	assert.ok(md.includes("## 1. Define Schema ⚠"));
+});

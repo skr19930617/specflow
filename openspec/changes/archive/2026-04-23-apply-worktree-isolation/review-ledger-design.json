@@ -1,0 +1,62 @@
+{
+  "feature_id": "apply-worktree-isolation",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "feasibility",
+      "title": "Success-path worktree cleanup is not concretely solvable from the current design",
+      "detail": "The design says successful bundles are cleaned up with plain `git worktree remove`, but subagent worktrees will normally still contain uncommitted changes after patch import and Git refuses to remove dirty worktrees by default. That leaves the required 'remove on done' retention rule underspecified and likely to fail on the normal success path. Define the exact cleanup strategy before implementation, including how the worktree is made removable or forcibly removed after import, and test that a successful bundle actually disappears from `git worktree list` while `done` remains stable if cleanup still errors.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "The task list does not explicitly cover the modified chunk-drain fail-fast flow",
+      "detail": "The spec requires more than failing fast on `createWorktree` errors. When a subagent returns `failure` or a success is later rejected during integration, the main agent must drain the current chunk, integrate successful siblings, advance the failing bundle to `subagent_failed` or `integration_rejected`, surface the specific reason, and only then stop before the next chunk or window. The design mentions this behavior, but the tasks never allocate a concrete implementation or test step for it. Add explicit orchestration and end-to-end test tasks for chunk drain, sibling settlement, final status transitions, and user-facing failure reporting.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "risk",
+      "title": "Touched-path extraction is underspecified for rename and other non-text diff cases",
+      "detail": "The design relies on `listTouchedPaths(patchBytes)` from `git diff --binary` output, but it never defines how rename detection is made deterministic or how delete, mode-only, and binary changes are validated against `produced_artifacts`. Without a precise strategy, a valid rename can be treated as delete-plus-add and rejected even though the spec says renames match by new path. Define the exact touched-path source or flags to use for classification and add explicit tests for rename, deletion, mode-only, and binary-file scenarios.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 3
+      },
+      "gate_id": "review_decision-apply-worktree-isolation-1-design_review-1"
+    }
+  ]
+}

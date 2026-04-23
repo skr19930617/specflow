@@ -39,21 +39,53 @@ export interface StatusUpdateError {
 	readonly error: string;
 }
 
+// Default (non-reset) transitions. These are what apply-class workflows are
+// allowed to invoke. Transitions OUT of `subagent_failed` / `integration_rejected`
+// require `allowReset: true` — see `updateBundleStatus` options.
 const VALID_TRANSITIONS: ReadonlyMap<BundleStatus, readonly BundleStatus[]> =
 	new Map([
 		["pending", ["in_progress", "skipped"]],
-		["in_progress", ["done"]],
+		["in_progress", ["done", "subagent_failed", "integration_rejected"]],
 		["done", []],
 		["skipped", []],
+		["subagent_failed", []],
+		["integration_rejected", []],
 	]);
 
-const TERMINAL_BUNDLE_STATUSES: ReadonlySet<BundleStatus> = new Set([
-	"done",
-	"skipped",
-]);
+// Reset-only transitions. These are allowed ONLY when the caller passes
+// `allowReset: true` — i.e., from /specflow.fix_apply or an explicit operator
+// reset flow. Apply-class workflows SHALL NOT pass this flag.
+const RESET_TRANSITIONS: ReadonlyMap<BundleStatus, readonly BundleStatus[]> =
+	new Map([
+		["subagent_failed", ["pending"]],
+		["integration_rejected", ["pending"]],
+	]);
 
-function isTerminal(status: BundleStatus): boolean {
+// Only `done` and `skipped` trigger child-task normalization. The two new
+// apply-worktree statuses (`subagent_failed`, `integration_rejected`) preserve
+// child statuses as-is so /specflow.fix_apply can inspect what was in flight.
+// The type predicate narrows to `TaskStatus` because both terminal bundle
+// statuses are also valid task statuses (child tasks never carry the
+// apply-worktree-specific bundle statuses).
+const TERMINAL_BUNDLE_STATUSES: ReadonlySet<BundleStatus> =
+	new Set<BundleStatus>(["done", "skipped"]);
+
+function isTerminal(status: BundleStatus): status is TaskStatus & BundleStatus {
 	return TERMINAL_BUNDLE_STATUSES.has(status);
+}
+
+function isTransitionAllowed(
+	from: BundleStatus,
+	to: BundleStatus,
+	allowReset: boolean,
+): boolean {
+	if (VALID_TRANSITIONS.get(from)?.includes(to)) {
+		return true;
+	}
+	if (allowReset && RESET_TRANSITIONS.get(from)?.includes(to)) {
+		return true;
+	}
+	return false;
 }
 
 /**
@@ -85,10 +117,21 @@ function normalizeChildTasks(
 	return { tasks: rebuilt, coercions };
 }
 
+export interface UpdateBundleStatusOptions {
+	/**
+	 * When true, permits reset transitions out of `subagent_failed` or
+	 * `integration_rejected` back to `pending`. Only /specflow.fix_apply or an
+	 * explicit operator reset flow should set this to true; apply-class
+	 * workflows SHALL NOT enable it.
+	 */
+	readonly allowReset?: boolean;
+}
+
 export function updateBundleStatus(
 	taskGraph: TaskGraph,
 	bundleId: string,
 	newStatus: BundleStatus,
+	options: UpdateBundleStatusOptions = {},
 ): StatusUpdateResult | StatusUpdateError {
 	const bundleIndex = taskGraph.bundles.findIndex((b) => b.id === bundleId);
 	if (bundleIndex === -1) {
@@ -96,8 +139,8 @@ export function updateBundleStatus(
 	}
 
 	const bundle = taskGraph.bundles[bundleIndex];
-	const allowed = VALID_TRANSITIONS.get(bundle.status);
-	if (!allowed || !allowed.includes(newStatus)) {
+	const allowReset = options.allowReset === true;
+	if (!isTransitionAllowed(bundle.status, newStatus, allowReset)) {
 		return {
 			ok: false,
 			error: `Invalid status transition: ${bundle.status} → ${newStatus} for bundle '${bundleId}'`,

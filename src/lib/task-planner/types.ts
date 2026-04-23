@@ -1,6 +1,17 @@
 // Task graph types — bundle-based structure for specflow-owned task planning.
 
-export type BundleStatus = "pending" | "in_progress" | "done" | "skipped";
+// Bundle status superset. `subagent_failed` and `integration_rejected` are
+// introduced by apply-worktree-isolation: they are terminal-for-invocation (the
+// apply fails fast and stops) but NOT terminal at the run level — only
+// /specflow.fix_apply or an operator reset can return the bundle to `pending`.
+// They are bundle-only; child tasks never carry these values.
+export type BundleStatus =
+	| "pending"
+	| "in_progress"
+	| "done"
+	| "skipped"
+	| "subagent_failed"
+	| "integration_rejected";
 
 export type TaskStatus = "pending" | "in_progress" | "done" | "skipped";
 

@@ -30,6 +30,7 @@ export type {
 	ChunkFailure,
 	DispatchOutcome,
 	RunDispatchedWindowArgs,
+	WorktreeCleanupWarning,
 } from "./orchestrate.js";
 export { runDispatchedWindow } from "./orchestrate.js";
 

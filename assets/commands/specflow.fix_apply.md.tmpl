@@ -189,3 +189,39 @@ AskUserQuestion:
 - If any tool call fails, report the error and ask the user how to proceed.
 - ALL control flow logic (fix application, diff filtering, review agent invocation, ledger detection/update, finding matching, current-phase generation) is handled by the `specflow-review-apply fix-review` orchestrator. This slash command only calls the orchestrator, parses its JSON output, and displays UI.
 - If the fix loop needs to update `task-graph.json` or `tasks.md`, use `specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> <NEW_STATUS>`; inline `node -e` / `jq` / manual edits to those files are a contract violation per `task-planner`.
+
+## Recovering subagent_failed / integration_rejected bundles
+
+When a bundle is left in the `subagent_failed` or `integration_rejected`
+terminal-for-invocation status by `/specflow.apply` (subagent-worktree mode):
+
+1. Inspect the retained worktree at `.specflow/worktrees/<RUN_ID>/<BUNDLE_ID>/`.
+2. Read the STOP payload from the previous apply: for `integration_rejected`
+   the `integrationCause` field tells you whether the rejection was
+   `undeclared_path`, `protected_path`, `empty_diff_on_success`, or
+   `patch_apply_failure`.
+3. Re-run `/specflow.fix_apply` to auto-fix, or manually repair:
+
+   **IMPORTANT**: re-running `/specflow.apply` creates a **fresh** worktree
+   from the main workspace's current HEAD. Edits made only inside the old
+   retained worktree are NOT carried forward. If you manually fix the issue
+   inside the retained worktree, you MUST apply those fixes back to the main
+   workspace first (stage with `git -C <WORKTREE> add -A`, then
+   `git -C <WORKTREE> diff --binary --cached HEAD | git apply --binary --index`
+   at the repo root), then reset and re-run:
+   ```bash
+   # 1. Import your manual fixes from the retained worktree into the main workspace.
+   #    Stage first so new (untracked) files are included in the diff, then use
+   #    --binary on both sides so binary content round-trips correctly.
+   git -C .specflow/worktrees/<RUN_ID>/<BUNDLE_ID> add -A
+   git -C .specflow/worktrees/<RUN_ID>/<BUNDLE_ID> diff --binary --cached HEAD | git apply --binary --index
+   # 2. Reset the bundle back to pending
+   specflow-advance-bundle <CHANGE_ID> <BUNDLE_ID> pending --allow-reset
+   # 3. Re-run apply — a fresh worktree will be created from current HEAD
+   #    (which now includes your manual fixes via the import above)
+   ```
+   Alternatively, skip the retained worktree entirely: make your fixes
+   directly in the main workspace, then reset and re-run.
+
+`--allow-reset` is the only supported way to transition out of these new
+statuses back to `pending`; apply-class workflows SHALL NOT pass the flag.

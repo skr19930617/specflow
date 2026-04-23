@@ -460,16 +460,26 @@ test("specflow.apply command body documents the subagent dispatcher branching", 
 		"apply body should state that subagents must not edit tasks.md",
 	);
 
-	// Drain-then-stop on failure (D4).
+	// Drain-then-stop on failure (D4, updated for apply-worktree-isolation).
 	assert.ok(
 		apply.includes("Drain-then-stop"),
 		"apply body should document drain-then-stop semantics",
 	);
 	assert.ok(
-		apply.includes("leave the bundle in `in_progress`") ||
-			apply.includes("leave the failed bundle in_progress") ||
-			apply.includes("leave the bundle in_progress"),
-		"apply body should state that failed bundles remain in_progress after drain-then-stop",
+		apply.includes("subagent_failed"),
+		"apply body should document the subagent_failed terminal status",
+	);
+	assert.ok(
+		apply.includes("integration_rejected"),
+		"apply body should document the integration_rejected terminal status",
+	);
+	assert.ok(
+		apply.includes("Worktree-mode execution"),
+		"apply body should document worktree-mode execution for dispatched bundles",
+	);
+	assert.ok(
+		apply.includes("retain") || apply.includes("retain"),
+		"apply body should state that worktrees are retained on failure/rejection",
 	);
 
 	// Legacy fallback (review P2 fix): graph absent bypasses the dispatcher.
