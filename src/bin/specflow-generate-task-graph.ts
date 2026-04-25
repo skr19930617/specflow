@@ -6,15 +6,18 @@ import { resolve } from "node:path";
 import { ChangeArtifactType, changeRef } from "../lib/artifact-types.js";
 import { tryGit } from "../lib/git.js";
 import { createLocalFsChangeArtifactStore } from "../lib/local-fs-change-artifact-store.js";
+import { createLocalFsRunArtifactStore } from "../lib/local-fs-run-artifact-store.js";
 import {
 	callReviewAgent,
 	loadConfigEnv,
 	resolveReviewAgent,
 } from "../lib/review-runtime.js";
+import { findLatestRun } from "../lib/run-store-ops.js";
 import { withSizeScore } from "../lib/task-planner/enrich.js";
 import { renderTasksMd } from "../lib/task-planner/render.js";
 import { validateTaskGraph } from "../lib/task-planner/schema.js";
 import type { TaskGraph } from "../lib/task-planner/types.js";
+import { resolveChangeRootForRun } from "../lib/worktree-resolver.js";
 
 function die(message: string): never {
 	process.stderr.write(`${message}\n`);
@@ -121,14 +124,24 @@ async function main(): Promise<void> {
 	const projectRoot = ensureGitRepo();
 	loadConfigEnv(projectRoot);
 
-	const store = createLocalFsChangeArtifactStore(projectRoot);
+	// Resolve the change-artifact root from run-state so artifacts are
+	// read/written in the main-session worktree, not the user repo.
+	const runStore = createLocalFsRunArtifactStore(projectRoot);
+	const latestRun = await findLatestRun(runStore, changeId);
+	const changeRoot = await resolveChangeRootForRun(
+		runStore,
+		latestRun?.run_id,
+		projectRoot,
+	);
+
+	const store = createLocalFsChangeArtifactStore(changeRoot);
 	const designRef = changeRef(changeId, ChangeArtifactType.Design);
 	if (!(await store.exists(designRef))) {
 		die(`design.md not found for change '${changeId}'`);
 	}
 
 	const designContent = await store.read(designRef);
-	const specNames = getSpecNames(projectRoot);
+	const specNames = getSpecNames(changeRoot);
 	const agent = resolveReviewAgent();
 
 	process.stderr.write("Generating task graph from design.md...\n");
@@ -140,7 +153,7 @@ async function main(): Promise<void> {
 				? buildPrompt(designContent, changeId, specNames)
 				: `${buildPrompt(designContent, changeId, specNames)}\n\nPrevious attempt failed validation:\n${lastErrors.join("\n")}\nFix the issues and try again.`;
 
-		const result = callReviewAgent<TaskGraph>(agent, projectRoot, prompt);
+		const result = callReviewAgent<TaskGraph>(agent, changeRoot, prompt);
 
 		if (!result.ok || !result.payload) {
 			lastErrors = [`Agent returned non-JSON or empty response`];

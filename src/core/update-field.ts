@@ -13,7 +13,7 @@ import { ok } from "./types.js";
 export interface UpdateFieldInput<TAdapter> {
 	readonly state: RunStateOf<TAdapter>;
 	readonly field: string;
-	readonly value: string;
+	readonly value: string | boolean;
 	readonly nowIso: string;
 }
 

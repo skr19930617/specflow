@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -335,12 +336,19 @@ test("specflow-prepare-change reuses scaffold-only change without calling opensp
 	try {
 		const changeId = "existing-scaffold";
 		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		// Commit the scaffold-only state (proposal.md removed, .openspec.yaml
+		// present) so the worktree-mode prepare-change inherits it from HEAD.
 		unlinkSync(join(repoPath, "openspec/changes", changeId, "proposal.md"));
 		writeFileSync(
 			join(repoPath, "openspec/changes", changeId, ".openspec.yaml"),
 			"schema: spec-driven\n",
 			"utf8",
 		);
+		spawnSync("git", ["add", "-A"], { cwd: repoPath, stdio: "ignore" });
+		spawnSync("git", ["commit", "-m", "scaffold-only"], {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
 		// Use an openspec stub that fails on 'new change' to prove it's not called
 		const stubDir = createOpenspecStub(
 			tempRoot,
@@ -372,9 +380,19 @@ test("specflow-prepare-change reuses scaffold-only change without calling opensp
 		};
 		assert.equal(state.change_name, changeId);
 		assert.equal(state.current_phase, "proposal_draft");
+		// Worktree mode: the seeded proposal lives inside the main-session worktree.
 		assert.ok(
-			existsSync(join(repoPath, "openspec/changes", changeId, "proposal.md")),
-			"proposal.md should be seeded",
+			existsSync(
+				join(
+					repoPath,
+					".specflow/worktrees",
+					changeId,
+					"main/openspec/changes",
+					changeId,
+					"proposal.md",
+				),
+			),
+			"proposal.md should be seeded inside the main-session worktree",
 		);
 	} finally {
 		removeTempDir(tempRoot);
@@ -488,6 +506,177 @@ test("--source-file and positional inline text produce equivalent source metadat
 		assert.equal(newState.source.kind, deprecatedState.source.kind);
 		assert.equal(newState.source.provider, deprecatedState.source.provider);
 		assert.equal(newState.source.reference, deprecatedState.source.reference);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- Worktree conflict and terminal-flow tests ---
+
+import { mkdirSync } from "node:fs";
+
+test("specflow-prepare-change reuses existing conventional worktree tied to the change branch", () => {
+	const tempRoot = makeTempDir("prepare-reuse-wt-");
+	try {
+		const changeId = "reuse-wt";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		// Create the worktree manually at the conventional path.
+		const wtParent = join(repoPath, ".specflow/worktrees", changeId);
+		mkdirSync(wtParent, { recursive: true });
+		const wtPath = join(wtParent, "main");
+		spawnSync("git", ["worktree", "add", "-b", changeId, wtPath, "HEAD"], {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		// The worktree already exists with the change branch.
+		assert.ok(existsSync(wtPath));
+
+		const stubDir = createOpenspecAndFetchStubs(tempRoot);
+		const result = runNodeCli(
+			"specflow-prepare-change",
+			[changeId, "Continue"],
+			repoPath,
+			prependPath({}, stubDir),
+		);
+		assert.equal(
+			result.status,
+			0,
+			`stderr: ${result.stderr}\nstdout: ${result.stdout}`,
+		);
+		const state = JSON.parse(result.stdout) as {
+			change_name: string;
+		};
+		assert.equal(state.change_name, changeId);
+		// The existing worktree should be reused.
+		assert.ok(existsSync(wtPath));
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-prepare-change fails when branch exists at a non-conventional worktree path", () => {
+	const tempRoot = makeTempDir("prepare-conflict-path-");
+	try {
+		const changeId = "conflict-path";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		// Create the worktree at a WRONG path (not the conventional one).
+		const wrongPath = join(tempRoot, "wrong-worktree");
+		spawnSync("git", ["worktree", "add", "-b", changeId, wrongPath, "HEAD"], {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		assert.ok(existsSync(wrongPath));
+
+		const stubDir = createOpenspecAndFetchStubs(tempRoot);
+		const result = runNodeCli(
+			"specflow-prepare-change",
+			[changeId, "Test"],
+			repoPath,
+			prependPath({}, stubDir),
+		);
+		assert.notEqual(result.status, 0);
+		assert.match(result.stderr, /already checked out as a worktree/);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-prepare-change fails when conventional path occupied by a non-worktree directory", () => {
+	const tempRoot = makeTempDir("prepare-occupied-");
+	try {
+		const changeId = "occupied-path";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		// Create a regular directory at the conventional worktree path.
+		const occupiedPath = join(
+			repoPath,
+			".specflow/worktrees",
+			changeId,
+			"main",
+		);
+		mkdirSync(occupiedPath, { recursive: true });
+		writeFileSync(join(occupiedPath, "stale.txt"), "stale\n", "utf8");
+
+		const stubDir = createOpenspecAndFetchStubs(tempRoot);
+		const result = runNodeCli(
+			"specflow-prepare-change",
+			[changeId, "Test"],
+			repoPath,
+			prependPath({}, stubDir),
+		);
+		assert.notEqual(result.status, 0);
+		assert.match(result.stderr, /not a registered git worktree/);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-prepare-change rejects legacy in-flight run (worktree_path == repo_path)", () => {
+	const tempRoot = makeTempDir("prepare-legacy-reject-");
+	try {
+		const changeId = "legacy-reject";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		// Write a legacy run-state where worktree_path == repo_path.
+		const runDir = join(repoPath, ".specflow/runs", `${changeId}-1`);
+		mkdirSync(runDir, { recursive: true });
+		writeFileSync(
+			join(runDir, "run.json"),
+			JSON.stringify({
+				run_id: `${changeId}-1`,
+				change_name: changeId,
+				current_phase: "spec_ready",
+				status: "active",
+				allowed_events: [],
+				source: null,
+				project_id: "fixture",
+				repo_name: "fixture",
+				repo_path: repoPath,
+				branch_name: changeId,
+				worktree_path: repoPath,
+				agents: { main: "claude", review: "codex" },
+				last_summary_path: null,
+				created_at: "2026-04-25T00:00:00Z",
+				updated_at: "2026-04-25T00:00:00Z",
+				history: [],
+				previous_run_id: null,
+				run_kind: "change",
+			}),
+			"utf8",
+		);
+
+		const stubDir = createOpenspecAndFetchStubs(tempRoot);
+		const result = runNodeCli(
+			"specflow-prepare-change",
+			[changeId, "Resume"],
+			repoPath,
+			prependPath({}, stubDir),
+		);
+		assert.notEqual(result.status, 0);
+		assert.match(result.stderr, /legacy in-flight run/);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-prepare-change fails when local branch exists but no worktree is registered for it", () => {
+	const tempRoot = makeTempDir("prepare-branch-exists-");
+	try {
+		const changeId = "branch-exists";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		// Create the branch locally (without a worktree).
+		spawnSync("git", ["branch", changeId], {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+
+		const stubDir = createOpenspecAndFetchStubs(tempRoot);
+		const result = runNodeCli(
+			"specflow-prepare-change",
+			[changeId, "Test"],
+			repoPath,
+			prependPath({}, stubDir),
+		);
+		assert.notEqual(result.status, 0);
+		assert.match(result.stderr, /branch.*exists locally/);
 	} finally {
 		removeTempDir(tempRoot);
 	}

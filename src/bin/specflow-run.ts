@@ -62,6 +62,7 @@ import {
 	generateRunId,
 	readRunState,
 } from "../lib/run-store-ops.js";
+import { evaluateAndCleanup } from "../lib/terminal-worktree-cleanup.js";
 import type { WorkspaceContext } from "../lib/workspace-context.js";
 import type {
 	LocalRunState,
@@ -257,14 +258,21 @@ function loadWorkflow(path: string): WorkflowDefinition {
  * Build the local adapter seed from the workspace context. This is the one
  * place in the process where LocalRunState fields are produced.
  */
-function buildLocalSeed(ctx: WorkspaceContext): LocalRunState {
+function buildLocalSeed(
+	ctx: WorkspaceContext,
+	overrides: Partial<LocalRunState> = {},
+): LocalRunState {
 	return {
 		project_id: ctx.projectIdentity(),
 		repo_name: ctx.projectDisplayName(),
 		repo_path: ctx.projectRoot(),
 		branch_name: ctx.branchName() ?? "HEAD",
 		worktree_path: ctx.worktreePath(),
+		base_commit: "",
+		base_branch: null,
+		cleanup_pending: false,
 		last_summary_path: null,
+		...overrides,
 	};
 }
 
@@ -437,6 +445,9 @@ interface StartArgs {
 	readonly agentReview: string;
 	readonly runKind: RunKind;
 	readonly retry: boolean;
+	readonly worktreePath: string;
+	readonly baseCommit: string;
+	readonly baseBranch: string | null;
 }
 
 function parseStartArgs(args: readonly string[]): StartArgs {
@@ -446,6 +457,9 @@ function parseStartArgs(args: readonly string[]): StartArgs {
 	let agentReview = "codex";
 	let runKind: RunKind = "change";
 	let retry = false;
+	let worktreePath = "";
+	let baseCommit = "";
+	let baseBranch: string | null = null;
 
 	for (let index = 0; index < args.length; index += 1) {
 		const arg = args[index];
@@ -476,6 +490,22 @@ function parseStartArgs(args: readonly string[]): StartArgs {
 			retry = true;
 			continue;
 		}
+		if (arg === "--worktree-path") {
+			worktreePath =
+				args[++index] ?? fail("Error: --worktree-path requires a value");
+			continue;
+		}
+		if (arg === "--base-commit") {
+			baseCommit =
+				args[++index] ?? fail("Error: --base-commit requires a value");
+			continue;
+		}
+		if (arg === "--base-branch") {
+			const value =
+				args[++index] ?? fail("Error: --base-branch requires a value");
+			baseBranch = value === "" ? null : value;
+			continue;
+		}
 		if (arg.startsWith("-")) {
 			fail(`Error: unknown option '${arg}'`);
 		}
@@ -487,7 +517,7 @@ function parseStartArgs(args: readonly string[]): StartArgs {
 
 	if (!positional) {
 		fail(
-			"Usage: specflow-run start <change_id|run_id> [--source-file <path>] [--agent-main <name>] [--agent-review <name>] [--run-kind <change|synthetic>] [--retry]",
+			"Usage: specflow-run start <change_id|run_id> [--source-file <path>] [--agent-main <name>] [--agent-review <name>] [--run-kind <change|synthetic>] [--retry] [--worktree-path <path>] [--base-commit <sha>] [--base-branch <ref>]",
 		);
 	}
 
@@ -498,30 +528,42 @@ function parseStartArgs(args: readonly string[]): StartArgs {
 		agentReview,
 		runKind,
 		retry,
+		worktreePath,
+		baseCommit,
+		baseBranch,
 	};
 }
 
 // --- Subcommand glue ------------------------------------------------------
 
 async function runStart(args: readonly string[]): Promise<never> {
+	const parsed = parseStartArgs(args);
 	let ctx: WorkspaceContext;
 	try {
-		ctx = createLocalWorkspaceContext();
+		ctx = createLocalWorkspaceContext(
+			undefined,
+			parsed.worktreePath || undefined,
+		);
 	} catch {
 		process.stdout.write('{"status":"error","error":"not_in_git_repo"}\n');
 		process.exit(1);
 	}
 	const root = ctx.projectRoot();
 	const runStore = createLocalFsRunArtifactStore(root);
-	const changeStore = createLocalFsChangeArtifactStore(root);
+	// Change artifacts (proposal/specs/design/tasks) live inside the
+	// main-session worktree when one is in use; run-state stays under the user
+	// repo for global discoverability.
+	const changeStore = createLocalFsChangeArtifactStore(ctx.worktreePath());
 	const gates = createLocalFsGateRecordStore(root);
 
-	const parsed = parseStartArgs(args);
 	const source: SourceMetadata | null = parsed.sourceFile
 		? readSourceMetadataFile(parsed.sourceFile)
 		: null;
 	const agents = { main: parsed.agentMain, review: parsed.agentReview };
-	const adapterSeed = buildLocalSeed(ctx);
+	const adapterSeed = buildLocalSeed(ctx, {
+		base_commit: parsed.baseCommit,
+		base_branch: parsed.baseBranch,
+	});
 	const ts = nowIso();
 
 	if (parsed.runKind === "synthetic") {
@@ -730,12 +772,13 @@ async function runUpdateField(args: readonly string[]): Promise<never> {
 	if (!runId || !field || value === undefined) {
 		fail("Usage: specflow-run update-field <run_id> <field> <value>");
 	}
-	// Wiring-layer whitelist: the only updatable field in the local-FS
-	// adapter today is `last_summary_path`. External adapters may expose a
-	// different set via their own wiring.
-	if (field !== "last_summary_path") {
+	// Wiring-layer whitelist: only explicitly listed fields may be mutated
+	// via the CLI. External adapters may expose a different set via their
+	// own wiring.
+	const UPDATABLE_FIELDS = new Set(["last_summary_path", "cleanup_pending"]);
+	if (!UPDATABLE_FIELDS.has(field)) {
 		process.stderr.write(
-			`Error: field '${field}' is not updatable. Allowed fields: last_summary_path\n`,
+			`Error: field '${field}' is not updatable. Allowed fields: ${[...UPDATABLE_FIELDS].join(", ")}\n`,
 		);
 		process.exit(1);
 	}
@@ -752,10 +795,22 @@ async function runUpdateField(args: readonly string[]): Promise<never> {
 		runStore,
 		runId,
 	)) as RunStateOf<LocalRunState>;
+	// Coerce CLI string values to the field's expected type.
+	let coerced: string | boolean = value;
+	if (field === "cleanup_pending") {
+		if (value === "true") coerced = true;
+		else if (value === "false") coerced = false;
+		else {
+			process.stderr.write(
+				`Error: cleanup_pending must be 'true' or 'false', got '${value}'\n`,
+			);
+			process.exit(1);
+		}
+	}
 	const result = updateRunField<LocalRunState>({
 		state,
 		field,
-		value,
+		value: coerced,
 		nowIso: nowIso(),
 	});
 	if (!result.ok) renderResult("run-state", result);
@@ -784,6 +839,60 @@ async function runGetField(args: readonly string[]): Promise<never> {
 	process.exit(0);
 }
 
+async function runCleanupWorktrees(args: readonly string[]): Promise<never> {
+	const [runId] = args;
+	if (!runId) {
+		fail("Usage: specflow-run cleanup-worktrees <run_id>");
+	}
+	const root = projectRoot();
+	const runStore = createLocalFsRunArtifactStore(root);
+	if (!(await runStore.exists(runRef(runId)))) {
+		process.stderr.write(
+			`Error: run '${runId}' not found. No state file at ${runId}/run.json\n`,
+		);
+		process.exit(1);
+	}
+	const state = await readRunState(runStore, runId);
+	const changeId = state.change_name;
+	if (!changeId) {
+		process.stderr.write(
+			`Error: run '${runId}' has no change_name; cannot locate worktrees.\n`,
+		);
+		process.exit(1);
+	}
+	const decision = evaluateAndCleanup({
+		repoPath: state.repo_path,
+		changeId,
+		successFull: true,
+	});
+	if (decision.action === "defer") {
+		// Persist cleanup_pending = true.
+		const updated: RunState = {
+			...state,
+			cleanup_pending: true,
+			updated_at: nowIso(),
+		};
+		await persistState(runStore, runId, updated);
+		process.stdout.write(
+			`${JSON.stringify({ action: "defer", reasons: decision.reasons })}\n`,
+		);
+		process.exit(1);
+	}
+	// Cleanup succeeded — clear cleanup_pending if it was set.
+	if (state.cleanup_pending) {
+		const updated: RunState = {
+			...state,
+			cleanup_pending: false,
+			updated_at: nowIso(),
+		};
+		await persistState(runStore, runId, updated);
+	}
+	process.stdout.write(
+		`${JSON.stringify({ action: "remove", removed: decision.removed })}\n`,
+	);
+	process.exit(0);
+}
+
 async function main(): Promise<void> {
 	const [subcommand, ...args] = process.argv.slice(2);
 
@@ -809,14 +918,17 @@ async function main(): Promise<void> {
 		case "get-field":
 			await runGetField(args);
 			break;
+		case "cleanup-worktrees":
+			await runCleanupWorktrees(args);
+			break;
 		case undefined:
 			fail(
-				"Usage: specflow-run <start|advance|suspend|resume|status|update-field|get-field> [args...]",
+				"Usage: specflow-run <start|advance|suspend|resume|status|update-field|get-field|cleanup-worktrees> [args...]",
 			);
 			break;
 		default:
 			fail(
-				`Error: unknown subcommand '${subcommand}'. Use: start, advance, suspend, resume, status, update-field, get-field`,
+				`Error: unknown subcommand '${subcommand}'. Use: start, advance, suspend, resume, status, update-field, get-field, cleanup-worktrees`,
 			);
 	}
 }

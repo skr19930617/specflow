@@ -109,13 +109,23 @@ function repoRootOrCwd(cwd: string): string {
 interface ModelInputs {
 	readonly run: RunState;
 	readonly runRead: ArtifactReadResult<RunState>;
+	/**
+	 * Where `.specflow/runs/<run_id>/...` lives. Always the user repository
+	 * root regardless of worktree mode.
+	 */
 	readonly repoRoot: string;
+	/**
+	 * Where `openspec/changes/<change_name>/...` lives. In worktree mode this
+	 * is `state.worktree_path`; in legacy mode it is the same as `repoRoot`.
+	 */
+	readonly changeArtifactRoot: string;
 	readonly branch: string;
 	readonly eventTail: number;
 }
 
 function buildModel(inputs: ModelInputs): WatchModel {
-	const { run, runRead, repoRoot, branch, eventTail } = inputs;
+	const { run, runRead, repoRoot, changeArtifactRoot, branch, eventTail } =
+		inputs;
 	const phase = run.current_phase;
 	const status = run.status;
 	const manualFixKind = deriveManualFixKind(run);
@@ -147,7 +157,11 @@ function buildModel(inputs: ModelInputs): WatchModel {
 	const ledgerRead =
 		activeLedgerFamily === null || !changeForLedger
 			? ({ kind: "absent" } as const)
-			: readReviewLedgerFile(repoRoot, changeForLedger, activeLedgerFamily);
+			: readReviewLedgerFile(
+					changeArtifactRoot,
+					changeForLedger,
+					activeLedgerFamily,
+				);
 	const digest = buildDigestState({
 		activeFamily: activeLedgerFamily,
 		ledgerRead,
@@ -156,7 +170,7 @@ function buildModel(inputs: ModelInputs): WatchModel {
 	// Task graph
 	const changeForGraph = run.change_name ?? "";
 	const graphRead = changeForGraph
-		? readTaskGraphFile(repoRoot, changeForGraph)
+		? readTaskGraphFile(changeArtifactRoot, changeForGraph)
 		: ({ kind: "absent" } as const);
 	const taskGraphView = buildTaskGraphView(
 		graphRead.kind === "ok"
@@ -174,7 +188,7 @@ function buildModel(inputs: ModelInputs): WatchModel {
 	const eventsView = buildEventsView(events);
 
 	// Approval summary
-	const approvalRead = readApprovalSummary(repoRoot, run);
+	const approvalRead = readApprovalSummary(changeArtifactRoot, run);
 	const approvalSummary = buildApprovalSummary(approvalRead);
 
 	return {
@@ -297,13 +311,42 @@ function main(): void {
 	const effectiveBranch = branch ?? (run.branch_name || "");
 	let current: RunState = runRead.value;
 
+	// Legacy guard: refuse to watch a non-synthetic run whose worktree_path
+	// equals repo_path — that is the old branch-checkout layout which must be
+	// drained before this version is used.
+	if (
+		current.run_kind !== "synthetic" &&
+		current.worktree_path === current.repo_path
+	) {
+		failHard(
+			`specflow-watch: run '${current.run_id}' uses the legacy layout (worktree_path == repo_path). ` +
+				`Drain via /specflow.approve or /specflow.reject before using specflow-watch.`,
+		);
+	}
+
 	function rebuild(): WatchModel {
 		const latest = readRunStateFile(repoRoot, run.run_id);
-		if (latest.kind === "ok") current = latest.value;
+		if (latest.kind === "ok") {
+			current = latest.value;
+			// Re-check the legacy guard on every refresh so a run-state file
+			// that reverts to the legacy layout (e.g. manual edit) is caught
+			// immediately rather than silently executing against repo_path.
+			if (
+				current.run_kind !== "synthetic" &&
+				current.worktree_path === current.repo_path
+			) {
+				failHard(
+					`specflow-watch: run '${current.run_id}' reverted to legacy layout (worktree_path == repo_path). ` +
+						`Drain via /specflow.approve or /specflow.reject before using specflow-watch.`,
+				);
+			}
+		}
+		const changeArtifactRoot = current.worktree_path;
 		return buildModel({
 			run: current,
 			runRead: latest,
 			repoRoot,
+			changeArtifactRoot,
 			branch: effectiveBranch,
 			eventTail: DEFAULT_EVENT_TAIL,
 		});

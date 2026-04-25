@@ -1,0 +1,148 @@
+{
+  "feature_id": "worktree",
+  "phase": "design",
+  "current_round": 3,
+  "status": "in_progress",
+  "max_finding_id": 7,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "consistency",
+      "title": "Archive propagation back into the user repo conflicts with the read-only worktree contract",
+      "detail": "The design's Persistence / Ownership section says openspec artifacts are propagated back to <userRepo>/openspec/changes/<CHANGE_ID>/ on archive, and task 8.2 plans worktree reads only 'until archive propagation completes'. That conflicts with the main-session-worktree requirement that all phase commands, including /specflow.archive, operate inside state.worktree_path and do not modify the user repo working tree outside .specflow/worktrees/. Remove the propagation assumption from the design/tasks or explicitly redefine archive semantics in the spec before implementation.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "risk",
+      "title": "The plan reopens worktree recovery policy that the spec already fixes",
+      "detail": "Design Open Questions and tasks 1.1-1.3 leave 'safety-only git worktree prune' and related worktree policies to later confirmation. The accepted contract is supposed to be single-path and fail-fast: conflicting or stale worktree state is surfaced for manual resolution, not auto-pruned. Leaving this as a pre-implementation clarification makes downstream bundles ambiguous and risks shipping behavior that silently mutates git worktree state. Encode the chosen no-auto-recovery policy directly in the design/tasks instead of treating it as unresolved.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Legacy-guard tasks omit the synthetic-run exemption",
+      "detail": "The workflow-run-state spec explicitly says the worktree_path == repo_path legacy rejection does not apply to synthetic runs. Design decision D9 and tasks 7.1-7.4 describe the resume guard without making run_kind != \"synthetic\" part of the predicate, so an implementation could incorrectly reject synthetic runs. Make the exemption explicit in the design contract and add a synthetic-run coverage case.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "high",
+      "category": "completeness",
+      "file": "DESIGN CONTENT / TASKS CONTENT",
+      "title": "Subagent worktree rebinding omits the per-bundle base-commit contract",
+      "detail": "The modified apply-worktree-integration spec requires each subagent worktree to capture and persist the main-session HEAD at the moment that worktree is created, and it explicitly forbids keeping a single shared apply-run base snapshot. The current design only rebinds the source and target paths, and tasks 2.1-2.4 only cover path layout plus patch landing location. They never say how the bundle-specific base SHA is recorded or add coverage for the \"later worktrees inherit earlier integrations\" scenario, so an implementation could retain the old shared-base behavior and still satisfy the task list. Add an explicit design contract and implementation/test tasks for recording the creation-time base per bundle and diffing from that recorded base.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F05",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "DESIGN CONTENT / TASKS CONTENT",
+      "title": "WorkspaceContext metadata capture is underspecified for divergent repo and worktree paths",
+      "detail": "workflow-run-state now requires run start to obtain repo_path, worktree_path, base_commit, and base_branch from WorkspaceContext, with repo_path staying at the user repo root while worktree_path points at .specflow/worktrees/<CHANGE_ID>/main/. The design instead says the interface is \"untouched\", adds base accessors only on the local-fs concrete implementation, and proposes constructing a WorkspaceContext \"rooted at the main-session worktree\" without specifying which accessors continue to resolve against the user repo. Tasks 1.1-1.2 likewise ask for override plumbing but never pin this split. That leaves room for an implementation that persists repo_path == worktree_path or cannot satisfy the required baseCommit()/baseBranch() calls at run start. Define the exact WorkspaceContext contract for repo-root versus worktree-root lookups and add coverage that persisted run.json keeps distinct repo_path and worktree_path values.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F06",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "DESIGN CONTENT / TASKS CONTENT",
+      "title": "Deferred cleanup after archive is not made retryable by the persistence plan",
+      "detail": "D8 and task 5.4 say a terminal command can set cleanup_pending = true and then be re-invoked later to retry cleanup, but Persistence / Ownership still gives run.json a lifetime of \"start -> archive\" and the design never states what archive/reject must preserve when cleanup is deferred. That is especially problematic for /specflow.archive: if the first archive invocation succeeds functionally but cannot clean the retained worktrees, the current plan does not say how subsequent reads will still observe cleanup_pending or what state the retry uses. Clarify that deferred terminal cleanup keeps the run-state and any lookup inputs needed for retry until cleanup completes, and add an implementation task for that retention behavior.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F07",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "DESIGN CONTENT / TASKS CONTENT",
+      "title": "Subagent worktree finalization is not explicitly retargeted to the new change-scoped paths",
+      "detail": "The modified `apply-worktree-integration` spec changes not only subagent worktree creation, but also bundle-finalization behavior: `done` must remove `.specflow/worktrees/<CHANGE_ID>/<RUN_ID>/<BUNDLE_ID>/`, `subagent_failed` and `integration_rejected` must retain that path, and this capability must not delete the shared `.specflow/worktrees/<CHANGE_ID>/` parent while the main-session worktree still exists. The current design/tasks only retarget creation, per-bundle base capture, and patch import. They never explicitly retarget the success-removal/failure-retention logic or add coverage for parent preservation, so an implementation could keep old cleanup assumptions and still satisfy the listed tasks. Add an explicit contract/task for bundle-finalization cleanup at the new paths and tests for remove-on-done, retain-on-failure, and shared-parent preservation.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "gate_id": "review_decision-worktree-1-design_review-1"
+    },
+    {
+      "round": 2,
+      "total": 6,
+      "open": 3,
+      "new": 3,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      },
+      "gate_id": "review_decision-worktree-1-design_review-2"
+    },
+    {
+      "round": 3,
+      "total": 7,
+      "open": 2,
+      "new": 1,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      }
+    }
+  ]
+}

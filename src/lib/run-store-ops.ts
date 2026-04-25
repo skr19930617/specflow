@@ -40,7 +40,12 @@ export function extractSequence(
 }
 
 /**
- * Read a run state from the store with backward-compatible fallback for missing fields.
+ * Read a run state from the store. Tolerates missing `base_commit` /
+ * `base_branch` / `cleanup_pending` fields by substituting defaults
+ * (empty / null / false), so read-only inspection paths can load legacy
+ * records without error. Mutation entry points (notably `prepare-change`)
+ * implement their own legacy guard to refuse `worktree_path == repo_path`
+ * resumes for non-synthetic runs.
  */
 export async function readRunState(
 	store: RunArtifactStore,
@@ -67,11 +72,19 @@ export async function readRunState(
 	} else {
 		status = "active";
 	}
+	const baseCommit = typeof raw.base_commit === "string" ? raw.base_commit : "";
+	const baseBranch =
+		raw.base_branch === undefined ? null : (raw.base_branch as string | null);
+	const cleanupPending =
+		typeof raw.cleanup_pending === "boolean" ? raw.cleanup_pending : false;
 	return {
 		...(raw as unknown as RunState),
 		run_id: resolvedRunId,
 		previous_run_id: previousRunId,
 		status,
+		base_commit: baseCommit,
+		base_branch: baseBranch,
+		cleanup_pending: cleanupPending,
 	} as RunState;
 }
 

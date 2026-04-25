@@ -18,6 +18,7 @@ export interface WorktreeHandle {
 	readonly baseSha: string;
 	readonly runId: string;
 	readonly bundleId: string;
+	readonly changeId: string;
 }
 
 export interface GitCommandResult {
@@ -52,9 +53,29 @@ export interface WorktreeFs {
 
 export interface WorktreeRuntime {
 	readonly repoRoot: string;
+	/**
+	 * The main-session worktree path used as the integration target. Points at
+	 * `.specflow/worktrees/<changeId>/main/`. All "main workspace" operations
+	 * (HEAD rev-parse, diff materialization, patch import) execute with this
+	 * path as cwd.
+	 */
+	readonly mainWorkspacePath: string;
+	/**
+	 * The change identifier used to namespace subagent worktrees under
+	 * `.specflow/worktrees/<changeId>/<runId>/<bundleId>/`.
+	 */
+	readonly changeId: string;
 	readonly git?: GitRunner;
 	readonly applyPatch?: GitApplier;
 	readonly fs?: WorktreeFs;
+}
+
+/**
+ * Resolve the path that operations targeting the "main workspace" should use.
+ * Always the main-session worktree — there is no legacy fallback.
+ */
+function mainWorkspaceOf(runtime: WorktreeRuntime): string {
+	return runtime.mainWorkspacePath;
 }
 
 const defaultFs: WorktreeFs = {
@@ -122,8 +143,16 @@ export function worktreePath(
 	repoRoot: string,
 	runId: string,
 	bundleId: string,
+	changeId: string,
 ): string {
-	return path.join(repoRoot, ".specflow", "worktrees", runId, bundleId);
+	return path.join(
+		repoRoot,
+		".specflow",
+		"worktrees",
+		changeId,
+		runId,
+		bundleId,
+	);
 }
 
 /**
@@ -140,7 +169,12 @@ export function createWorktree(
 	runId: string,
 	bundleId: string,
 ): WorktreeHandle {
-	const wtPath = worktreePath(runtime.repoRoot, runId, bundleId);
+	const wtPath = worktreePath(
+		runtime.repoRoot,
+		runId,
+		bundleId,
+		runtime.changeId,
+	);
 	const fsApi: WorktreeFs = runtime.fs ?? defaultFs;
 
 	if (fsApi.existsSync(wtPath)) {
@@ -164,10 +198,11 @@ export function createWorktree(
 	// commit between `rev-parse` and `worktree add` is surfaced rather than silently
 	// recorded as a stale base. `git worktree add HEAD` resolves HEAD at invocation
 	// time, so the worktree's base will match this SHA.
+	const mainWs = mainWorkspaceOf(runtime);
 	const headResult = runGit(
 		runtime,
 		["rev-parse", "HEAD"],
-		runtime.repoRoot,
+		mainWs,
 		"rev-parse HEAD",
 	);
 	const baseSha = headResult.stdout.toString("utf8").trim();
@@ -178,7 +213,7 @@ export function createWorktree(
 		runGit(
 			runtime,
 			["worktree", "add", "--detach", wtPath, baseSha],
-			runtime.repoRoot,
+			mainWs,
 			"worktree add",
 		);
 	} catch (err) {
@@ -222,7 +257,13 @@ export function createWorktree(
 		// changes (which already exist there), causing patch conflicts.
 		const effectiveBase = snapshotMaterializedState(runtime, wtPath, baseSha);
 
-		return { path: wtPath, baseSha: effectiveBase, runId, bundleId };
+		return {
+			path: wtPath,
+			baseSha: effectiveBase,
+			runId,
+			bundleId,
+			changeId: runtime.changeId,
+		};
 	} catch (err) {
 		// Best-effort removal of the just-added worktree. If removal itself
 		// fails (e.g., filesystem issue), the original setup error is still
@@ -260,6 +301,7 @@ function materializeWorkspaceState(
 	wtPath: string,
 ): void {
 	const runner = runtime.git ?? defaultGit;
+	const mainWs = mainWorkspaceOf(runtime);
 
 	// R4-F10: Enumerate untracked files BEFORE diffing so they can be included
 	// in the workspace snapshot via intent-to-add. Exclude `.specflow/` since
@@ -267,7 +309,7 @@ function materializeWorkspaceState(
 	// config, etc.) — it is never user content and should not be materialized.
 	const untrackedResult = runner(
 		["ls-files", "--others", "--exclude-standard", "--exclude=.specflow/"],
-		runtime.repoRoot,
+		mainWs,
 	);
 	const untrackedFiles =
 		untrackedResult.status === 0
@@ -280,10 +322,7 @@ function materializeWorkspaceState(
 	// If there are untracked files, mark them intent-to-add so `git diff HEAD`
 	// includes them as new-file diffs. We reset them after diffing.
 	if (untrackedFiles.length > 0) {
-		const addResult = runner(
-			["add", "-N", "--", ...untrackedFiles],
-			runtime.repoRoot,
-		);
+		const addResult = runner(["add", "-N", "--", ...untrackedFiles], mainWs);
 		if (addResult.status !== 0) {
 			throw new WorktreeError(
 				`git add -N (intent-to-add) failed while materializing workspace state: ${addResult.stderr.trim() || `exit ${addResult.status}`}`,
@@ -298,15 +337,12 @@ function materializeWorkspaceState(
 
 	let diffResult: GitCommandResult;
 	try {
-		diffResult = runner(
-			["diff", "--binary", "--find-renames", "HEAD"],
-			runtime.repoRoot,
-		);
+		diffResult = runner(["diff", "--binary", "--find-renames", "HEAD"], mainWs);
 	} finally {
 		// Always reset intent-to-add files so the main workspace index is
 		// undisturbed, even if `git diff` throws or fails.
 		if (untrackedFiles.length > 0) {
-			runner(["reset", "--", ...untrackedFiles], runtime.repoRoot);
+			runner(["reset", "--", ...untrackedFiles], mainWs);
 		}
 	}
 
@@ -517,7 +553,7 @@ export function importPatch(runtime: WorktreeRuntime, patch: Buffer): void {
 		return;
 	}
 	const applier = runtime.applyPatch ?? defaultApplier;
-	const result = applier(patch, runtime.repoRoot);
+	const result = applier(patch, mainWorkspaceOf(runtime));
 	if (result.status !== 0) {
 		throw new WorktreeError(
 			`git apply --binary failed: ${result.stderr.trim() || `exit ${result.status}`}`,
@@ -552,7 +588,7 @@ export function removeWorktree(
 	runGit(
 		runtime,
 		["worktree", "remove", "--force", handle.path],
-		runtime.repoRoot,
+		mainWorkspaceOf(runtime),
 		"worktree remove",
 	);
 }

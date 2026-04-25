@@ -45,6 +45,9 @@ function run(
 		repo_path: "/tmp/repo",
 		branch_name: overrides.change_name,
 		worktree_path: "/tmp/repo",
+		base_commit: "",
+		base_branch: null,
+		cleanup_pending: false,
 		last_summary_path: null,
 	};
 	return { ...base, ...overrides } as RunState;

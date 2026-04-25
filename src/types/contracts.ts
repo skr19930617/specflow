@@ -287,6 +287,9 @@ export interface LocalRunState {
 	readonly repo_path: string;
 	readonly branch_name: string;
 	readonly worktree_path: string;
+	readonly base_commit: string;
+	readonly base_branch: string | null;
+	readonly cleanup_pending: boolean;
 	readonly last_summary_path: string | null;
 }
 

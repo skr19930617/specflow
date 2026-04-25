@@ -9,6 +9,7 @@
 // against in-memory stores.
 
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
 	existsSync,
 	mkdirSync,
@@ -915,6 +916,165 @@ test("specflow-run start --run-kind synthetic writes run_started to events.jsonl
 		assert.equal(events[0]?.event_kind, "run_started");
 		assert.equal(events[0]?.run_id, syntheticRunId);
 		assert.equal(events[0]?.sequence, 1);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- update-field: cleanup_pending whitelist --------------------------------
+
+test("specflow-run update-field accepts cleanup_pending with boolean coercion", () => {
+	const tempRoot = makeTempDir("specflow-run-upf-cleanup-");
+	try {
+		const changeId = "upf-test";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+
+		// Set cleanup_pending to true.
+		const setResult = runNodeCli(
+			"specflow-run",
+			["update-field", runId, "cleanup_pending", "true"],
+			repoPath,
+		);
+		assert.equal(setResult.status, 0, setResult.stderr);
+		const updated = JSON.parse(setResult.stdout) as {
+			cleanup_pending: boolean;
+		};
+		assert.equal(updated.cleanup_pending, true);
+
+		// Set it back to false.
+		const clearResult = runNodeCli(
+			"specflow-run",
+			["update-field", runId, "cleanup_pending", "false"],
+			repoPath,
+		);
+		assert.equal(clearResult.status, 0, clearResult.stderr);
+		const cleared = JSON.parse(clearResult.stdout) as {
+			cleanup_pending: boolean;
+		};
+		assert.equal(cleared.cleanup_pending, false);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run update-field rejects invalid cleanup_pending values", () => {
+	const tempRoot = makeTempDir("specflow-run-upf-invalid-");
+	try {
+		const changeId = "upf-inv";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+
+		const result = runNodeCli(
+			"specflow-run",
+			["update-field", runId, "cleanup_pending", "yes"],
+			repoPath,
+		);
+		assert.notEqual(result.status, 0);
+		assert.match(result.stderr, /must be 'true' or 'false'/);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+// --- cleanup-worktrees subcommand -------------------------------------------
+
+test("specflow-run cleanup-worktrees removes clean worktrees and clears cleanup_pending", () => {
+	const tempRoot = makeTempDir("specflow-run-cw-clean-");
+	try {
+		const changeId = "cw-clean";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+
+		// Create a worktree at the per-change parent.
+		const wtParent = join(repoPath, ".specflow/worktrees", changeId);
+		mkdirSync(wtParent, { recursive: true });
+		const wtPath = join(wtParent, "main");
+		spawnSync("git", ["worktree", "add", "-b", changeId, wtPath, "HEAD"], {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		assert.ok(existsSync(wtPath));
+
+		// Pre-set cleanup_pending = true so we can verify it gets cleared.
+		runNodeCli(
+			"specflow-run",
+			["update-field", runId, "cleanup_pending", "true"],
+			repoPath,
+		);
+
+		// Run cleanup — worktree is clean, should succeed.
+		const result = runNodeCli(
+			"specflow-run",
+			["cleanup-worktrees", runId],
+			repoPath,
+		);
+		assert.equal(result.status, 0, result.stderr);
+		const output = JSON.parse(result.stdout) as {
+			action: string;
+			removed: string[];
+		};
+		assert.equal(output.action, "remove");
+		assert.ok(!existsSync(wtPath));
+
+		// Verify cleanup_pending was cleared.
+		const statusResult = runNodeCli(
+			"specflow-run",
+			["get-field", runId, "cleanup_pending"],
+			repoPath,
+		);
+		assert.equal(statusResult.status, 0);
+		assert.equal(JSON.parse(statusResult.stdout), false);
+	} finally {
+		removeTempDir(tempRoot);
+	}
+});
+
+test("specflow-run cleanup-worktrees defers when worktree is dirty", () => {
+	const tempRoot = makeTempDir("specflow-run-cw-dirty-");
+	try {
+		const changeId = "cw-dirty";
+		const { repoPath } = createFixtureRepo(tempRoot, changeId);
+		const state = startRun(repoPath, changeId);
+		const runId = state.run_id;
+
+		// Create a worktree and make it dirty.
+		const wtParent = join(repoPath, ".specflow/worktrees", changeId);
+		mkdirSync(wtParent, { recursive: true });
+		const wtPath = join(wtParent, "main");
+		spawnSync("git", ["worktree", "add", "-b", changeId, wtPath, "HEAD"], {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		writeFileSync(join(wtPath, "dirty.txt"), "dirty\n", "utf8");
+
+		const result = runNodeCli(
+			"specflow-run",
+			["cleanup-worktrees", runId],
+			repoPath,
+		);
+		assert.notEqual(result.status, 0);
+		const output = JSON.parse(result.stdout) as {
+			action: string;
+			reasons: Array<{ kind: string }>;
+		};
+		assert.equal(output.action, "defer");
+		assert.ok(output.reasons.some((r) => r.kind === "dirty_worktree"));
+
+		// Worktree still on disk.
+		assert.ok(existsSync(wtPath));
+
+		// cleanup_pending was set to true.
+		const statusResult = runNodeCli(
+			"specflow-run",
+			["get-field", runId, "cleanup_pending"],
+			repoPath,
+		);
+		assert.equal(statusResult.status, 0);
+		assert.equal(JSON.parse(statusResult.stdout), true);
 	} finally {
 		removeTempDir(tempRoot);
 	}

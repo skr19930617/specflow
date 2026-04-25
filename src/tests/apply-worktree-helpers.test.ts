@@ -57,9 +57,14 @@ function makeRuntime(opts: {
 	readonly applyPatch?: GitApplier;
 	readonly fs?: FakeFs;
 	readonly repoRoot?: string;
+	readonly mainWorkspacePath?: string;
+	readonly changeId?: string;
 }): WorktreeRuntime {
+	const repoRoot = opts.repoRoot ?? "/repo";
 	return {
-		repoRoot: opts.repoRoot ?? "/repo",
+		repoRoot,
+		mainWorkspacePath: opts.mainWorkspacePath ?? repoRoot,
+		changeId: opts.changeId ?? "test-change",
 		git: opts.git,
 		applyPatch: opts.applyPatch,
 		fs: opts.fs ?? makeFakeFs(),
@@ -93,7 +98,10 @@ test("createWorktree: succeeds and records base SHA from HEAD when no workspace 
 	assert.equal(handle.bundleId, "bundle-a");
 	// No workspace changes → snapshot is a no-op → baseSha stays as HEAD.
 	assert.equal(handle.baseSha, "abc123");
-	assert.equal(handle.path, "/repo/.specflow/worktrees/run-1/bundle-a");
+	assert.equal(
+		handle.path,
+		"/repo/.specflow/worktrees/test-change/run-1/bundle-a",
+	);
 
 	// HEAD was resolved BEFORE worktree add — guards against the recorded base
 	// drifting from the actual worktree base if HEAD moves concurrently.
@@ -102,13 +110,15 @@ test("createWorktree: succeeds and records base SHA from HEAD when no workspace 
 	assert.equal(addCall[0], "worktree");
 	assert.equal(addCall[1], "add");
 	assert.ok(addCall.includes("--detach"));
-	assert.ok(addCall.includes("/repo/.specflow/worktrees/run-1/bundle-a"));
+	assert.ok(
+		addCall.includes("/repo/.specflow/worktrees/test-change/run-1/bundle-a"),
+	);
 	assert.ok(addCall.includes("abc123"));
 });
 
 test("createWorktree: refuses to run if target path already exists", () => {
 	const runtime = makeRuntime({
-		fs: makeFakeFs(["/repo/.specflow/worktrees/run-1/bundle-a"]),
+		fs: makeFakeFs(["/repo/.specflow/worktrees/test-change/run-1/bundle-a"]),
 		git: () => {
 			throw new Error("git should not be invoked when pre-check fails");
 		},
@@ -134,7 +144,9 @@ test("createWorktree: propagates git worktree add failure as WorktreeError with 
 		() => createWorktree(runtime, "run-1", "bundle-a"),
 		(err) =>
 			err instanceof WorktreeError &&
-			err.message.includes("/repo/.specflow/worktrees/run-1/bundle-a") &&
+			err.message.includes(
+				"/repo/.specflow/worktrees/test-change/run-1/bundle-a",
+			) &&
 			err.message.includes("fatal:"),
 	);
 });
@@ -369,7 +381,9 @@ test("createWorktree: self-cleans the just-added worktree when post-add setup fa
 		"self-cleanup must invoke worktree remove",
 	);
 	assert.ok(
-		removeCalls[0].includes("/repo/.specflow/worktrees/run-1/bundle-a"),
+		removeCalls[0].includes(
+			"/repo/.specflow/worktrees/test-change/run-1/bundle-a",
+		),
 		"self-cleanup must target the correct worktree path",
 	);
 });
@@ -443,10 +457,10 @@ test("createWorktree: self-cleanup failure does not mask the original error (R3-
 
 // --- worktreePath ---
 
-test("worktreePath: produces the .specflow/worktrees/<run>/<bundle> convention", () => {
+test("worktreePath: produces the .specflow/worktrees/<changeId>/<run>/<bundle> convention", () => {
 	assert.equal(
-		worktreePath("/repo", "run-1", "bundle-a"),
-		"/repo/.specflow/worktrees/run-1/bundle-a",
+		worktreePath("/repo", "run-1", "bundle-a", "my-change"),
+		"/repo/.specflow/worktrees/my-change/run-1/bundle-a",
 	);
 });
 
@@ -455,10 +469,11 @@ test("worktreePath: produces the .specflow/worktrees/<run>/<bundle> convention",
 test("computeDiff: stages untracked files via add -N then runs git diff --binary --find-renames from the base SHA", () => {
 	const invocations: Array<readonly string[]> = [];
 	const handle: WorktreeHandle = {
-		path: "/repo/.specflow/worktrees/r/b",
+		path: "/repo/.specflow/worktrees/test-change/r/b",
 		baseSha: "abc123",
 		runId: "r",
 		bundleId: "b",
+		changeId: "test-change",
 	};
 	const runtime = makeRuntime({
 		git: (args, cwd) => {
@@ -490,6 +505,7 @@ test("computeDiff: propagates git add -N failure as WorktreeError", () => {
 		baseSha: "abc123",
 		runId: "r",
 		bundleId: "b",
+		changeId: "test-change",
 	};
 	const runtime = makeRuntime({
 		git: (args) => {
@@ -511,6 +527,7 @@ test("computeDiff: returns raw binary buffer so NUL bytes survive", () => {
 		baseSha: "abc123",
 		runId: "r",
 		bundleId: "b",
+		changeId: "test-change",
 	};
 	const binary = Buffer.concat([
 		Buffer.from("diff --git a/img.png b/img.png\n", "utf8"),
@@ -580,10 +597,11 @@ test("importPatch: throws WorktreeError with apply operation on failure", () => 
 test("removeWorktree: invokes git worktree remove --force to handle dirty trees", () => {
 	const invocations: Array<readonly string[]> = [];
 	const handle: WorktreeHandle = {
-		path: "/repo/.specflow/worktrees/r/b",
+		path: "/repo/.specflow/worktrees/test-change/r/b",
 		baseSha: "abc123",
 		runId: "r",
 		bundleId: "b",
+		changeId: "test-change",
 	};
 	const runtime = makeRuntime({
 		git: (args) => {
@@ -605,6 +623,7 @@ test("removeWorktree: propagates git failure", () => {
 		baseSha: "abc123",
 		runId: "r",
 		bundleId: "b",
+		changeId: "test-change",
 	};
 	const runtime = makeRuntime({
 		git: () => fail("fatal: not a working tree", 128),

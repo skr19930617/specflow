@@ -797,6 +797,15 @@ function runStateValidator(
 	stringValidator(record.repo_path, `${path}.repo_path`, errors);
 	stringValidator(record.branch_name, `${path}.branch_name`, errors);
 	stringValidator(record.worktree_path, `${path}.worktree_path`, errors);
+	if (record.base_commit !== undefined) {
+		stringValidator(record.base_commit, `${path}.base_commit`, errors);
+	}
+	if (record.base_branch !== undefined) {
+		nullOrStringValidator(record.base_branch, `${path}.base_branch`, errors);
+	}
+	if (record.cleanup_pending !== undefined) {
+		booleanValidator(record.cleanup_pending, `${path}.cleanup_pending`, errors);
+	}
 	runAgentsValidator(record.agents, `${path}.agents`, errors);
 	nullOrStringValidator(
 		record.last_summary_path,

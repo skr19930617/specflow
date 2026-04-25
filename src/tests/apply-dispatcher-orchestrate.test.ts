@@ -108,7 +108,10 @@ const NOOP_DIFF = Buffer.from(
 );
 const NOOP_PRODUCED_ARTIFACTS = ["src/__noop__.ts"];
 
-function noopWorktreeRuntime(repoRoot: string): WorktreeRuntime {
+function noopWorktreeRuntime(
+	repoRoot: string,
+	changeId = "orch-test",
+): WorktreeRuntime {
 	const noop: GitCommandResult = {
 		status: 0,
 		stdout: Buffer.alloc(0),
@@ -121,6 +124,8 @@ function noopWorktreeRuntime(repoRoot: string): WorktreeRuntime {
 	});
 	return {
 		repoRoot,
+		mainWorkspacePath: repoRoot,
+		changeId,
 		git: (args, cwd) => {
 			if (args[0] === "rev-parse") return okBuf("0000000\n");
 			if (args[0] === "worktree") return noop;
@@ -640,6 +645,7 @@ function wtFail(stderr: string, status = 1): GitCommandResult {
  */
 function makeWorktreeRuntime(opts: {
 	readonly repoRoot: string;
+	readonly changeId?: string;
 	readonly diffFor: (bundleId: string) => string;
 	readonly onApply?: (bundleId: string, patch: Buffer) => void;
 	readonly applyResultFor?: (bundleId: string) => GitCommandResult;
@@ -712,7 +718,14 @@ function makeWorktreeRuntime(opts: {
 	};
 
 	return {
-		runtime: { repoRoot: opts.repoRoot, git, applyPatch, fs },
+		runtime: {
+			repoRoot: opts.repoRoot,
+			mainWorkspacePath: opts.repoRoot,
+			changeId: opts.changeId ?? "orch-test",
+			git,
+			applyPatch,
+			fs,
+		},
 		calls,
 		fs,
 	};
@@ -764,7 +777,7 @@ test("runDispatchedWindow (worktree): success path creates worktree, applies pat
 			calls.some((c) => c.args.includes("remove")),
 			"git worktree remove must be invoked on success",
 		);
-		const wtPath = `${root}/.specflow/worktrees/run-1/a`;
+		const wtPath = `${root}/.specflow/worktrees/orch-test/run-1/a`;
 		assert.ok(!fs._paths.has(wtPath), "worktree path must be cleaned up");
 	} finally {
 		rmSync(root, { recursive: true, force: true });
@@ -813,7 +826,7 @@ test("runDispatchedWindow (worktree): subagent failure advances to subagent_fail
 			!calls.some((c) => c.args.includes("remove")),
 			"worktree must be retained on subagent_failed",
 		);
-		const wtPath = `${root}/.specflow/worktrees/run-1/a`;
+		const wtPath = `${root}/.specflow/worktrees/orch-test/run-1/a`;
 		assert.ok(fs._paths.has(wtPath), "worktree path must persist on failure");
 	} finally {
 		rmSync(root, { recursive: true, force: true });
@@ -870,7 +883,7 @@ test("runDispatchedWindow (worktree): integration rejection advances to integrat
 			!calls.some((c) => c.args.includes("remove")),
 			"worktree retained on integration_rejected",
 		);
-		const wtPath = `${root}/.specflow/worktrees/run-1/a`;
+		const wtPath = `${root}/.specflow/worktrees/orch-test/run-1/a`;
 		assert.ok(fs._paths.has(wtPath));
 	} finally {
 		rmSync(root, { recursive: true, force: true });
@@ -950,7 +963,7 @@ test("runDispatchedWindow (worktree): create failure on second bundle rolls back
 		);
 
 		// Rollback: the worktree for 'a' must not be left on disk after 'b' fails.
-		const aPath = `${root}/.specflow/worktrees/run-1/a`;
+		const aPath = `${root}/.specflow/worktrees/orch-test/run-1/a`;
 		assert.ok(
 			!fs._paths.has(aPath),
 			"first bundle's worktree must be cleaned up when a later bundle fails create",
@@ -983,6 +996,8 @@ test("runDispatchedWindow (worktree): worktree remove failure surfaces a cleanup
 		});
 		const runtime: WorktreeRuntime = {
 			repoRoot: root,
+			mainWorkspacePath: root,
+			changeId,
 			git: (args) => {
 				if (args[0] === "rev-parse") return okBuf("0000000\n");
 				if (args[0] === "worktree" && args[1] === "add") return noop;
