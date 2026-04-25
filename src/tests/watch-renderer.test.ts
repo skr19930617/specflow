@@ -6,12 +6,14 @@ import type { Bundle, TaskGraph } from "../lib/task-planner/index.js";
 import {
 	type BuildReviewViewInput,
 	buildApprovalSummary,
+	buildDigestState,
 	buildEventsView,
 	buildHeader,
 	buildReviewView,
 	buildTaskGraphView,
 	deriveManualFixKind,
 	type ManualFixKind,
+	rankOpenFindings,
 	renderFrame,
 	stripAnsi,
 	terminalBannerFor,
@@ -19,7 +21,11 @@ import {
 	type WatchModel,
 } from "../lib/watch-renderer/index.js";
 import type { AutofixProgressSnapshot } from "../types/autofix-progress.js";
-import type { RunState } from "../types/contracts.js";
+import type {
+	ReviewFinding,
+	ReviewLedger,
+	RunState,
+} from "../types/contracts.js";
 
 function ok<T>(value: T): ArtifactReadResult<T> {
 	return { kind: "ok", value };
@@ -83,6 +89,7 @@ function modelFor(parts: Partial<WatchModel> = {}): WatchModel {
 		header: headerFor({ phase: "apply_draft" }),
 		terminal_banner: null,
 		review: buildReviewView(reviewInput()),
+		digest: { kind: "hidden" },
 		task_graph: buildTaskGraphView({ kind: "absent" }),
 		events: buildEventsView([]),
 		approval_summary: buildApprovalSummary({ kind: "absent" }),
@@ -682,4 +689,526 @@ test("renderFrame: narrow terminal still produces bounded-width output", () => {
 			`line exceeds 40 cols: ${stripAnsi(l).length}`,
 		);
 	}
+});
+
+// ---------------------------------------------------------------------------
+// Ledger digest model + renderer tests
+// ---------------------------------------------------------------------------
+
+function ledger(parts: Partial<ReviewLedger> = {}): ReviewLedger {
+	return {
+		feature_id: "x",
+		phase: "design",
+		current_round: 1,
+		status: "has_open_high",
+		max_finding_id: 0,
+		findings: [],
+		round_summaries: [
+			{
+				round: 1,
+				total: 0,
+				open: 0,
+				new: 0,
+				resolved: 0,
+				overridden: 0,
+				by_severity: {},
+			},
+		],
+		...parts,
+	} as ReviewLedger;
+}
+
+function finding(
+	id: string,
+	severity: string,
+	status: string,
+	latest_round = 1,
+	title = "",
+): ReviewFinding {
+	return {
+		id,
+		title: title || `finding ${id}`,
+		severity: severity as ReviewFinding["severity"],
+		status: status as ReviewFinding["status"],
+		latest_round,
+		origin_round: latest_round,
+	} as ReviewFinding;
+}
+
+test("buildDigestState: hidden when activeFamily is null (non-review phase)", () => {
+	const state = buildDigestState({
+		activeFamily: null,
+		ledgerRead: { kind: "absent" },
+	});
+	assert.equal(state.kind, "hidden");
+});
+
+test("buildDigestState: placeholder when ledger is absent within review family", () => {
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: { kind: "absent" },
+	});
+	assert.equal(state.kind, "placeholder");
+	if (state.kind === "placeholder") {
+		assert.equal(state.message, "No review digest yet");
+	}
+});
+
+test("buildDigestState: warning on unreadable ledger preserves reason", () => {
+	const state = buildDigestState({
+		activeFamily: "apply",
+		ledgerRead: { kind: "unreadable", reason: "EACCES" },
+	});
+	assert.equal(state.kind, "warning");
+	if (state.kind === "warning") {
+		assert.match(state.message, /Review ledger unreadable: EACCES/);
+	}
+});
+
+test("buildDigestState: warning on malformed ledger preserves reason", () => {
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: { kind: "malformed", reason: "decision parity violation" },
+	});
+	assert.equal(state.kind, "warning");
+	if (state.kind === "warning") {
+		assert.match(state.message, /Review ledger malformed: decision parity/);
+	}
+});
+
+test("buildDigestState: empty round_summaries renders as placeholder, not ok", () => {
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: { kind: "ok", value: ledger({ round_summaries: [] }) },
+	});
+	assert.equal(state.kind, "placeholder");
+});
+
+test("buildDigestState: populates digest from latest round_summary + open findings", () => {
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: {
+			kind: "ok",
+			value: ledger({
+				latest_decision: "request_changes",
+				findings: [
+					finding("R1-F01", "high", "open", 1, "auth boundary mismatch"),
+					finding("R1-F02", "medium", "open", 1, "retry path unclear"),
+					finding("R1-F03", "low", "resolved", 1, "fixed style"),
+				],
+				round_summaries: [
+					{
+						round: 1,
+						total: 3,
+						open: 2,
+						new: 0,
+						resolved: 1,
+						overridden: 0,
+						by_severity: { high: 1, medium: 1, low: 1 },
+						decision: "request_changes",
+					},
+				],
+			}),
+		},
+	});
+	assert.equal(state.kind, "ok");
+	if (state.kind === "ok") {
+		assert.equal(state.value.decision, "request_changes");
+		assert.equal(state.value.counts.total, 3);
+		assert.equal(state.value.counts.open, 2);
+		assert.equal(state.value.counts.resolved, 1);
+		assert.equal(state.value.openSeverity.high, 1);
+		assert.equal(state.value.openSeverity.medium, 1);
+		assert.equal(state.value.openSeverity.low, 0);
+		assert.equal(state.value.topOpen.length, 2);
+		assert.equal(state.value.topOpen[0].severity, "HIGH");
+		assert.equal(state.value.topOpen[1].severity, "MEDIUM");
+	}
+});
+
+test("buildDigestState: critical severity aggregates into HIGH counts and HIGH display", () => {
+	const state = buildDigestState({
+		activeFamily: "apply",
+		ledgerRead: {
+			kind: "ok",
+			value: ledger({
+				findings: [
+					finding("R1-F01", "critical", "open", 1, "RCE"),
+					finding("R1-F02", "high", "open", 1, "auth"),
+					finding("R1-F03", "medium", "open", 1, "log noise"),
+				],
+				round_summaries: [
+					{
+						round: 1,
+						total: 3,
+						open: 3,
+						new: 0,
+						resolved: 0,
+						overridden: 0,
+						by_severity: { critical: 1, high: 1, medium: 1 },
+					},
+				],
+			}),
+		},
+	});
+	assert.equal(state.kind, "ok");
+	if (state.kind === "ok") {
+		assert.equal(state.value.openSeverity.high, 2); // critical + high
+		assert.equal(state.value.openSeverity.medium, 1);
+		// First entry should be the critical finding, displayed as HIGH.
+		assert.equal(state.value.topOpen[0].severity, "HIGH");
+		assert.equal(state.value.topOpen[0].id, "R1-F01");
+	}
+});
+
+test("buildDigestState: ledger.latest_decision preferred over round_summaries decision when both present and equal", () => {
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: {
+			kind: "ok",
+			value: ledger({
+				latest_decision: "approve",
+				round_summaries: [
+					{
+						round: 1,
+						total: 0,
+						open: 0,
+						new: 0,
+						resolved: 0,
+						overridden: 0,
+						by_severity: {},
+						decision: "approve",
+					},
+				],
+			}),
+		},
+	});
+	assert.equal(state.kind, "ok");
+	if (state.kind === "ok") {
+		assert.equal(state.value.decision, "approve");
+	}
+});
+
+test("buildDigestState: falls back to last round summary decision when latest_decision absent", () => {
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: {
+			kind: "ok",
+			value: ledger({
+				round_summaries: [
+					{
+						round: 1,
+						total: 0,
+						open: 0,
+						new: 0,
+						resolved: 0,
+						overridden: 0,
+						by_severity: {},
+						decision: "request_changes",
+					},
+				],
+			}),
+		},
+	});
+	assert.equal(state.kind, "ok");
+	if (state.kind === "ok") {
+		assert.equal(state.value.decision, "request_changes");
+	}
+});
+
+test("buildDigestState: decision (none) when both decision sources empty", () => {
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: { kind: "ok", value: ledger() },
+	});
+	assert.equal(state.kind, "ok");
+	if (state.kind === "ok") assert.equal(state.value.decision, "(none)");
+});
+
+test("buildDigestState: summaryState is absent — no compliant persisted summary source exists today", () => {
+	// The persisted ledger does not carry free-form summary text and the
+	// watcher's read-only contract forbids widening to `review-result*.json`.
+	// Per spec ("Latest round summary missing elides the line") the digest
+	// SHALL omit the Latest summary line until a compliant source is added.
+	const state = buildDigestState({
+		activeFamily: "design",
+		ledgerRead: {
+			kind: "ok",
+			value: ledger({
+				round_summaries: [
+					{
+						round: 3,
+						total: 5,
+						open: 2,
+						new: 1,
+						resolved: 3,
+						overridden: 0,
+						by_severity: { high: 1, medium: 1 },
+						decision: "request_changes",
+					},
+				],
+			}),
+		},
+	});
+	assert.equal(state.kind, "ok");
+	if (state.kind === "ok") {
+		assert.equal(state.value.summaryState.kind, "absent");
+	}
+});
+
+test("rankOpenFindings: severity → latest_round DESC → id ASC", () => {
+	const findings = [
+		finding("R3-F01", "high", "open", 3),
+		finding("R2-F03", "high", "open", 2),
+		finding("R3-F02", "high", "open", 3),
+		finding("R4-F01", "medium", "open", 4),
+		finding("R5-F02", "low", "open", 5),
+	];
+	const ranked = rankOpenFindings(findings);
+	assert.equal(ranked[0].id, "R3-F01");
+	assert.equal(ranked[1].id, "R3-F02");
+	assert.equal(ranked[2].id, "R2-F03");
+	assert.equal(ranked[3].id, "R4-F01");
+	assert.equal(ranked[4].id, "R5-F02");
+});
+
+test("rankOpenFindings: critical ranks alongside high (rank 0), not below low", () => {
+	const findings = [
+		finding("R1-F02", "low", "open", 1),
+		finding("R1-F01", "critical", "open", 1),
+		finding("R1-F03", "medium", "open", 1),
+	];
+	const ranked = rankOpenFindings(findings);
+	assert.equal(ranked[0].id, "R1-F01"); // critical first
+	assert.equal(ranked[1].id, "R1-F03"); // medium next
+	assert.equal(ranked[2].id, "R1-F02"); // low last
+});
+
+test("rankOpenFindings: filters out resolved/accepted_risk/ignored findings", () => {
+	const findings = [
+		finding("R1-F01", "high", "open", 1),
+		finding("R1-F02", "high", "resolved", 1),
+		finding("R1-F03", "high", "accepted_risk", 1),
+		finding("R1-F04", "high", "new", 1),
+	];
+	const ranked = rankOpenFindings(findings);
+	assert.equal(ranked.length, 2);
+	const ids = ranked.map((f) => f.id);
+	assert.deepEqual(ids.sort(), ["R1-F01", "R1-F04"]);
+});
+
+// Renderer tests for the digest layer
+
+function digestModel(
+	parts: Partial<WatchModel> = {},
+	digestParts: Partial<{
+		activeFamily: "design" | "apply" | null;
+		ledgerRead: ArtifactReadResult<ReviewLedger>;
+	}> = {},
+): WatchModel {
+	return {
+		header: headerFor({ phase: "design_review" }),
+		terminal_banner: null,
+		review: buildReviewView(reviewInput()),
+		digest: buildDigestState({
+			activeFamily:
+				"activeFamily" in digestParts
+					? (digestParts.activeFamily as "design" | "apply" | null)
+					: "design",
+			ledgerRead: digestParts.ledgerRead ?? { kind: "absent" },
+		}),
+		task_graph: buildTaskGraphView({ kind: "absent" }),
+		events: buildEventsView([]),
+		approval_summary: buildApprovalSummary({ kind: "absent" }),
+		...parts,
+	};
+}
+
+test("renderFrame: digest placeholder appears below snapshot when ledger absent in review family", () => {
+	const model = digestModel(
+		{},
+		{ activeFamily: "design", ledgerRead: { kind: "absent" } },
+	);
+	const lines = renderFrame(model, 120, 40);
+	const plain = lines.map((l) => stripAnsi(l)).join("\n");
+	assert.match(plain, /No active review/);
+	assert.match(plain, /No review digest yet/);
+});
+
+test("renderFrame: digest layer is fully suppressed for non-review phases", () => {
+	const model = digestModel(
+		{ header: headerFor({ phase: "spec_draft" }) },
+		{ activeFamily: null, ledgerRead: { kind: "absent" } },
+	);
+	const lines = renderFrame(model, 120, 40);
+	const plain = lines.map((l) => stripAnsi(l)).join("\n");
+	assert.doesNotMatch(plain, /No review digest yet/);
+	assert.doesNotMatch(plain, /Decision:/);
+});
+
+test("renderFrame: warning ledger renders inline below snapshot section", () => {
+	const model = digestModel(
+		{},
+		{
+			activeFamily: "design",
+			ledgerRead: { kind: "malformed", reason: "round_summaries: missing" },
+		},
+	);
+	const lines = renderFrame(model, 120, 40);
+	const plain = lines.map((l) => stripAnsi(l)).join("\n");
+	assert.match(plain, /⚠ Review ledger malformed: round_summaries/);
+});
+
+test("renderFrame: populated digest renders Decision/Findings/Severity/summary/Open findings", () => {
+	const model = digestModel(
+		{},
+		{
+			activeFamily: "design",
+			ledgerRead: {
+				kind: "ok",
+				value: ledger({
+					latest_decision: "approve_with_findings",
+					findings: [
+						finding("R1-F01", "high", "open", 1, "auth boundary mismatch"),
+						finding("R1-F02", "medium", "open", 1, "retry path unclear"),
+						finding("R1-F03", "medium", "open", 1, "missing test coverage"),
+					],
+					round_summaries: [
+						{
+							round: 1,
+							total: 8,
+							open: 3,
+							new: 2,
+							resolved: 5,
+							overridden: 0,
+							by_severity: { high: 1, medium: 2 },
+							decision: "approve_with_findings",
+						},
+					],
+				}),
+			},
+		},
+	);
+	const lines = renderFrame(model, 120, 40);
+	const plain = lines.map((l) => stripAnsi(l)).join("\n");
+	assert.match(plain, /Decision: approve_with_findings/);
+	assert.match(plain, /Findings: 8 total \| 3 open \| 2 new \| 5 resolved/);
+	assert.match(plain, /Severity: HIGH 1 \| MEDIUM 2 \| LOW 0/);
+	// Per spec, the Latest summary line is omitted when no persisted narrative
+	// summary source is available; the persisted ledger has only counters and
+	// decision tokens.
+	assert.doesNotMatch(plain, /Latest summary:/);
+	assert.match(plain, /Open findings:/);
+	assert.match(plain, /HIGH\s+auth boundary mismatch/);
+	assert.match(plain, /MEDIUM\s+retry path unclear/);
+});
+
+test("renderFrame: Latest summary line is omitted (no persisted narrative source)", () => {
+	const model = digestModel(
+		{},
+		{
+			activeFamily: "design",
+			ledgerRead: {
+				kind: "ok",
+				value: ledger({
+					round_summaries: [
+						{
+							round: 5,
+							total: 4,
+							open: 1,
+							new: 0,
+							resolved: 3,
+							overridden: 0,
+							by_severity: { high: 1 },
+							decision: "request_changes",
+						},
+					],
+				}),
+			},
+		},
+	);
+	const lines = renderFrame(model, 120, 40);
+	const plain = lines.map((l) => stripAnsi(l)).join("\n");
+	assert.doesNotMatch(plain, /Latest summary:/);
+});
+
+test("renderFrame: narrow terminal (<80 cols) collapses Open findings list and ellipsizes other digest lines", () => {
+	const longTitle = "x".repeat(120);
+	const model = digestModel(
+		{},
+		{
+			activeFamily: "design",
+			ledgerRead: {
+				kind: "ok",
+				value: ledger({
+					findings: [finding("R1-F01", "high", "open", 1, longTitle)],
+					round_summaries: [
+						{
+							round: 1,
+							total: 1,
+							open: 1,
+							new: 0,
+							resolved: 0,
+							overridden: 0,
+							by_severity: { high: 1 },
+							decision:
+								"request_changes_with_a_very_long_decision_string_to_force_overflow",
+						},
+					],
+				}),
+			},
+		},
+	);
+	const lines = renderFrame(model, 60, 40);
+	const plain = lines.map((l) => stripAnsi(l));
+	const joined = plain.join("\n");
+	assert.doesNotMatch(joined, /Open findings:/);
+	// Decision/Findings/Severity still present.
+	assert.match(joined, /Decision:/);
+	// All digest lines bounded to 60 cols; longest one is ellipsized.
+	const decisionLine = plain.find((l) => l.startsWith("Decision:"));
+	assert.ok(decisionLine !== undefined && decisionLine.length <= 60);
+});
+
+test("renderFrame: ledger-only (snapshot absent) still renders digest", () => {
+	const model = digestModel(
+		{
+			header: headerFor({ phase: "design_review" }),
+			review: buildReviewView(
+				reviewInput({
+					phase_in_review_family: true,
+					phase_is_review_gate: true,
+					snapshot: { kind: "absent" },
+				}),
+			),
+		},
+		{
+			activeFamily: "design",
+			ledgerRead: {
+				kind: "ok",
+				value: ledger({
+					round_summaries: [
+						{
+							round: 1,
+							total: 0,
+							open: 0,
+							new: 0,
+							resolved: 0,
+							overridden: 0,
+							by_severity: {},
+							decision: "approve",
+						},
+					],
+				}),
+			},
+		},
+	);
+	const lines = renderFrame(model, 120, 40);
+	const plain = lines.map((l) => stripAnsi(l)).join("\n");
+	// snapshot absent → shows placeholder
+	assert.match(plain, /No active review/);
+	// Digest still appears with decision/counts/severity. Latest summary line
+	// is intentionally omitted — no compliant persisted narrative source.
+	assert.match(plain, /Decision: approve/);
+	assert.doesNotMatch(plain, /Latest summary:/);
 });

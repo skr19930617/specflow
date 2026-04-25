@@ -1,0 +1,190 @@
+{
+  "feature_id": "extend-specflow-watch-with-review-ledger-digests-and-subagent-activity",
+  "phase": "design",
+  "current_round": 5,
+  "status": "has_open_high",
+  "max_finding_id": 8,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "completeness",
+      "title": "Latest summary requirement has no compliant data source",
+      "detail": "The spec requires a `Latest summary:` line sourced from the latest review outcome, but the design itself notes that persisted `ReviewLedger` and `LedgerRoundSummary` data do not contain narrative summary text. D1 then proposes substituting `decision` or omitting the line and deferring a real source to Phase 2, and task 1.3 only 'freezes' that fallback. That leaves an acceptance criterion unmet. Resolve this before implementation by either changing the allowed artifact contract/spec to include a read-only summary source, or extending the persisted ledger contract so the latest summary text is actually available.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Review section model does not define independent progress and digest states",
+      "detail": "The spec requires snapshot-only and ledger-only modes to each render their own half of the Review section. The design adds `ledgerDigest` to an abstract review model, but does not define a composite state model for independent snapshot placeholder/warning state versus digest placeholder/warning state. In the current watcher architecture, the review section is a single section-state, so this omission risks suppressing the digest whenever snapshot progress is absent or malformed. Define an explicit composite review-section interface and add tests for ledger-only, snapshot-only, and mixed warning/placeholder combinations.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "consistency",
+      "title": "Loose ledger validation conflicts with the malformed-ledger contract",
+      "detail": "D2 intentionally validates only the subset of ledger fields used by the digest, while the spec says malformed handling applies when the ledger does not conform to the review-ledger schema. With the proposed validator, schema-invalid ledgers could still render as usable, hiding drift and skipping the required inline warning path. Either validate against the full read-only `ReviewLedger` contract or explicitly change the spec; task 2.2 should be updated accordingly.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R2-F04",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/changes/extend-specflow-watch-with-review-ledger-digests-and-subagent-activity/design.md",
+      "title": "Digest state cannot represent the required non-review suppression case",
+      "detail": "The spec requires that non-review phases do not read or render any ledger digest at all, but D4's ReviewLayerState only allows ok, placeholder, or warning and the renderer is defined to emit one of those states in sequence. That leaves no explicit way to distinguish 'active family with no digest yet' from 'phase is outside the review families', so the current model pushes the implementation toward showing `No review digest yet` on phases like `spec_draft` or `proposal_clarify`. Add an explicit hidden/not_applicable digest state (or make digestState optional) and add model/render tests for non-review phases.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F05",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "openspec/changes/extend-specflow-watch-with-review-ledger-digests-and-subagent-activity/design.md",
+      "title": "Decision source is ambiguous between the top-level ledger field and the latest round",
+      "detail": "D1 says the digest should prefer `ledger.latest_decision` and only fall back to the last `round_summaries` entry, while task 3.3 describes building the digest from the last round summary plus open findings and the spec defines the digest as latest-round/latest-snapshot data. If those fields ever diverge, the decision line can disagree with the counts and open-finding data taken from the last round. Pick a single source of truth for the decision line, or validate parity and treat mismatches as malformed, then align the tasks and tests to that rule.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F06",
+      "severity": "high",
+      "category": "consistency",
+      "file": "openspec/changes/extend-specflow-watch-with-review-ledger-digests-and-subagent-activity/design.md",
+      "title": "Review-result summary handling does not guarantee a correct latest-round line",
+      "detail": "D1 and tasks 1.3/2.3/3.2 make `Latest summary:` depend on `review-result-<family>.json`, but they only extract `{ summary?: string }` and do not define how that artifact is proven to match `round_summaries[last]`. That leaves the digest free to pair a newer ledger decision/counts block with a stale narrative summary from an older round. The same path also collapses unreadable/malformed review-result files into `latestSummary = null`, making a broken summary source indistinguishable from a legitimately absent summary. Either move the summary into the ledger-backed contract, or extend the summary-source contract so it can be validated against the latest round and can surface warning states separately from 'summary absent'.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R4-F07",
+      "severity": "medium",
+      "category": "consistency",
+      "file": "openspec/changes/extend-specflow-watch-with-review-ledger-digests-and-subagent-activity/design.md",
+      "title": "Critical severity handling is left undefined even though current ledgers use it",
+      "detail": "`ReviewFinding.severity` already allows real `critical` values and the existing review-orchestration contract treats `critical` and `high` as the blocking severities. D6 currently ranks unknown severities below `low`, and the digest contract only renders HIGH/MEDIUM/LOW counts. On a valid ledger with open critical findings, this design can understate the most severe open work and hide critical findings from the top-3 list. Define the Phase 1 mapping explicitly before implementation, either by extending the spec to surface CRITICAL or by mapping `critical` to HIGH consistently in ranking, counts, and rendering, then add tests for that behavior.",
+      "origin_round": 4,
+      "latest_round": 4,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 5
+    },
+    {
+      "id": "R5-F08",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "openspec/changes/extend-specflow-watch-with-review-ledger-digests-and-subagent-activity/design.md",
+      "title": "Zero-open digest behavior is not specified tightly enough to satisfy the spec",
+      "detail": "The spec requires the `Open findings:` header and rows to be omitted entirely when the latest digest has zero open findings. D4 only says an `ok` digest renders the top-3 block, and task 3.7 covers populated digests and empty ledgers but not the `topOpen = []` case for a non-empty ledger. That leaves room for an implementation that still prints an empty `Open findings:` header. Add an explicit render rule and a test for a readable ledger whose latest state has zero open findings.",
+      "origin_round": 5,
+      "latest_round": 5,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "gate_id": "review_decision-extend-specflow-watch-with-review-ledger-digests-and-subagent-activity-1-design_review-1"
+    },
+    {
+      "round": 2,
+      "total": 5,
+      "open": 3,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "gate_id": "review_decision-extend-specflow-watch-with-review-ledger-digests-and-subagent-activity-1-design_review-2"
+    },
+    {
+      "round": 3,
+      "total": 6,
+      "open": 2,
+      "new": 1,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      },
+      "gate_id": "review_decision-extend-specflow-watch-with-review-ledger-digests-and-subagent-activity-1-design_review-3"
+    },
+    {
+      "round": 4,
+      "total": 7,
+      "open": 3,
+      "new": 1,
+      "resolved": 4,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      },
+      "gate_id": "review_decision-extend-specflow-watch-with-review-ledger-digests-and-subagent-activity-1-design_review-4"
+    },
+    {
+      "round": 5,
+      "total": 8,
+      "open": 3,
+      "new": 1,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "high": 2,
+        "medium": 1
+      },
+      "gate_id": "review_decision-extend-specflow-watch-with-review-ledger-digests-and-subagent-activity-1-design_review-5"
+    }
+  ]
+}

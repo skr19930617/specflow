@@ -13,11 +13,16 @@ export {
 } from "./ansi.js";
 export type {
 	ApprovalSummaryView,
+	BuildDigestStateInput,
 	BuildReviewViewInput,
 	BundleTaskView,
 	BundleView,
+	DigestFinding,
+	DigestSeverity,
 	EventView,
+	LedgerDigest,
 	ManualFixKind,
+	ReviewLayerState,
 	ReviewRoundView,
 	ReviewRoundVisibility,
 	SectionState,
@@ -27,11 +32,13 @@ export type {
 } from "./model.js";
 export {
 	buildApprovalSummary,
+	buildDigestState,
 	buildEventsView,
 	buildHeader,
 	buildReviewView,
 	buildTaskGraphView,
 	deriveManualFixKind,
+	rankOpenFindings,
 	terminalBannerFor,
 } from "./model.js";
 export { renderFrame } from "./render.js";

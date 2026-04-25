@@ -20,10 +20,13 @@ import {
 	phaseIsLiveReviewGate,
 	readApprovalSummary,
 	readAutofixSnapshotFile,
+	readReviewLedgerFile,
 	readRunStateFile,
 	readTaskGraphFile,
+	reviewLedgerPath,
 	runStatePath,
 	selectActiveAutofixPhase,
+	selectActiveReviewLedger,
 	taskGraphPath,
 } from "../lib/specflow-watch/artifact-readers.js";
 import { resolveTrackedRun } from "../lib/specflow-watch/run-resolution.js";
@@ -34,6 +37,7 @@ import {
 	ALT_SCREEN_ENTER,
 	ALT_SCREEN_LEAVE,
 	buildApprovalSummary,
+	buildDigestState,
 	buildEventsView,
 	buildHeader,
 	buildReviewView,
@@ -137,6 +141,18 @@ function buildModel(inputs: ModelInputs): WatchModel {
 		manual_fix_kind: manualFixKind,
 	});
 
+	// Ledger digest layer (independent from snapshot view).
+	const activeLedgerFamily = selectActiveReviewLedger(phase);
+	const changeForLedger = run.change_name ?? "";
+	const ledgerRead =
+		activeLedgerFamily === null || !changeForLedger
+			? ({ kind: "absent" } as const)
+			: readReviewLedgerFile(repoRoot, changeForLedger, activeLedgerFamily);
+	const digest = buildDigestState({
+		activeFamily: activeLedgerFamily,
+		ledgerRead,
+	});
+
 	// Task graph
 	const changeForGraph = run.change_name ?? "";
 	const graphRead = changeForGraph
@@ -165,6 +181,7 @@ function buildModel(inputs: ModelInputs): WatchModel {
 		header,
 		terminal_banner: runRead.kind === "ok" ? terminalBannerFor(status) : null,
 		review,
+		digest,
 		task_graph: taskGraphView,
 		events: eventsView,
 		approval_summary: approvalSummary,
@@ -319,6 +336,10 @@ function main(): void {
 	];
 	if (run.change_name) {
 		watchedPaths.push(taskGraphPath(repoRoot, run.change_name));
+		// Watch both review-ledger files so a missing→present transition triggers
+		// a redraw. The polling fallback also catches atomic-write transitions.
+		watchedPaths.push(reviewLedgerPath(repoRoot, run.change_name, "design"));
+		watchedPaths.push(reviewLedgerPath(repoRoot, run.change_name, "apply"));
 	}
 	// Watch the directory containing approval-summary.md so a missing→present
 	// transition (first approve) triggers a redraw. Falls back to the file

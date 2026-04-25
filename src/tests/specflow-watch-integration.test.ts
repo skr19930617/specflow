@@ -7,12 +7,15 @@ import {
 	phaseIsLiveReviewGate,
 	readApprovalSummary,
 	readAutofixSnapshotFile,
+	readReviewLedgerFile,
 	readRunStateFile,
 	readTaskGraphFile,
 	selectActiveAutofixPhase,
+	selectActiveReviewLedger,
 } from "../lib/specflow-watch/artifact-readers.js";
 import {
 	buildApprovalSummary,
+	buildDigestState,
 	buildEventsView,
 	buildHeader,
 	buildReviewView,
@@ -199,6 +202,20 @@ function buildModelFor(root: string, run: RunState) {
 			phase_in_review_family: selected !== null,
 			snapshot: reviewRead,
 			manual_fix_kind: manualFixKind,
+		}),
+		digest: buildDigestState({
+			activeFamily: selectActiveReviewLedger(current.current_phase),
+			ledgerRead:
+				selectActiveReviewLedger(current.current_phase) !== null &&
+				current.change_name
+					? readReviewLedgerFile(
+							root,
+							current.change_name,
+							selectActiveReviewLedger(current.current_phase) as
+								| "design"
+								| "apply",
+						)
+					: { kind: "absent" as const },
 		}),
 		task_graph: buildTaskGraphView(
 			taskGraphRead.kind === "ok"
@@ -420,6 +437,142 @@ test("integration: apply_draft shows only apply_review snapshot, never design_re
 			"wrong-family snapshot must not leak into the render",
 		);
 		assert.ok(!/Round 99\/99/.test(frame), "wrong-family values must not leak");
+	} finally {
+		removeTempDir(root);
+	}
+});
+
+function writeReviewLedger(
+	root: string,
+	changeName: string,
+	family: "design" | "apply",
+	overrides: Record<string, unknown> = {},
+): void {
+	const dir = join(root, "openspec/changes", changeName);
+	mkdirSync(dir, { recursive: true });
+	const filename =
+		family === "design" ? "review-ledger-design.json" : "review-ledger.json";
+	const ledger = {
+		feature_id: changeName,
+		phase: family,
+		current_round: 1,
+		status: "has_open_high",
+		max_finding_id: 0,
+		findings: [],
+		round_summaries: [
+			{
+				round: 1,
+				total: 0,
+				open: 0,
+				new: 0,
+				resolved: 0,
+				overridden: 0,
+				by_severity: {},
+			},
+		],
+		...overrides,
+	};
+	writeFileSync(
+		join(dir, filename),
+		`${JSON.stringify(ledger, null, 2)}\n`,
+		"utf8",
+	);
+}
+
+test("integration: digest renders from review-ledger-design.json during design phase", () => {
+	const root = makeTempDir("watch-int-digest-design-");
+	try {
+		const run = seedRun(root, {
+			runId: "dgd-1",
+			changeName: "dgd",
+			currentPhase: "design_review",
+			status: "active",
+		});
+		writeReviewLedger(root, "dgd", "design", {
+			latest_decision: "request_changes",
+			findings: [
+				{
+					id: "R1-F01",
+					title: "auth boundary mismatch",
+					severity: "high",
+					status: "open",
+					origin_round: 1,
+					latest_round: 1,
+				},
+				{
+					id: "R1-F02",
+					title: "retry path unclear",
+					severity: "medium",
+					status: "open",
+					origin_round: 1,
+					latest_round: 1,
+				},
+			],
+			round_summaries: [
+				{
+					round: 1,
+					total: 2,
+					open: 2,
+					new: 2,
+					resolved: 0,
+					overridden: 0,
+					by_severity: { high: 1, medium: 1 },
+					decision: "request_changes",
+				},
+			],
+		});
+		const model = buildModelFor(root, run);
+		const frame = renderFrame(model, 120, 40)
+			.map((l) => stripAnsi(l))
+			.join("\n");
+		assert.match(frame, /Decision: request_changes/);
+		assert.match(frame, /Findings: 2 total \| 2 open \| 2 new \| 0 resolved/);
+		assert.match(frame, /Severity: HIGH 1 \| MEDIUM 1 \| LOW 0/);
+		assert.match(frame, /Open findings:/);
+		assert.match(frame, /HIGH\s+auth boundary mismatch/);
+	} finally {
+		removeTempDir(root);
+	}
+});
+
+test("integration: digest redraws when ledger updates on disk between frames", () => {
+	const root = makeTempDir("watch-int-digest-redraw-");
+	try {
+		const run = seedRun(root, {
+			runId: "redraw-1",
+			changeName: "redraw",
+			currentPhase: "apply_review",
+			status: "active",
+		});
+		// First render: no ledger on disk
+		const frame1 = renderFrame(buildModelFor(root, run), 120, 40)
+			.map((l) => stripAnsi(l))
+			.join("\n");
+		assert.match(frame1, /No review digest yet/);
+
+		// Write the apply ledger
+		writeReviewLedger(root, "redraw", "apply", {
+			latest_decision: "approve",
+			round_summaries: [
+				{
+					round: 1,
+					total: 0,
+					open: 0,
+					new: 0,
+					resolved: 0,
+					overridden: 0,
+					by_severity: {},
+					decision: "approve",
+				},
+			],
+		});
+
+		// Second render reflects on-disk ledger
+		const frame2 = renderFrame(buildModelFor(root, run), 120, 40)
+			.map((l) => stripAnsi(l))
+			.join("\n");
+		assert.match(frame2, /Decision: approve/);
+		assert.doesNotMatch(frame2, /No review digest yet/);
 	} finally {
 		removeTempDir(root);
 	}

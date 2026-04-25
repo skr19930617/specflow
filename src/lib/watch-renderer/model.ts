@@ -3,9 +3,16 @@
 // it into ANSI text. Separating the model keeps both halves unit-testable.
 
 import type { AutofixProgressSnapshot } from "../../types/autofix-progress.js";
-import type { RunState } from "../../types/contracts.js";
+import type {
+	ReviewFinding,
+	ReviewLedger,
+	RunState,
+} from "../../types/contracts.js";
 import type { RawObservationEvent } from "../observation-event-reader.js";
-import type { ArtifactReadResult } from "../specflow-watch/artifact-readers.js";
+import type {
+	ArtifactReadResult,
+	ReviewLedgerFamily,
+} from "../specflow-watch/artifact-readers.js";
 import type { Bundle, TaskStatus } from "../task-planner/index.js";
 
 /** Per-section state tag: present / placeholder / warning. */
@@ -13,6 +20,54 @@ export type SectionState<T> =
 	| { readonly kind: "ok"; readonly value: T }
 	| { readonly kind: "placeholder"; readonly message: string }
 	| { readonly kind: "warning"; readonly message: string };
+
+/**
+ * Per-layer state for the composite Review section. Adds a fourth `hidden`
+ * kind so non-review phases (e.g., `proposal_*`, `spec_*`) can suppress the
+ * digest layer entirely without colliding with `placeholder` (which is
+ * reserved for active review-family phases that have no ledger yet).
+ */
+export type ReviewLayerState<T> =
+	| { readonly kind: "ok"; readonly value: T }
+	| { readonly kind: "placeholder"; readonly message: string }
+	| { readonly kind: "warning"; readonly message: string }
+	| { readonly kind: "hidden" };
+
+/** Discriminated state for the latest-round narrative summary. */
+export type SummaryState =
+	| { readonly kind: "available"; readonly text: string }
+	| { readonly kind: "absent" };
+
+/** Compact, three-tier severity bucket displayed in the digest. */
+export type DigestSeverity = "HIGH" | "MEDIUM" | "LOW";
+
+export interface DigestFinding {
+	readonly severity: DigestSeverity;
+	readonly title: string;
+	readonly id: string;
+}
+
+/** Ledger-backed digest sub-model rendered below the snapshot progress lines. */
+export interface LedgerDigest {
+	readonly family: ReviewLedgerFamily;
+	/** Latest decision verbatim, or "(none)" when unavailable. */
+	readonly decision: string;
+	readonly counts: {
+		readonly total: number;
+		readonly open: number;
+		readonly new_count: number;
+		readonly resolved: number;
+	};
+	/** Severity counts over **open** findings only. `critical` aggregates into HIGH. */
+	readonly openSeverity: {
+		readonly high: number;
+		readonly medium: number;
+		readonly low: number;
+	};
+	readonly summaryState: SummaryState;
+	/** Up to three open findings ranked per the design's tie-break rule. */
+	readonly topOpen: readonly DigestFinding[];
+}
 
 export type ManualFixKind = "idle" | "design" | "apply";
 
@@ -90,6 +145,11 @@ export interface WatchModel {
 	readonly header: WatchModelHeader;
 	readonly terminal_banner: string | null;
 	readonly review: SectionState<ReviewRoundView>;
+	/**
+	 * Independent ledger-digest layer rendered below the snapshot progress lines
+	 * inside the same Review section. `hidden` for non-review phases.
+	 */
+	readonly digest: ReviewLayerState<LedgerDigest>;
 	readonly task_graph: SectionState<TaskGraphView>;
 	readonly events: SectionState<readonly EventView[]>;
 	readonly approval_summary: SectionState<ApprovalSummaryView>;
@@ -421,6 +481,179 @@ export function buildApprovalSummary(
 					diffstat_line,
 				},
 			};
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Ledger digest model — derived exclusively from the latest persisted ledger
+// state. The digest is self-sufficient; no external summary files are read.
+// ---------------------------------------------------------------------------
+
+const SEVERITY_RANK: Record<string, number> = {
+	critical: 0,
+	high: 0,
+	medium: 1,
+	low: 2,
+};
+
+function severityRank(s: string | undefined): number {
+	if (s === undefined) return 0; // unknown → top tier
+	const key = s.toLowerCase();
+	const rank = SEVERITY_RANK[key];
+	return rank === undefined ? 0 : rank;
+}
+
+function digestSeverityFor(s: string | undefined): DigestSeverity {
+	if (s === undefined) return "HIGH";
+	const key = s.toLowerCase();
+	if (key === "medium") return "MEDIUM";
+	if (key === "low") return "LOW";
+	// "critical", "high", and any unknown severity all display as HIGH per D6.
+	return "HIGH";
+}
+
+function isOpen(f: ReviewFinding): boolean {
+	const s = f.status;
+	return s === "open" || s === "new";
+}
+
+/**
+ * Rank open findings by severity (HIGH/CRITICAL > MEDIUM > LOW), then
+ * `latest_round` DESC, then finding `id` ASC. Pure — caller takes a slice.
+ */
+export function rankOpenFindings(
+	findings: readonly ReviewFinding[],
+): readonly ReviewFinding[] {
+	return [...findings].filter(isOpen).sort((a, b) => {
+		const sa = severityRank(a.severity);
+		const sb = severityRank(b.severity);
+		if (sa !== sb) return sa - sb;
+		const ra = a.latest_round ?? 0;
+		const rb = b.latest_round ?? 0;
+		if (ra !== rb) return rb - ra;
+		const ia = a.id ?? "";
+		const ib = b.id ?? "";
+		return ia.localeCompare(ib);
+	});
+}
+
+/**
+ * Build the latest-round narrative state for the digest.
+ *
+ * The persisted `LedgerRoundSummary` does not carry free-form summary text
+ * (only counters and a decision token), and the watcher's read-only contract
+ * forbids reading any other artifact — `review-result*.json` was rejected by
+ * apply review as out-of-scope read-surface widening. With no compliant
+ * persisted source for narrative text, the digest renders no `Latest summary:`
+ * line. The spec explicitly allows this via "Latest round summary missing
+ * elides the line." When persisted narrative text becomes available in a
+ * future change (e.g. by extending `LedgerRoundSummary` with a free-form
+ * `summary` field), this function can return `{ kind: "available" }`
+ * instead.
+ */
+function buildSummaryState(
+	_latestRound: import("../../types/contracts.js").LedgerRoundSummary,
+): SummaryState {
+	return { kind: "absent" };
+}
+
+function buildDigestFromLedger(
+	ledger: ReviewLedger,
+	family: ReviewLedgerFamily,
+): LedgerDigest | null {
+	const summaries = ledger.round_summaries;
+	if (!Array.isArray(summaries) || summaries.length === 0) return null;
+	const last = summaries[summaries.length - 1];
+
+	const latestDecisionField =
+		typeof ledger.latest_decision === "string" &&
+		ledger.latest_decision.length > 0
+			? ledger.latest_decision
+			: null;
+	const lastRoundDecisionField =
+		typeof last.decision === "string" && last.decision.length > 0
+			? last.decision
+			: null;
+	const decision = latestDecisionField ?? lastRoundDecisionField ?? "(none)";
+
+	const counts = {
+		total: last.total,
+		open: last.open,
+		new_count: last.new,
+		resolved: last.resolved,
+	};
+
+	const openFindings = ledger.findings.filter(isOpen);
+	let high = 0;
+	let medium = 0;
+	let low = 0;
+	for (const f of openFindings) {
+		const tier = digestSeverityFor(f.severity);
+		if (tier === "HIGH") high++;
+		else if (tier === "MEDIUM") medium++;
+		else low++;
+	}
+
+	const ranked = rankOpenFindings(ledger.findings);
+	const topOpen: DigestFinding[] = ranked.slice(0, 3).map((f) => ({
+		severity: digestSeverityFor(f.severity),
+		title: f.title ?? "",
+		id: f.id ?? "",
+	}));
+
+	const summaryState = buildSummaryState(last);
+
+	return {
+		family,
+		decision,
+		counts,
+		openSeverity: { high, medium, low },
+		summaryState,
+		topOpen,
+	};
+}
+
+export interface BuildDigestStateInput {
+	readonly activeFamily: ReviewLedgerFamily | null;
+	readonly ledgerRead: ArtifactReadResult<ReviewLedger>;
+}
+
+/**
+ * Build the digest layer state from the active family and the ledger reader
+ * result. Returns `hidden` when the phase is outside review families,
+ * `placeholder` when the ledger is absent or empty, `warning` for I/O or
+ * schema problems, and `ok` with a populated `LedgerDigest` otherwise.
+ *
+ * The digest is sourced exclusively from the ledger — no external summary
+ * files are consulted. The digest layer is independent from the snapshot
+ * layer — a snapshot placeholder/warning never suppresses a digest, and
+ * vice versa.
+ */
+export function buildDigestState(
+	input: BuildDigestStateInput,
+): ReviewLayerState<LedgerDigest> {
+	const { activeFamily, ledgerRead } = input;
+	if (activeFamily === null) return { kind: "hidden" };
+	switch (ledgerRead.kind) {
+		case "absent":
+			return { kind: "placeholder", message: "No review digest yet" };
+		case "unreadable":
+			return {
+				kind: "warning",
+				message: `Review ledger unreadable: ${ledgerRead.reason}`,
+			};
+		case "malformed":
+			return {
+				kind: "warning",
+				message: `Review ledger malformed: ${ledgerRead.reason}`,
+			};
+		case "ok": {
+			const digest = buildDigestFromLedger(ledgerRead.value, activeFamily);
+			if (digest === null) {
+				return { kind: "placeholder", message: "No review digest yet" };
+			}
+			return { kind: "ok", value: digest };
 		}
 	}
 }

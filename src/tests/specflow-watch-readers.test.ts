@@ -10,13 +10,18 @@ import {
 import {
 	approvalSummaryPath,
 	autofixSnapshotPath,
+	readApplyReviewLedger,
 	readApprovalSummary,
 	readAutofixSnapshotFile,
+	readDesignReviewLedger,
 	readRunStateFile,
 	readTaskGraphFile,
+	reviewLedgerPath,
 	runStatePath,
 	selectActiveAutofixPhase,
+	selectActiveReviewLedger,
 	taskGraphPath,
+	validateReviewLedgerSchema,
 } from "../lib/specflow-watch/artifact-readers.js";
 import { resolveTrackedRun } from "../lib/specflow-watch/run-resolution.js";
 import { parseRunJson, scanRuns } from "../lib/specflow-watch/run-scan.js";
@@ -458,4 +463,229 @@ test("readApprovalSummary: file exists but missing Status/What Changed → nulls
 	} finally {
 		removeTempDir(root);
 	}
+});
+
+// ---------------------------------------------------------------------------
+// Review ledger readers + family selector
+// ---------------------------------------------------------------------------
+
+function minimalLedger(overrides: Record<string, unknown> = {}): unknown {
+	return {
+		feature_id: "x",
+		phase: "design",
+		current_round: 1,
+		status: "all_resolved",
+		max_finding_id: 0,
+		findings: [],
+		round_summaries: [
+			{
+				round: 1,
+				total: 0,
+				open: 0,
+				new: 0,
+				resolved: 0,
+				overridden: 0,
+				by_severity: {},
+			},
+		],
+		...overrides,
+	};
+}
+
+test("selectActiveReviewLedger: family mapping mirrors selectActiveAutofixPhase", () => {
+	// Design family → "design"
+	assert.equal(selectActiveReviewLedger("design_draft"), "design");
+	assert.equal(selectActiveReviewLedger("design_review"), "design");
+	assert.equal(selectActiveReviewLedger("design_ready"), "design");
+	// Apply family → "apply"
+	assert.equal(selectActiveReviewLedger("apply_draft"), "apply");
+	assert.equal(selectActiveReviewLedger("apply_review"), "apply");
+	assert.equal(selectActiveReviewLedger("apply_ready"), "apply");
+	assert.equal(selectActiveReviewLedger("approved"), "apply");
+	// Outside review families → null
+	assert.equal(selectActiveReviewLedger("proposal_draft"), null);
+	assert.equal(selectActiveReviewLedger("spec_verify"), null);
+	assert.equal(selectActiveReviewLedger("terminal"), null);
+
+	// Parity check: every phase that maps to a review-autofix family must also
+	// map to the corresponding ledger family, and vice versa.
+	const phases = [
+		"design_draft",
+		"design_review",
+		"design_ready",
+		"apply_draft",
+		"apply_review",
+		"apply_ready",
+		"approved",
+		"proposal_draft",
+		"spec_verify",
+		"terminal",
+	];
+	for (const phase of phases) {
+		const autofix = selectActiveAutofixPhase(phase);
+		const ledger = selectActiveReviewLedger(phase);
+		if (autofix === "design_review") {
+			assert.equal(ledger, "design", `parity mismatch for ${phase}`);
+		} else if (autofix === "apply_review") {
+			assert.equal(ledger, "apply", `parity mismatch for ${phase}`);
+		} else {
+			assert.equal(ledger, null, `parity mismatch for ${phase}`);
+		}
+	}
+});
+
+test("reviewLedgerPath: design vs apply filenames", () => {
+	assert.ok(
+		reviewLedgerPath("/r", "x", "design").endsWith(
+			"openspec/changes/x/review-ledger-design.json",
+		),
+	);
+	assert.ok(
+		reviewLedgerPath("/r", "x", "apply").endsWith(
+			"openspec/changes/x/review-ledger.json",
+		),
+	);
+});
+
+test("readDesignReviewLedger / readApplyReviewLedger: absent / unreadable / malformed / ok", () => {
+	const root = makeTempDir("specflow-watch-ledger-");
+	try {
+		// Absent
+		assert.equal(readDesignReviewLedger(root, "x").kind, "absent");
+		assert.equal(readApplyReviewLedger(root, "x").kind, "absent");
+
+		// Malformed: not JSON
+		const designPath = reviewLedgerPath(root, "x", "design");
+		mkdirSync(join(root, "openspec/changes/x"), { recursive: true });
+		writeFileSync(designPath, "not json", "utf8");
+		const malformed = readDesignReviewLedger(root, "x");
+		assert.equal(malformed.kind, "malformed");
+
+		// Malformed: JSON but missing required fields
+		writeFileSync(designPath, JSON.stringify({ feature_id: "x" }), "utf8");
+		const partial = readDesignReviewLedger(root, "x");
+		assert.equal(partial.kind, "malformed");
+
+		// OK: full schema
+		writeFileSync(designPath, JSON.stringify(minimalLedger()), "utf8");
+		const ok = readDesignReviewLedger(root, "x");
+		assert.equal(ok.kind, "ok");
+		if (ok.kind === "ok") {
+			assert.equal(ok.value.feature_id, "x");
+			assert.equal(ok.value.round_summaries.length, 1);
+		}
+
+		// Apply ledger uses the other filename
+		const applyPath = reviewLedgerPath(root, "x", "apply");
+		writeFileSync(
+			applyPath,
+			JSON.stringify(minimalLedger({ phase: "apply" })),
+			"utf8",
+		);
+		const okApply = readApplyReviewLedger(root, "x");
+		assert.equal(okApply.kind, "ok");
+		if (okApply.kind === "ok") {
+			assert.equal(okApply.value.phase, "apply");
+		}
+	} finally {
+		removeTempDir(root);
+	}
+});
+
+test("validateReviewLedgerSchema: empty round_summaries is valid (renders as placeholder downstream)", () => {
+	const result = validateReviewLedgerSchema(
+		minimalLedger({ round_summaries: [] }),
+	);
+	assert.equal(result, null);
+});
+
+test("validateReviewLedgerSchema: decision parity violation is malformed", () => {
+	const reason = validateReviewLedgerSchema(
+		minimalLedger({
+			latest_decision: "approve",
+			round_summaries: [
+				{
+					round: 1,
+					total: 0,
+					open: 0,
+					new: 0,
+					resolved: 0,
+					overridden: 0,
+					by_severity: {},
+					decision: "request_changes",
+				},
+			],
+		}),
+	);
+	assert.match(reason ?? "", /decision parity violation/);
+});
+
+test("validateReviewLedgerSchema: latest_decision matches last round summary decision is OK", () => {
+	const reason = validateReviewLedgerSchema(
+		minimalLedger({
+			latest_decision: "approve",
+			round_summaries: [
+				{
+					round: 1,
+					total: 0,
+					open: 0,
+					new: 0,
+					resolved: 0,
+					overridden: 0,
+					by_severity: {},
+					decision: "approve",
+				},
+			],
+		}),
+	);
+	assert.equal(reason, null);
+});
+
+test("validateReviewLedgerSchema: rejects findings whose latest_round is not a number", () => {
+	const reason = validateReviewLedgerSchema(
+		minimalLedger({
+			findings: [
+				{
+					id: "R1-F01",
+					title: "bad round",
+					severity: "high",
+					status: "open",
+					latest_round: "1",
+				},
+			],
+		}),
+	);
+	assert.match(reason ?? "", /findings\[0\]\.latest_round/);
+});
+
+test("validateReviewLedgerSchema: rejects empty finding objects (R1-F03 regression)", () => {
+	const reason = validateReviewLedgerSchema(minimalLedger({ findings: [{}] }));
+	assert.ok(reason !== null, "empty finding should be rejected");
+	assert.match(reason ?? "", /findings\[0\]\.id: missing or not a string/);
+});
+
+test("validateReviewLedgerSchema: rejects findings missing required fields (R1-F03 regression)", () => {
+	// Only status present — id, title, severity are missing.
+	const reason = validateReviewLedgerSchema(
+		minimalLedger({ findings: [{ status: "open" }] }),
+	);
+	assert.ok(reason !== null, "finding with only status should be rejected");
+	assert.match(reason ?? "", /findings\[0\]\.id: missing or not a string/);
+
+	// id + status present — title and severity still missing.
+	const reason2 = validateReviewLedgerSchema(
+		minimalLedger({ findings: [{ id: "R1-F01", status: "open" }] }),
+	);
+	assert.ok(reason2 !== null, "finding missing title should be rejected");
+	assert.match(reason2 ?? "", /findings\[0\]\.title: missing or not a string/);
+
+	// All four mandatory fields present — should pass.
+	const reason3 = validateReviewLedgerSchema(
+		minimalLedger({
+			findings: [
+				{ id: "R1-F01", title: "ok", severity: "high", status: "open" },
+			],
+		}),
+	);
+	assert.equal(reason3, null);
 });
