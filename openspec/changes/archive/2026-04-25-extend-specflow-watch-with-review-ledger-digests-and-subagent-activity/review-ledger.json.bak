@@ -1,0 +1,118 @@
+{
+  "feature_id": "extend-specflow-watch-with-review-ledger-digests-and-subagent-activity",
+  "phase": "impl",
+  "current_round": 3,
+  "status": "has_open_high",
+  "max_finding_id": 3,
+  "findings": [
+    {
+      "id": "R3-F01",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/watch-renderer/model.ts",
+      "title": "Digest never renders the required latest-summary line",
+      "detail": "`buildSummaryState()` is hard-coded to return `{ kind: \"absent\" }`, and the watcher adds no family-mapped `readDesignReviewResult` / `readApplyReviewResult` reader or summary-state wiring. As a result, `Latest summary:` can never appear, even when the current review has narrative summary text. The spec/design require that line when summary text is available, plus distinct `stale` and `warning` handling for mismatched or unreadable summary sources. Implement the summary-source reader path and plumb `available` / `stale` / `absent` / `warning` into the digest renderer instead of treating summary as permanently unavailable.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F02",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/watch-renderer.test.ts",
+      "title": "New tests lock in the spec-violating summary omission",
+      "detail": "The added tests explicitly assert that the digest omits `Latest summary:` because \"no compliant persisted summary source exists today.\" That guards behavior the spec/design do not allow, and there is still no coverage for the required summary-source matrix (`available`, `stale`, `absent`, `warning`) or the missing review-result readers. Replace these assertions with tests for the actual summary contract once the feature is implemented.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "src/lib/watch-renderer/model.ts",
+      "title": "Digest summary is sourced from a second artifact instead of the ledger",
+      "detail": "The proposal makes the digest ledger-backed, says it should mirror the latest round data, and explicitly requires ledger-only mode to still render the digest. This implementation only shows the summary line when `review-result-design.json` / `review-result.json` is present, so a valid ledger by itself cannot satisfy acceptance criterion 4 (`latest round summary text`). It also widens the read/watch surface beyond the two ledger files called out by the spec. Populate the summary from the latest ledger snapshot/round entry instead of depending on `review-result*.json`.",
+      "origin_round": 1,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "same",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/watch-renderer/model.ts",
+      "title": "Staleness is compared against array length instead of the actual latest round number",
+      "detail": "`buildDigestFromLedger()` passes `round_summaries.length` into `buildSummaryState()`. That is not the same thing as the latest round identifier. If round numbers ever skip, are compacted, or stop matching array length, a current summary will be marked stale (or a stale one will be treated as current). Compare `round_index` against `last.round` or `ledger.current_round`, and add a regression test where the latest round number differs from the array length.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/lib/specflow-watch/artifact-readers.ts",
+      "title": "Malformed findings can slip through schema validation as `ok`",
+      "detail": "`validateReviewLedgerSchema()` is intended to reject malformed ledgers, but `validateReviewFinding()` only type-checks fields if they exist. Objects like `{}` or `{ \"status\": \"open\" }` inside `findings[]` currently pass validation, which means the watcher can render blank titles/IDs or silently drop bad data instead of showing the required malformed-ledger warning. Require the fields the digest depends on (`id`, `title`, `severity`, `status`, and any contract-mandated fields) and cover those cases in tests.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 3,
+      "open": 3,
+      "new": 3,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 2
+      },
+      "gate_id": "review_decision-extend-specflow-watch-with-review-ledger-digests-and-subagent-activity-1-apply_review-1"
+    },
+    {
+      "round": 2,
+      "total": 3,
+      "open": 1,
+      "new": 0,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1
+      },
+      "gate_id": "review_decision-extend-specflow-watch-with-review-ledger-digests-and-subagent-activity-1-apply_review-2"
+    },
+    {
+      "round": 3,
+      "total": 5,
+      "open": 2,
+      "new": 2,
+      "resolved": 3,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 1
+      }
+    }
+  ]
+}

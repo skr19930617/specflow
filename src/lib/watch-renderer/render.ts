@@ -20,6 +20,8 @@ import {
 import type {
 	BundleTaskView,
 	BundleView,
+	LedgerDigest,
+	ReviewLayerState,
 	SectionState,
 	WatchModel,
 	WatchModelHeader,
@@ -174,6 +176,72 @@ function renderReviewSection(
 	});
 }
 
+const NARROW_TERMINAL_THRESHOLD = 80;
+
+function ellipsizeForCols(text: string, cols: number): string {
+	if (cols <= 0) return "";
+	if (visibleLen(text) <= cols) return text;
+	if (cols === 1) return "…";
+	return `${truncateVisible(text, cols - 1)}…`;
+}
+
+function applyNarrowTerminalRule(
+	lines: readonly string[],
+	cols: number,
+): readonly string[] {
+	if (cols >= NARROW_TERMINAL_THRESHOLD) return lines;
+	return lines.map((line) => ellipsizeForCols(line, cols));
+}
+
+function renderDigestBody(d: LedgerDigest, cols: number): readonly string[] {
+	const lines: string[] = [];
+	lines.push(`Decision: ${d.decision}`);
+	lines.push(
+		`Findings: ${d.counts.total} total | ${d.counts.open} open | ${d.counts.new_count} new | ${d.counts.resolved} resolved`,
+	);
+	lines.push(
+		`Severity: HIGH ${d.openSeverity.high} | MEDIUM ${d.openSeverity.medium} | LOW ${d.openSeverity.low}`,
+	);
+	const summary = d.summaryState;
+	if (summary.kind === "available") {
+		lines.push(`Latest summary: ${summary.text}`);
+	}
+	// Narrow-terminal rule: drop the open-findings list and ellipsize the
+	// decision/counts/severity/summary lines. Wide terminals render in full.
+	if (cols < NARROW_TERMINAL_THRESHOLD) {
+		return applyNarrowTerminalRule(lines, cols);
+	}
+	if (d.topOpen.length > 0) {
+		lines.push("Open findings:");
+		for (const f of d.topOpen) {
+			const sevColor =
+				f.severity === "HIGH"
+					? FG_RED
+					: f.severity === "MEDIUM"
+						? FG_YELLOW
+						: DIM;
+			lines.push(`  ${color(f.severity, sevColor)}  ${f.title}`);
+		}
+	}
+	return lines;
+}
+
+function renderDigestSection(
+	state: ReviewLayerState<LedgerDigest>,
+	cols: number,
+): readonly string[] {
+	switch (state.kind) {
+		case "hidden":
+			return [];
+		case "placeholder":
+			return [color(state.message, DIM)];
+		case "warning":
+			return [color(`⚠ ${state.message}`, FG_RED)];
+		case "ok":
+			return renderDigestBody(state.value, cols);
+	}
+}
+
 function renderTaskGraphSection(
 	state: WatchModel["task_graph"],
 	cols: number,
@@ -302,9 +370,11 @@ export function renderFrame(
 		);
 	}
 	lines.push(padEndVisible("", c));
-	lines.push(
-		...renderSection("Review round", renderReviewSection(model.review, c), c),
-	);
+	const reviewBody = renderReviewSection(model.review, c);
+	const digestBody = renderDigestSection(model.digest, c);
+	const combined =
+		digestBody.length === 0 ? reviewBody : [...reviewBody, ...digestBody];
+	lines.push(...renderSection("Review round", combined, c));
 	lines.push(padEndVisible("", c));
 	lines.push(
 		...renderSection(

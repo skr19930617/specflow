@@ -1,0 +1,221 @@
+{
+  "version": "1.0",
+  "change_id": "extend-specflow-watch-with-review-ledger-digests-and-subagent-activity",
+  "bundles": [
+    {
+      "id": "lock-review-ledger-digest-contract",
+      "title": "Lock Review Ledger Digest Contract",
+      "goal": "Align the delta spec and implementation checklist around digest content, graceful degradation, and the watcher's read-only boundary before code wiring begins.",
+      "depends_on": [],
+      "inputs": [
+        "openspec/changes/extend-specflow-watch-with-review-ledger-digests-and-subagent-activity/design.md",
+        "openspec/changes/extend-specflow-watch-with-review-ledger-digests-and-subagent-activity/specs/realtime-progress-ui/spec.md",
+        "specs/review-autofix-progress-observability",
+        "specs/review-orchestration",
+        "specs/artifact-ownership-model",
+        "specs/run-artifact-store-conformance"
+      ],
+      "outputs": [
+        "validated realtime-progress-ui digest and degradation delta",
+        "implementation checklist for Phase 1 summary fallback, empty-ledger placeholder, and no-new-events scope"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Reconcile the design's digest fields, ranking order, and narrow-terminal behavior with the realtime-progress-ui delta scenarios",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Confirm the read-only artifact contract covers family-mapped review-ledger paths and excludes all watcher writes and mutating review-ledger helpers",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Freeze the Phase 1 handling for latest-summary fallback and empty-ledger placeholder semantics in an implementation checklist",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Confirm subagent activity and new observation events remain out of scope for this change",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "review-autofix-progress-observability",
+        "review-orchestration",
+        "artifact-ownership-model",
+        "run-artifact-store-conformance",
+        "spec-consistency-verification"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "add-ledger-readers-and-family-selection",
+      "title": "Add Ledger Readers And Family Selection",
+      "goal": "Provide tolerant review-ledger readers and a phase-to-ledger-family selector in the watcher's artifact layer.",
+      "depends_on": [
+        "lock-review-ledger-digest-contract"
+      ],
+      "inputs": [
+        "validated realtime-progress-ui digest and degradation delta",
+        "implementation checklist for Phase 1 summary fallback, empty-ledger placeholder, and no-new-events scope",
+        "src/lib/specflow-watch/artifact-readers.ts",
+        "src/types/contracts.ts",
+        "src/tests/specflow-watch-readers.test.ts"
+      ],
+      "outputs": [
+        "src/lib/specflow-watch/artifact-readers.ts",
+        "src/tests/specflow-watch-readers.test.ts",
+        "tolerant design/apply review-ledger readers and selectActiveReviewLedger"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Add design and apply review-ledger path helpers plus readDesignReviewLedger and readApplyReviewLedger returning ok, absent, unreadable, or malformed",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement a watcher-local ledger validator that only requires digest fields and tolerates unknown extras without side effects",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add selectActiveReviewLedger(currentPhase) and verify its family mapping stays in parity with selectActiveAutofixPhase",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Extend specflow-watch reader tests for ok, absent, unreadable, malformed, and empty-round-summaries ledger cases",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "review-orchestration",
+        "artifact-ownership-model",
+        "phase-semantics"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "build-and-render-review-ledger-digest",
+      "title": "Build And Render Review Ledger Digest",
+      "goal": "Derive a review-ledger digest from the latest persisted ledger state and render it compactly beneath the existing snapshot progress lines.",
+      "depends_on": [
+        "lock-review-ledger-digest-contract",
+        "add-ledger-readers-and-family-selection"
+      ],
+      "inputs": [
+        "validated realtime-progress-ui digest and degradation delta",
+        "tolerant design/apply review-ledger readers and selectActiveReviewLedger",
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts",
+        "src/lib/watch-renderer/index.ts",
+        "src/types/contracts.ts",
+        "src/tests/watch-renderer.test.ts"
+      ],
+      "outputs": [
+        "src/lib/watch-renderer/model.ts",
+        "src/lib/watch-renderer/render.ts",
+        "src/lib/watch-renderer/index.ts",
+        "src/tests/watch-renderer.test.ts",
+        "LedgerDigest model and digest rendering behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend the review section model with LedgerDigest or null plus placeholder and warning states derived from ledger reader results",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Build digest decision, counts, open-severity totals, latest-summary fallback, and top-3 ranking from the last round_summaries entry plus open findings",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Render digest lines below snapshot progress without changing existing snapshot and manual-fix behavior",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Apply sub-80-column findings collapse and ellipsis truncation in the renderer only, keeping terminal width out of the model",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Expand watch-renderer tests for populated digests, ranking tie-breakers, empty ledgers, warning states, and narrow versus wide terminal output",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "review-orchestration",
+        "review-autofix-progress-observability",
+        "phase-semantics"
+      ],
+      "size_score": 5
+    },
+    {
+      "id": "wire-ledger-digest-through-specflow-watch",
+      "title": "Wire Ledger Digest Through Specflow Watch",
+      "goal": "Connect the new ledger readers and digest model through specflow-watch, including watched ledger paths and end-to-end redraw coverage.",
+      "depends_on": [
+        "add-ledger-readers-and-family-selection",
+        "build-and-render-review-ledger-digest"
+      ],
+      "inputs": [
+        "tolerant design/apply review-ledger readers and selectActiveReviewLedger",
+        "LedgerDigest model and digest rendering behavior",
+        "src/bin/specflow-watch.ts",
+        "src/tests/specflow-watch-integration.test.ts",
+        "src/tests/specflow-watch-import-graph.test.ts"
+      ],
+      "outputs": [
+        "src/bin/specflow-watch.ts",
+        "src/tests/specflow-watch-integration.test.ts",
+        "design/apply ledger watch-path wiring and redraw coverage",
+        "read-only import-graph verification for ledger-digest wiring"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Wire active ledger selection and tolerant ledger reads into buildModel and review-section construction in src/bin/specflow-watch.ts",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add design and apply review-ledger files to the watched path set and keep redraw behavior aligned with the existing polling fallback",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Extend specflow-watch integration tests to cover initial digest render and redraw after ledger updates on disk",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Re-check the import-graph guard so the new wiring does not pull in mutating review-ledger code or write-oriented APIs",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "workflow-run-state",
+        "workflow-observation-events",
+        "review-autofix-progress-observability",
+        "artifact-ownership-model"
+      ],
+      "size_score": 4
+    }
+  ],
+  "generated_at": "2026-04-24T13:00:05.871Z",
+  "generated_from": "design.md"
+}
