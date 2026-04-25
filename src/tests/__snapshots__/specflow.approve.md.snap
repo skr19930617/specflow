@@ -331,19 +331,52 @@ If the archive command fails (non-zero exit code):
 ## Push & Pull Request
 
 
-1. 現在のブランチ名を取得:
+All `git` and `gh` invocations in this section MUST run with `cwd = $WORKTREE_PATH` (the main-session worktree resolved from run-state via `specflow-run get-field "<RUN_ID>" worktree_path`). The user's repository working tree is NOT the push source.
+
+1. Resolve the worktree path and the change branch from run-state:
    ```bash
-   git branch --show-current
+   WORKTREE_PATH="$(specflow-run get-field "<RUN_ID>" worktree_path)"
+   CHANGE_BRANCH="$(specflow-run get-field "<RUN_ID>" branch_name)"
+   BASE_COMMIT="$(specflow-run get-field "<RUN_ID>" base_commit)"
+   BASE_BRANCH="$(specflow-run get-field "<RUN_ID>" base_branch)"
    ```
 
-2. リモートに同名ブランチで push:
+2. Push the change branch from inside the worktree:
    ```bash
-   git push -u origin <branch-name>
+   git -C "$WORKTREE_PATH" push -u origin "$CHANGE_BRANCH"
    ```
 
-3. デフォルトブランチを取得:
+3. Resolve the PR base. Try these strategies in order until one succeeds:
+   - **Strategy 1**: If `base_commit` is non-empty AND **exactly one** remote-tracking branch contains it, use that as the PR base. When 0 or 2+ remotes match, Strategy 1 abstains — silently picking an arbitrary match would target the wrong base.
+   - **Strategy 2**: If `base_branch` is non-empty and has an upstream tracking ref, strip the remote prefix and use that.
+   - **Strategy 3**: If `base_branch` is non-empty (the branch the user was on at prepare-change time), use it directly as the PR base. This handles local feature branches that have no upstream tracking.
+   - **Strategy 4**: Fall back to the repository's default branch.
    ```bash
-   gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'
+   PR_BASE=""
+   # Strategy 1: resolve from base_commit ONLY when exactly one remote branch contains it.
+   if [ -n "$BASE_COMMIT" ]; then
+     CONTAINING_REFS="$(git -C "$WORKTREE_PATH" branch -r --contains "$BASE_COMMIT" 2>/dev/null | grep -v HEAD | sed 's|^ *origin/||' | sort -u)"
+     CONTAINING_COUNT="$(printf '%s\n' "$CONTAINING_REFS" | grep -c .)"
+     if [ "$CONTAINING_COUNT" = "1" ]; then
+       PR_BASE="$CONTAINING_REFS"
+     fi
+   fi
+   # Strategy 2: resolve from base_branch upstream
+   if [ -z "$PR_BASE" ] && [ -n "$BASE_BRANCH" ] && git -C "$WORKTREE_PATH" rev-parse --abbrev-ref "$BASE_BRANCH@{upstream}" >/dev/null 2>&1; then
+     UPSTREAM="$(git -C "$WORKTREE_PATH" rev-parse --abbrev-ref "$BASE_BRANCH@{upstream}")"
+     PR_BASE="${UPSTREAM#origin/}"
+   fi
+   # Strategy 3: use base_branch directly (local branch the user started from)
+   if [ -z "$PR_BASE" ] && [ -n "$BASE_BRANCH" ]; then
+     PR_BASE="$BASE_BRANCH"
+   fi
+   # Strategy 4: repository default branch — run gh from inside the worktree
+   # so it picks up the right remote without an explicit -R selector. (Passing
+   # a raw `https://`/`git@` URL via -R is not the documented OWNER/REPO form
+   # and can fail.)
+   if [ -z "$PR_BASE" ]; then
+     PR_BASE="$(cd "$WORKTREE_PATH" && gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name')"
+   fi
    ```
 
 4. PR のタイトルと本文を生成する:
@@ -363,9 +396,9 @@ If the archive command fails (non-zero exit code):
        <proposal の Acceptance Criteria や実装内容を箇条書きで 3-5 行>
        ```
 
-5. `gh pr create` で PR を作成する:
+5. PR を作成する。`gh pr create` も worktree 内で実行する:
    ```bash
-   gh pr create --title "<title>" --body "<body>" --base <default-branch>
+   (cd "$WORKTREE_PATH" && gh pr create --title "<title>" --body "<body>" --head "$CHANGE_BRANCH" --base "$PR_BASE")
    ```
 
 6. PR 作成後、PR の URL をユーザーに表示する。
@@ -378,11 +411,48 @@ If the archive command fails (non-zero exit code):
    fi
    ```
 
-If `ARCHIVE_SUCCESS = true`:
-  Report: "Implementation approved, committed, PR created: `<PR-URL>`, change archived." → **END**.
+## Worktree Cleanup
+
+
+After the terminal phase completes (approve, archive, or reject), evaluate cleanup of the `.specflow/worktrees/<CHANGE_ID>/` subtree. Cleanup is gated on TWO conditions:
+
+1. **success_full** — the terminal action itself completed without error.
+2. **tree_clean** — every registered worktree under `.specflow/worktrees/<CHANGE_ID>/` has an empty `git status --porcelain`.
+
+If `ARCHIVE_SUCCESS = true` (terminal action succeeded), invoke the cleanup subcommand:
+
+```bash
+specflow-run cleanup-worktrees "<RUN_ID>"
+```
+
+This command:
+- Inspects every worktree under `.specflow/worktrees/<CHANGE_ID>/` for cleanliness.
+- If all worktrees are clean: removes them (`git worktree remove`) and deletes the parent directory. Clears `cleanup_pending` in run-state. Exits 0.
+- If any worktree is dirty or removal fails: sets `cleanup_pending = true` in run-state, outputs the deferred reasons as JSON, and exits 1.
+
+If `ARCHIVE_SUCCESS = false` (terminal action itself failed), skip the cleanup subcommand — cleanup is implicitly deferred:
+
+```bash
+specflow-run update-field "<RUN_ID>" cleanup_pending true
+```
+
+Report the dirty paths or partial-failure cause to the user:
+```
+⚠️ Worktree cleanup deferred. Reason: <dirty paths / partial failure cause>
+Resolve manually, then remove via: specflow-run cleanup-worktrees "<RUN_ID>"
+```
+
+## Final Report
+
+
+If `ARCHIVE_SUCCESS = true` AND cleanup succeeded:
+  Report: "Implementation approved, committed, PR created: `<PR-URL>`, change archived, worktrees cleaned up." → **END**.
+
+If `ARCHIVE_SUCCESS = true` AND cleanup deferred:
+  Report: "Implementation approved, committed, PR created: `<PR-URL>`, change archived. ⚠️ Worktree cleanup deferred — see details above." → **END**.
 
 If `ARCHIVE_SUCCESS = false`:
-  Report: "Implementation approved, committed, PR created: `<PR-URL>`. ⚠️ Archive failed — run `openspec archive -y "<CHANGE_ID>"` manually." → **END**.
+  Report: "Implementation approved, committed, PR created: `<PR-URL>`. ⚠️ Archive failed — run `openspec archive -y "<CHANGE_ID>"` manually. Worktree cleanup deferred." → **END**.
 
 
 ## Run State Hooks

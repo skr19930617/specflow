@@ -222,7 +222,31 @@ export async function runDispatchedWindow(
 
 	if (!runId) {
 		throw new Error(
-			"runDispatchedWindow: worktreeRuntime provided without runId; runId is required for .specflow/worktrees/<runId>/ layout.",
+			"runDispatchedWindow: worktreeRuntime provided without runId; runId is required for .specflow/worktrees/<changeId>/<runId>/ layout.",
+		);
+	}
+
+	// Worktree mode is mandatory: the runtime MUST identify the change so the
+	// per-change parent (`.specflow/worktrees/<changeId>/`) can host the
+	// subagent worktrees as siblings of the main-session worktree, and MUST
+	// declare the main-session worktree path that integration patches into.
+	// Callers SHALL populate both fields from run-state (`change_name` and
+	// `worktree_path`).
+	if (!worktreeRuntime.changeId) {
+		throw new Error(
+			"runDispatchedWindow: worktreeRuntime.changeId is required (subagent worktrees must live under .specflow/worktrees/<changeId>/<runId>/<bundleId>/). " +
+				"Populate it from run-state's `change_name`.",
+		);
+	}
+	if (!worktreeRuntime.mainWorkspacePath) {
+		throw new Error(
+			"runDispatchedWindow: worktreeRuntime.mainWorkspacePath is required (the main-session worktree is the integration target, not the user repo root). " +
+				"Populate it from run-state's `worktree_path`.",
+		);
+	}
+	if (worktreeRuntime.changeId !== changeId) {
+		throw new Error(
+			`runDispatchedWindow: worktreeRuntime.changeId ('${worktreeRuntime.changeId}') must equal args.changeId ('${changeId}').`,
 		);
 	}
 

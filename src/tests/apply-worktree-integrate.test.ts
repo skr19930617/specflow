@@ -16,10 +16,11 @@ const CHANGE_ID = "my-change";
 
 function handle(overrides: Partial<WorktreeHandle> = {}): WorktreeHandle {
 	return {
-		path: "/repo/.specflow/worktrees/run-1/bundle-a",
+		path: "/repo/.specflow/worktrees/my-change/run-1/bundle-a",
 		baseSha: "base-sha",
 		runId: "run-1",
 		bundleId: "bundle-a",
+		changeId: CHANGE_ID,
 		...overrides,
 	};
 }
@@ -58,7 +59,13 @@ function fakeRuntime(opts: {
 		if (opts.onApply) opts.onApply(patch);
 		return opts.applyResult ?? ok();
 	};
-	return { repoRoot: "/repo", git, applyPatch };
+	return {
+		repoRoot: "/repo",
+		mainWorkspacePath: "/repo",
+		changeId: "test-change",
+		git,
+		applyPatch,
+	};
 }
 
 // --- Success path ---
@@ -277,6 +284,8 @@ test("integrateBundle: rejects with patch_apply_failure when git apply returns n
 	const diff = ["diff --git a/a.ts b/a.ts", ""].join("\n");
 	const runtime: WorktreeRuntime = {
 		repoRoot: "/repo",
+		mainWorkspacePath: "/repo",
+		changeId: CHANGE_ID,
 		git: () => ok(diff),
 		applyPatch: () => {
 			applyCalled = true;
@@ -308,6 +317,8 @@ test("integrateBundle: patch_apply_failure is checked LAST (after declaration an
 	const diff = "diff --git a/undeclared.ts b/undeclared.ts\n";
 	const runtime: WorktreeRuntime = {
 		repoRoot: "/repo",
+		mainWorkspacePath: "/repo",
+		changeId: CHANGE_ID,
 		git: () => ok(diff),
 		applyPatch: () => {
 			applyInvoked = true;

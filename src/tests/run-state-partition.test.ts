@@ -95,6 +95,9 @@ const LOCAL_RUN_STATE_KEY_TOKENS = [
 	"repo_path:",
 	"branch_name:",
 	"worktree_path:",
+	"base_commit:",
+	"base_branch:",
+	"cleanup_pending:",
 	"last_summary_path:",
 ] as const;
 

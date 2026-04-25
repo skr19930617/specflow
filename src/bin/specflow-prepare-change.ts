@@ -1,4 +1,4 @@
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type {
@@ -115,27 +115,153 @@ async function ensureChangeExists(
 	}
 }
 
-function ensureBranch(root: string, changeId: string): void {
-	const current = gitString(["branch", "--show-current"], root);
-	if (current === changeId) {
-		return;
+interface MainSessionWorktree {
+	readonly path: string;
+	readonly baseCommit: string;
+	readonly baseBranch: string | null;
+}
+
+interface WorktreeListEntry {
+	readonly worktree: string;
+	readonly branch: string | null;
+}
+
+function parseWorktreeList(porcelain: string): readonly WorktreeListEntry[] {
+	const entries: WorktreeListEntry[] = [];
+	let current: { worktree?: string; branch?: string | null } = {};
+	for (const rawLine of porcelain.split("\n")) {
+		const line = rawLine.trim();
+		if (line === "") {
+			if (current.worktree !== undefined) {
+				entries.push({
+					worktree: current.worktree,
+					branch: current.branch ?? null,
+				});
+			}
+			current = {};
+			continue;
+		}
+		if (line.startsWith("worktree ")) {
+			current.worktree = line.slice("worktree ".length);
+		} else if (line.startsWith("branch ")) {
+			const ref = line.slice("branch ".length);
+			current.branch = ref.startsWith("refs/heads/")
+				? ref.slice("refs/heads/".length)
+				: ref;
+		} else if (line === "detached") {
+			current.branch = null;
+		}
 	}
-	const existing = git(
+	if (current.worktree !== undefined) {
+		entries.push({
+			worktree: current.worktree,
+			branch: current.branch ?? null,
+		});
+	}
+	return entries;
+}
+
+function relativeWorktreePath(changeId: string): string {
+	return `.specflow/worktrees/${changeId}/main`;
+}
+
+function ensureMainSessionWorktree(
+	root: string,
+	changeId: string,
+): MainSessionWorktree {
+	const conventionalRel = relativeWorktreePath(changeId);
+	const conventionalAbs = resolve(root, conventionalRel);
+
+	const listResult = git(["worktree", "list", "--porcelain"], root);
+	if (listResult.status !== 0) {
+		fail(
+			listResult.stderr ||
+				listResult.stdout ||
+				"git worktree list --porcelain failed",
+		);
+	}
+	const worktrees = parseWorktreeList(listResult.stdout);
+
+	const existingAtConventional = worktrees.find(
+		(entry) => entry.worktree === conventionalAbs,
+	);
+	const existingForBranch = worktrees.find(
+		(entry) => entry.branch === changeId,
+	);
+
+	if (existingAtConventional && existingAtConventional.branch === changeId) {
+		// Reuse: registered worktree at conventional path tied to <CHANGE_ID>.
+		const headSha = gitString(
+			["-C", conventionalAbs, "rev-parse", "HEAD"],
+			root,
+		);
+		return {
+			path: conventionalAbs,
+			baseCommit: headSha,
+			baseBranch: null, // unknown on reuse; preserved if previously persisted
+		};
+	}
+
+	if (existingAtConventional && existingAtConventional.branch !== changeId) {
+		fail(
+			`Error: ${conventionalRel} is registered as a worktree for branch '${existingAtConventional.branch ?? "(detached)"}', not '${changeId}'.\n` +
+				`Resolve manually: 'git worktree remove ${conventionalRel}' or pick a different change_id, then re-run /specflow.`,
+		);
+	}
+
+	if (existingForBranch && existingForBranch.worktree !== conventionalAbs) {
+		fail(
+			`Error: branch '${changeId}' is already checked out as a worktree at '${existingForBranch.worktree}', not the conventional '${conventionalRel}'.\n` +
+				`Resolve manually: 'git worktree remove ${existingForBranch.worktree}', then re-run /specflow.`,
+		);
+	}
+
+	if (existsSync(conventionalAbs)) {
+		// Path occupied by a non-worktree directory.
+		fail(
+			`Error: ${conventionalRel} exists but is not a registered git worktree.\n` +
+				`Resolve manually (inspect contents, then 'rm -rf ${conventionalRel}' if safe), then re-run /specflow.`,
+		);
+	}
+
+	const branchExists = git(
 		["rev-parse", "--verify", `refs/heads/${changeId}`],
 		root,
 	);
-	const checkoutArgs =
-		existing.status === 0
-			? ["checkout", changeId]
-			: ["checkout", "-b", changeId];
-	const checkout = git(checkoutArgs, root);
-	if (checkout.status !== 0) {
+	if (branchExists.status === 0) {
+		// Branch exists in registry but not bound to a worktree at the conventional path.
 		fail(
-			checkout.stderr ||
-				checkout.stdout ||
-				`git ${checkoutArgs.join(" ")} failed`,
+			`Error: branch '${changeId}' exists locally but no worktree at '${conventionalRel}' is registered for it.\n` +
+				`Resolve manually: 'git branch -D ${changeId}' (if discardable) or 'git worktree add -b ${changeId}-recovery <path>', then re-run /specflow.`,
 		);
 	}
+
+	// Create the main-session worktree from the user repo's current HEAD.
+	const headSha = gitString(["rev-parse", "HEAD"], root);
+	const currentBranch = gitString(["branch", "--show-current"], root);
+	const baseBranch = currentBranch === "" ? null : currentBranch;
+
+	mkdirSync(resolve(root, ".specflow/worktrees", changeId), {
+		recursive: true,
+	});
+
+	const addResult = git(
+		["worktree", "add", "-b", changeId, conventionalAbs, headSha],
+		root,
+	);
+	if (addResult.status !== 0) {
+		fail(
+			addResult.stderr ||
+				addResult.stdout ||
+				`git worktree add -b ${changeId} ${conventionalRel} ${headSha} failed`,
+		);
+	}
+
+	return {
+		path: conventionalAbs,
+		baseCommit: headSha,
+		baseBranch,
+	};
 }
 
 function loadProposalInstructions(
@@ -215,6 +341,7 @@ async function ensureRunStarted(
 	source: ProposalSource,
 	agentMain: string | null,
 	agentReview: string | null,
+	worktree: MainSessionWorktree,
 ): Promise<RunState> {
 	const runStore = createLocalFsRunArtifactStore(root);
 	const existing = await findExistingNonTerminalRun(runStore, changeId);
@@ -223,7 +350,18 @@ async function ensureRunStarted(
 	}
 	const tempSourceFile = writeInternalTempSourceFile(source);
 	try {
-		const args = ["start", changeId, "--source-file", tempSourceFile];
+		const args = [
+			"start",
+			changeId,
+			"--source-file",
+			tempSourceFile,
+			"--worktree-path",
+			worktree.path,
+			"--base-commit",
+			worktree.baseCommit,
+			"--base-branch",
+			worktree.baseBranch ?? "",
+		];
 		if (agentMain) {
 			args.push("--agent-main", agentMain);
 		}
@@ -413,15 +551,47 @@ async function main(): Promise<void> {
 		}
 	}
 
-	const changeStore = createLocalFsChangeArtifactStore(root);
-	await ensureChangeExists(root, changeId, changeStore);
-	ensureBranch(root, changeId);
-	await ensureProposalDraft(root, changeId, source, changeStore);
+	// Legacy guard: if a non-terminal run already exists for this change but
+	// was persisted under the legacy branch-checkout layout
+	// (worktree_path == repo_path), refuse to proceed without auto-migrating.
+	const runStoreForGuard = createLocalFsRunArtifactStore(root);
+	const legacy = await findExistingNonTerminalRun(runStoreForGuard, changeId);
+	if (
+		legacy &&
+		legacy.run_kind !== "synthetic" &&
+		legacy.worktree_path === legacy.repo_path
+	) {
+		fail(
+			`Error: change '${changeId}' has a legacy in-flight run (${legacy.run_id}) where worktree_path equals repo_path.\n` +
+				`Drain the legacy run via /specflow.approve or /specflow.reject before re-invoking /specflow for this change.\n` +
+				`(Run-state path: ${legacy.repo_path}/.specflow/runs/${legacy.run_id}/run.json)`,
+		);
+	}
+
+	// Create or reuse the dedicated main-session worktree. The user repo's
+	// working tree is NOT modified; the change branch lives only inside the
+	// worktree.
+	const worktree = ensureMainSessionWorktree(root, changeId);
+
+	// Change artifacts (proposal/specs/design/tasks) live inside the worktree
+	// because they are committed to the change branch. Run-state stays at the
+	// user repo's .specflow/runs/ for global discoverability — that's why we
+	// invoke specflow-run with cwd = root and explicit --worktree-path.
+	const changeStore = createLocalFsChangeArtifactStore(worktree.path);
+	await ensureChangeExists(worktree.path, changeId, changeStore);
+	await ensureProposalDraft(worktree.path, changeId, source, changeStore);
 
 	const state = ensureProposalPhase(
 		root,
 		changeId,
-		await ensureRunStarted(root, changeId, source, agentMain, agentReview),
+		await ensureRunStarted(
+			root,
+			changeId,
+			source,
+			agentMain,
+			agentReview,
+			worktree,
+		),
 	);
 	printSchemaJson("run-state", state);
 }

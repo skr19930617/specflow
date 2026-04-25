@@ -23,6 +23,7 @@ import {
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
 import { findLatestRun } from "../lib/run-store-ops.js";
+import { resolveChangeRootForRun } from "../lib/worktree-resolver.js";
 import type { ChallengeResult } from "../types/contracts.js";
 import type { ReviewFindingSnapshot } from "../types/gate-records.js";
 
@@ -70,6 +71,7 @@ async function buildChallengePrompt(
 async function runChallenge(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	agent: ReviewAgentName,
@@ -89,7 +91,7 @@ async function runChallenge(
 	const prompt = await buildChallengePrompt(runtimeRoot, changeStore, changeId);
 	const agentResult = callReviewAgent<ChallengePayload>(
 		agent,
-		projectRoot,
+		changeRoot,
 		prompt,
 	);
 
@@ -235,7 +237,7 @@ function issueChallengeGateOrFail(
 async function main(): Promise<void> {
 	const projectRoot = ensureGitRepo();
 	loadConfigEnv(projectRoot);
-	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
+	const runStore = createLocalFsRunArtifactStore(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
 	const [subcommand = "", ...args] = process.argv.slice(2);
 	const agent = resolveReviewAgent(parseReviewAgentFlag(args));
@@ -256,16 +258,23 @@ async function main(): Promise<void> {
 
 	// Auto-discover run_id when --run-id is not provided.
 	if (!runId) {
-		const runStore = createLocalFsRunArtifactStore(projectRoot);
 		const latest = await findLatestRun(runStore, changeId);
 		if (latest) {
 			runId = latest.run_id;
 		}
 	}
 
+	const changeRoot = await resolveChangeRootForRun(
+		runStore,
+		runId,
+		projectRoot,
+	);
+	const changeStore = createLocalFsChangeArtifactStore(changeRoot);
+
 	const result = await runChallenge(
 		runtimeRoot,
 		projectRoot,
+		changeRoot,
 		changeStore,
 		changeId,
 		agent,

@@ -61,7 +61,10 @@ test("createWorktree (real git): later worktree inherits earlier imported bundle
 			"",
 		].join("\n");
 
-		importPatch({ repoRoot: root }, Buffer.from(patchFromBundleA, "utf8"));
+		importPatch(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			Buffer.from(patchFromBundleA, "utf8"),
+		);
 
 		// Verify A's new file is staged (R1-F01: --index flag effect).
 		const stagedFiles = git(["diff", "--name-only", "--cached", "HEAD"], root);
@@ -79,7 +82,11 @@ test("createWorktree (real git): later worktree inherits earlier imported bundle
 
 		// Now create bundle B's worktree. The materialize+snapshot sequence must
 		// pull A's change into B's worktree.
-		const handle = createWorktree({ repoRoot: root }, "run-1", "bundle-b");
+		const handle = createWorktree(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			"run-1",
+			"bundle-b",
+		);
 
 		// Bundle B's worktree must contain A's imported file.
 		const materializedFile = readFileSync(
@@ -108,7 +115,10 @@ test("createWorktree (real git): later worktree inherits earlier imported bundle
 		);
 
 		// computeDiff must capture ONLY B's delta (not A's already-materialized content).
-		const bDiff = computeDiff({ repoRoot: root }, handle).toString("utf8");
+		const bDiff = computeDiff(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			handle,
+		).toString("utf8");
 		assert.ok(
 			bDiff.includes("bundle-b-output.txt"),
 			"B's diff must include B's own file",
@@ -119,7 +129,10 @@ test("createWorktree (real git): later worktree inherits earlier imported bundle
 		);
 
 		// Clean up the worktree explicitly so the temp dir can be removed.
-		removeWorktree({ repoRoot: root }, handle);
+		removeWorktree(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			handle,
+		);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
@@ -139,7 +152,11 @@ test("createWorktree (real git): untracked files in main workspace are materiali
 		);
 
 		// Create a worktree — materialize must include the untracked file.
-		const handle = createWorktree({ repoRoot: root }, "run-1", "bundle-ut");
+		const handle = createWorktree(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			"run-1",
+			"bundle-ut",
+		);
 
 		// The untracked file must be present in the worktree.
 		const materialized = readFileSync(
@@ -163,7 +180,10 @@ test("createWorktree (real git): untracked files in main workspace are materiali
 			`untracked-new.txt must remain untracked in main workspace after materialization; got: ${lsFilesAfter}`,
 		);
 
-		removeWorktree({ repoRoot: root }, handle);
+		removeWorktree(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			handle,
+		);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
@@ -173,7 +193,11 @@ test("createWorktree (real git): clean workspace — no materialize, baseSha equ
 	const root = initRepo();
 	try {
 		const mainHead = git(["rev-parse", "HEAD"], root);
-		const handle = createWorktree({ repoRoot: root }, "run-1", "bundle-a");
+		const handle = createWorktree(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			"run-1",
+			"bundle-a",
+		);
 
 		// With no uncommitted changes, the snapshot step is a no-op and baseSha
 		// stays at the main HEAD.
@@ -182,7 +206,10 @@ test("createWorktree (real git): clean workspace — no materialize, baseSha equ
 		const wtReadme = readFileSync(join(handle.path, "README.md"), "utf8");
 		assert.equal(wtReadme, "initial\n");
 
-		removeWorktree({ repoRoot: root }, handle);
+		removeWorktree(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			handle,
+		);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
@@ -201,7 +228,10 @@ test("importPatch (real git): newly created file is staged in the index (R1-F01)
 			"",
 		].join("\n");
 
-		importPatch({ repoRoot: root }, Buffer.from(patch, "utf8"));
+		importPatch(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			Buffer.from(patch, "utf8"),
+		);
 
 		// Under --index, the new file must be staged (not just in the working tree).
 		// Without --index, `git diff --cached HEAD` would be empty for untracked files.
@@ -241,7 +271,10 @@ test("importPatch (real git): binary-safe patch applies cleanly", () => {
 			"reset must restore original bytes",
 		);
 
-		importPatch({ repoRoot: root }, diffOutput);
+		importPatch(
+			{ repoRoot: root, mainWorkspacePath: root, changeId: "test-change" },
+			diffOutput,
+		);
 
 		// The binary file must now match the modified bytes.
 		const applied = readFileSync(join(root, "img.bin"));

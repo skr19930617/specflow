@@ -8,7 +8,6 @@ CLI used by `specflow`.
 Related specs:
 - `workflow-observation-events`: every run-state transition emits corresponding observation events; the event stream remains consistent with the snapshot readable via the run-state CLI.
 - `workflow-gate-semantics`: gate lifecycle events are part of the observation stream.
-
 ## Requirements
 ### Requirement: The workflow machine defines the authoritative phase graph
 
@@ -66,9 +65,11 @@ precondition inputs and a `LocalRunState` adapter seed, and
 (3) persisting the returned `CoreRunState & LocalRunState` value
 via `await RunArtifactStore.write()`. The persisted run state
 SHALL be identical in shape and content to the pre-existing
-`run.json` layout. The run_id generation SHALL continue to use
-`run-store-ops.generateRunId(store, changeId)`, invoked from the
-wiring layer.
+`run.json` layout, **extended with three new local-adapter fields
+`base_commit`, `base_branch`, and `cleanup_pending`** (see the
+field-partition requirements below). The run_id generation SHALL
+continue to use `run-store-ops.generateRunId(store, changeId)`,
+invoked from the wiring layer.
 
 #### Scenario: Change runs require an existing local proposal artifact
 
@@ -89,14 +90,19 @@ wiring layer.
 - **THEN** the wiring layer SHALL construct the `LocalRunState`
   slice from `WorkspaceContext.projectIdentity()`,
   `projectDisplayName()`, `projectRoot()`, `branchName()`,
-  `worktreePath()`, and the literal `null` for
-  `last_summary_path`
+  `worktreePath()`, **`baseCommit()`**, **`baseBranch()`**, the
+  literal `null` for `last_summary_path`, and the literal `false`
+  for `cleanup_pending`
 - **AND** it SHALL pass the slice as the adapter seed to
   `startChangeRun<LocalRunState>`
 - **AND** the persisted `run.json` SHALL include `run_id`,
   `change_name`, `project_id`, `repo_name`, `repo_path`,
-  `branch_name`, `worktree_path`, `agents`, `allowed_events`,
+  `branch_name`, `worktree_path`, `base_commit`, `base_branch`,
+  `cleanup_pending`, `agents`, `allowed_events`,
   `created_at`, and `updated_at`
+- **AND** when the change uses a main-session worktree,
+  `worktree_path` SHALL equal `.specflow/worktrees/<CHANGE_ID>/main/`
+  and SHALL NOT equal `repo_path`
 
 #### Scenario: Synthetic runs bypass change-directory lookup
 
@@ -561,14 +567,15 @@ The run-state type system SHALL expose three named types in `src/types/contracts
   `created_at`, `updated_at`, `previous_run_id`, and `run_kind`.
 - `LocalRunState` — the run-state fields owned by the local
   filesystem adapter only: `project_id`, `repo_name`, `repo_path`,
-  `branch_name`, `worktree_path`, and `last_summary_path`.
+  `branch_name`, `worktree_path`, `base_commit`, `base_branch`,
+  `cleanup_pending`, and `last_summary_path`.
 - `RunState` — the pre-existing compatibility alias, defined as
   `CoreRunState & LocalRunState`. Every consumer that imports
   `RunState` today SHALL keep compiling without modification.
 
 The field membership of `CoreRunState` and `LocalRunState` SHALL be
 disjoint, and their union SHALL equal the field set of `RunState`. No
-field SHALL be added or removed from `RunState` by this partition.
+field SHALL be added to `CoreRunState` or removed from `RunState` by this partition.
 
 #### Scenario: CoreRunState exposes the runtime-agnostic fields
 
@@ -585,8 +592,8 @@ field SHALL be added or removed from `RunState` by this partition.
 - **WHEN** the `LocalRunState` type from `src/types/contracts.ts` is
   inspected
 - **THEN** its keys SHALL be exactly `project_id`, `repo_name`,
-  `repo_path`, `branch_name`, `worktree_path`, and
-  `last_summary_path`
+  `repo_path`, `branch_name`, `worktree_path`, `base_commit`,
+  `base_branch`, `cleanup_pending`, and `last_summary_path`
 - **AND** the type SHALL NOT expose any core runtime field
 
 #### Scenario: RunState remains the intersection alias
@@ -753,7 +760,8 @@ Core runtime commands SHALL be pure transition functions. Production modules und
 - **WHEN** any file matching `src/core/**/*.ts` is inspected
 - **THEN** it SHALL NOT contain any of the `LocalRunState` keys
   (`project_id:`, `repo_name:`, `repo_path:`, `branch_name:`,
-  `worktree_path:`, `last_summary_path:`) used as an object
+  `worktree_path:`, `base_commit:`, `base_branch:`,
+  `cleanup_pending:`, `last_summary_path:`) used as an object
   property key
 
 ### Requirement: Workflow core commands share an adapter-parameterized signature
@@ -916,4 +924,37 @@ shape remains governed by the existing requirements in this specification.
 - **THEN** the discrepancy SHALL be recorded
 - **AND** reconciliation SHALL be handled by a separate change, not by
   silently editing the partition in this specification
+
+### Requirement: Legacy run-state with worktree_path == repo_path is rejected
+
+`specflow-prepare-change` SHALL refuse to load any persisted run-state record where `worktree_path` equals `repo_path`. Such records correspond to the pre-`main-session-worktree` branch-checkout layout that this change replaces. The CLI SHALL surface a clear error message instructing the user to drain (approve or reject) the legacy change before proceeding, and SHALL NOT auto-migrate, auto-rewrite, or silently upgrade the record.
+
+This requirement does not apply to synthetic runs (`run_kind = "synthetic"`), which never carry a `repo_path`/`worktree_path` divergence by design.
+
+#### Scenario: Legacy record is rejected
+
+- **WHEN** `specflow-prepare-change` reads a persisted run-state where `worktree_path == repo_path` and `run_kind != "synthetic"`
+- **THEN** it SHALL exit non-zero with a message asking the user to drain the legacy run
+- **AND** SHALL NOT modify the persisted record
+- **AND** SHALL NOT proceed to materialize artifacts for that change
+
+#### Scenario: New-layout record is accepted
+
+- **WHEN** the persisted run-state has `worktree_path = .specflow/worktrees/<CHANGE_ID>/main/` distinct from `repo_path`
+- **THEN** `specflow-prepare-change` SHALL proceed normally
+
+### Requirement: cleanup_pending tracks deferred terminal cleanup
+
+The `cleanup_pending` field on `LocalRunState` SHALL be a boolean (default `false`) that records whether terminal-state worktree cleanup has been deferred for the current run. The `main-session-worktree` capability SHALL set `cleanup_pending = true` when a terminal phase is reached but cleanup gating fails (dirty worktree or partial-success state). Every other writer SHALL preserve the field unchanged.
+
+#### Scenario: Default is false
+
+- **WHEN** `specflow-run start` initializes a new run
+- **THEN** the persisted `cleanup_pending` SHALL be `false`
+
+#### Scenario: Deferred cleanup sets the flag
+
+- **WHEN** a terminal phase command (approve/archive/reject) succeeds but cleanup gating fails
+- **THEN** the wiring layer SHALL persist `cleanup_pending = true`
+- **AND** subsequent reads of the run SHALL observe the deferred flag
 

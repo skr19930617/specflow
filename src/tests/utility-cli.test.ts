@@ -295,6 +295,13 @@ test("specflow-prepare-change seeds proposal.md for scaffold-only changes and en
 			"schema: spec-driven\ncreated: 2026-04-10\n",
 			"utf8",
 		);
+		// Commit the scaffold-only state so the worktree-mode prepare-change
+		// inherits the deletion of proposal.md from HEAD.
+		spawnSync("git", ["add", "-A"], { cwd: repoPath, stdio: "ignore" });
+		spawnSync("git", ["commit", "-m", "scaffold-only"], {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
 		const stubDir = createOpenspecStub(
 			tempRoot,
 			[
@@ -338,8 +345,16 @@ test("specflow-prepare-change seeds proposal.md for scaffold-only changes and en
 		assert.equal(state.branch_name, changeId);
 		assert.equal(state.source.provider, "generic");
 		assert.equal(state.source.reference, "Add enterprise SSO support");
+		// Worktree mode: artifacts live inside the main-session worktree.
+		const worktreeChangeDir = join(
+			repoPath,
+			".specflow/worktrees",
+			changeId,
+			"main/openspec/changes",
+			changeId,
+		);
 		const proposal = readFileSync(
-			join(repoPath, "openspec/changes", changeId, "proposal.md"),
+			join(worktreeChangeDir, "proposal.md"),
 			"utf8",
 		);
 		assert.ok(proposal.includes("# Proposal"));
@@ -410,19 +425,13 @@ test("specflow-prepare-change derives change ids from GitHub sources and scaffol
 			"https://github.com/test/repo/issues/89",
 		);
 		assert.equal(state.source.title, "Repo responsibility nongoals");
-		assert.ok(
-			existsSync(
-				join(
-					repoPath,
-					"openspec/changes/repo-responsibility-nongoals/.openspec.yaml",
-				),
-			),
+		const worktreeChangeDir = join(
+			repoPath,
+			".specflow/worktrees/repo-responsibility-nongoals/main/openspec/changes/repo-responsibility-nongoals",
 		);
+		assert.ok(existsSync(join(worktreeChangeDir, ".openspec.yaml")));
 		const proposal = readFileSync(
-			join(
-				repoPath,
-				"openspec/changes/repo-responsibility-nongoals/proposal.md",
-			),
+			join(worktreeChangeDir, "proposal.md"),
 			"utf8",
 		);
 		assert.ok(proposal.includes("# Proposal"));

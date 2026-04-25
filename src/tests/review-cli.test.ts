@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
 	existsSync,
+	mkdirSync,
 	readdirSync,
 	readFileSync,
 	unlinkSync,
@@ -742,11 +744,45 @@ test("specflow-review-design does not inject task-plannable findings in rereview
 // --- Review gate issuance E2E tests (R5-F13) --------------------------------
 
 /** Helper: start a run for the given changeId and return the run_id. */
-function startRunForReview(repoPath: string, changeId: string): string {
-	const result = runNodeCli("specflow-run", ["start", changeId], repoPath);
+function startRunForReview(
+	repoPath: string,
+	changeId: string,
+): { runId: string; worktreePath: string } {
+	// Commit any pending artifacts so the worktree inherits them from HEAD.
+	spawnSync("git", ["add", "-A"], { cwd: repoPath, stdio: "ignore" });
+	spawnSync("git", ["commit", "-m", "fixture artifacts", "--allow-empty"], {
+		cwd: repoPath,
+		stdio: "ignore",
+	});
+	// Create a main-session worktree for the change.
+	const wtParent = join(repoPath, ".specflow/worktrees", changeId);
+	mkdirSync(wtParent, { recursive: true });
+	const wtPath = join(wtParent, "main");
+	spawnSync("git", ["worktree", "add", "-b", changeId, wtPath, "HEAD"], {
+		cwd: repoPath,
+		stdio: "ignore",
+	});
+	const headSha = spawnSync("git", ["rev-parse", "HEAD"], {
+		cwd: repoPath,
+		encoding: "utf8",
+	}).stdout.trim();
+	const result = runNodeCli(
+		"specflow-run",
+		[
+			"start",
+			changeId,
+			"--worktree-path",
+			wtPath,
+			"--base-commit",
+			headSha,
+			"--base-branch",
+			"main",
+		],
+		repoPath,
+	);
 	assert.equal(result.status, 0, result.stderr);
 	const state = JSON.parse(result.stdout) as { run_id: string };
-	return state.run_id;
+	return { runId: state.run_id, worktreePath: wtPath };
 }
 
 /** Helper: list gate record files in a run's records directory. */
@@ -773,7 +809,7 @@ test("specflow-review-design review emits a review_decision gate when --run-id i
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
 		addDesignArtifacts(repoPath, changeId);
-		const runId = startRunForReview(repoPath, changeId);
+		const { runId, worktreePath } = startRunForReview(repoPath, changeId);
 		const env = createCodexEnv(tempRoot, [
 			{
 				exitCode: 0,
@@ -811,11 +847,16 @@ test("specflow-review-design review emits a review_decision gate when --run-id i
 		assert.equal(gate.status, "pending");
 		assert.equal(gate.originating_phase, "design_review");
 
-		// Ledger should have gate_id back-reference in round_summaries
+		// Ledger is now written inside the worktree (change-artifact root).
 		const ledger = readJson<{
 			round_summaries: Array<{ gate_id?: string | null }>;
 		}>(
-			join(repoPath, "openspec/changes", changeId, "review-ledger-design.json"),
+			join(
+				worktreePath,
+				"openspec/changes",
+				changeId,
+				"review-ledger-design.json",
+			),
 		);
 		assert.ok(ledger.round_summaries.length > 0);
 		const lastSummary =
@@ -834,8 +875,11 @@ test("specflow-review-apply review emits a review_decision gate when --run-id is
 	const tempRoot = makeTempDir("review-apply-gate-emit-");
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
-		addImplementationDiff(repoPath);
-		const runId = startRunForReview(repoPath, changeId);
+		// Start the run first (commits artifacts and creates worktree), then
+		// introduce the implementation diff inside the worktree so the review
+		// CLI's diff filter picks it up from the correct working tree.
+		const { runId, worktreePath } = startRunForReview(repoPath, changeId);
+		addImplementationDiff(worktreePath);
 		const env = createCodexEnv(tempRoot, [
 			{
 				exitCode: 0,
@@ -875,10 +919,10 @@ test("specflow-review-apply review emits a review_decision gate when --run-id is
 		assert.equal(gate.gate_kind, "review_decision");
 		assert.equal(gate.status, "pending");
 
-		// Ledger should have gate_id back-reference
+		// Ledger is now written inside the worktree (change-artifact root).
 		const ledger = readJson<{
 			round_summaries: Array<{ gate_id?: string | null }>;
-		}>(join(repoPath, "openspec/changes", changeId, "review-ledger.json"));
+		}>(join(worktreePath, "openspec/changes", changeId, "review-ledger.json"));
 		assert.ok(ledger.round_summaries.length > 0);
 		const lastSummary =
 			ledger.round_summaries[ledger.round_summaries.length - 1];
@@ -892,7 +936,7 @@ test("specflow-challenge-proposal emits distinct gate IDs across successive roun
 	const tempRoot = makeTempDir("challenge-gate-round-");
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
-		const runId = startRunForReview(repoPath, changeId);
+		const { runId } = startRunForReview(repoPath, changeId);
 		const challengeResponse = {
 			exitCode: 0,
 			output: JSON.stringify({

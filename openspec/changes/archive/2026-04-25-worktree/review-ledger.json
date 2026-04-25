@@ -1,0 +1,195 @@
+{
+  "feature_id": "worktree",
+  "phase": "impl",
+  "current_round": 3,
+  "status": "has_open_high",
+  "max_finding_id": 10,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "correctness",
+      "file": "assets/commands/specflow.approve.md.tmpl",
+      "title": "PR base resolution does not follow the recorded base commit",
+      "detail": "The new approve flow never uses `base_commit`, and it falls back to the repository default branch whenever `base_branch` has no upstream. The spec requires the PR base to be derived from the branch that originally contained `base_commit`, with fallback to the branch the user was on at prepare-change time. As written, a change started from an untracked feature branch will target the wrong base branch. Update the approve logic to resolve from `base_commit` first instead of defaulting to the repo default branch.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F02",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/run-store-ops.ts",
+      "title": "Deferred cleanup behavior is not implemented",
+      "detail": "The spec makes cleanup gating mandatory for `/specflow.approve`, `/specflow.archive`, and `/specflow.reject`: remove `.specflow/worktrees/<CHANGE_ID>/` only after a fully successful terminal operation and only when every worktree is clean; otherwise leave the run terminal with `cleanup_pending=true` and surface the reason. This diff only adds the `cleanup_pending` field and defaults it to `false` on read. There are no matching terminal-phase changes to set the flag, inspect worktree cleanliness, or remove the worktree subtree.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 2
+    },
+    {
+      "id": "R1-F03",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/lib/apply-worktree/worktree.ts",
+      "title": "Subagent worktree rebinding is still optional and therefore not actually enforced",
+      "detail": "The spec requires subagent worktrees to move under `.specflow/worktrees/<CHANGE_ID>/<RUN_ID>/<BUNDLE_ID>/` and to use the main-session worktree as their integration target. This file only adds optional `changeId` and `mainWorkspacePath` fields with fallbacks back to `repoRoot` and the old `<RUN_ID>/<BUNDLE_ID>` layout. Because the diff does not thread those new fields through the callers, existing subagent flows will continue to base/apply against the user repo root. Make the new path and main-workspace source mandatory and wire them from run-state through the bundle execution path.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R1-F04",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/bin/specflow-watch.ts",
+      "title": "Legacy mode is still preserved despite the spec forbidding dual-path behavior",
+      "detail": "The proposal explicitly says there is no legacy mode after this change, but this diff still keeps repo-root fallbacks alive. `specflow-watch` branches on `worktree_path == repo_path` and treats that as a supported legacy path, and `readRunState` silently backfills missing fields instead of rejecting old run-state. That leaves the old repo-root execution path in place rather than forcing legacy runs to drain before merge. Outside the one-time prepare-change guard, legacy run-state should fail fast instead of being normalized and executed.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F05",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/prepare-change-raw-input.test.ts",
+      "title": "The new worktree conflict and terminal-flow behaviors are not covered by tests",
+      "detail": "The added tests only cover happy-path proposal seeding in the new main-session worktree. The spec requires non-trivial behavior that is currently untested here: reuse of an existing conventional worktree, branch/worktree conflict failures, occupied-path failures, legacy-run rejection, PR-base selection from the recorded base metadata, and cleanup deferral when terminal cleanup cannot run. Add targeted tests for those branches before landing this change.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R2-F06",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/bin/specflow-review-apply.ts",
+      "title": "Downstream phase CLIs still read and write change artifacts from the caller's git root",
+      "detail": "The core feature only moves `prepare-change`, `start`, and `watch` into worktree-aware mode. Commands that run the rest of the flow (`specflow-review-apply`, `specflow-review-design`, `specflow-challenge-proposal`, `specflow-generate-task-graph`) still build their change stores from `projectRoot()`/`ensureGitRepo()` and never call the new run-state worktree resolver. The matching templates still assume repo-root paths (for example `specflow.design` says to use the git repo root for all relative paths). Running those commands from the normal repo root will keep mutating `openspec/changes/<CHANGE_ID>` in the user tree instead of the main-session worktree. These phase entrypoints need to resolve `RUN_ID -> worktree_path` and operate there by default.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "open",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R2-F07",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "assets/commands/specflow.approve.md.tmpl",
+      "title": "Strategy 1 can still choose the wrong PR base when multiple remote branches contain the base commit",
+      "detail": "The prose says Strategy 1 should use `base_commit` only when exactly one remote-tracking branch contains it, but the shell snippet just strips `origin/` and takes `head -1`. When the commit is reachable from more than one remote branch, the command will silently pick an arbitrary base branch and create the PR against the wrong target. Count the matching branches first and only assign `PR_BASE` when there is exactly one match; otherwise continue to the later fallback strategies.",
+      "origin_round": 2,
+      "latest_round": 2,
+      "status": "resolved",
+      "relation": "new",
+      "supersedes": null,
+      "notes": "",
+      "resolved_round": 3
+    },
+    {
+      "id": "R3-F08",
+      "severity": "high",
+      "category": "completeness",
+      "file": "src/bin/specflow-advance-bundle.ts",
+      "title": "Remaining phase helper CLIs still hardcode the user repo root instead of resolving the main-session worktree",
+      "detail": "This patch fixed the review/challenge/task-graph CLIs, but several helpers that are still part of the normal flow remain repo-root based. `specflow-advance-bundle` builds its change store from `ensureGitRepo()`, `specflow-spec-verify` calls `verifyChange(repoRoot, changeId)` after `git rev-parse --show-toplevel`, and `specflow-design-artifacts` runs OpenSpec from `process.cwd()`. In worktree mode, the live `openspec/changes/<CHANGE_ID>` tree lives under `run.worktree_path`, so these commands will either mutate stale repo-root artifacts or report files missing when invoked from the user repo. They need the same `RUN_ID -> worktree_path` resolution pattern now used by the fixed review CLIs.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F09",
+      "severity": "high",
+      "category": "correctness",
+      "file": "assets/commands/specflow.apply.md.tmpl",
+      "title": "Slash-command templates still instruct repo-root execution and the old subagent worktree layout",
+      "detail": "The generated command bodies still describe behavior that is no longer valid in worktree mode. `specflow.design`, `specflow.review_design`, `specflow.review_apply`, and the fix/apply flows still tell the operator to derive `CHANGE_ID` from the current branch and to use repo-root-relative `openspec/changes/<CHANGE_ID>/...` paths, and `specflow.apply` still documents subagent worktrees at `.specflow/worktrees/<RUN_ID>/<BUNDLE_ID>/` instead of `.specflow/worktrees/<CHANGE_ID>/<RUN_ID>/<BUNDLE_ID>/`. Because the user repo branch now stays on the original base branch and change artifacts live under the main-session worktree, following these templates will drive the workflow into the wrong tree even where the underlying CLI was fixed. Update the templates to resolve `RUN_ID` and `WORKTREE_PATH` from run-state and use the new per-change path convention everywhere.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R3-F10",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "assets/commands/specflow.approve.md.tmpl",
+      "title": "The default-branch fallback passes an invalid repository selector to `gh`",
+      "detail": "Strategy 4 now runs `gh -R \"$(git -C \"$WORKTREE_PATH\" remote get-url origin)\" repo view --json defaultBranchRef ...`. Local `gh` help documents repository selectors in `[HOST/]OWNER/REPO` format, not raw remote URLs like `https://github.com/owner/repo.git` or `git@github.com:owner/repo.git`. When Strategy 4 is needed, this fallback can fail instead of resolving the default branch. Run `gh repo view` from inside `$WORKTREE_PATH`, or normalize the remote URL to `OWNER/REPO` before passing `-R`.",
+      "origin_round": 3,
+      "latest_round": 3,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 5,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 4,
+        "medium": 1
+      },
+      "gate_id": "review_decision-worktree-1-apply_review-1"
+    },
+    {
+      "round": 2,
+      "total": 7,
+      "open": 5,
+      "new": 2,
+      "resolved": 2,
+      "overridden": 0,
+      "by_severity": {
+        "high": 3,
+        "medium": 2
+      },
+      "gate_id": "review_decision-worktree-1-apply_review-2"
+    },
+    {
+      "round": 3,
+      "total": 10,
+      "open": 5,
+      "new": 3,
+      "resolved": 5,
+      "overridden": 0,
+      "by_severity": {
+        "high": 4,
+        "medium": 1
+      },
+      "gate_id": "review_decision-worktree-1-apply_review-3"
+    }
+  ]
+}

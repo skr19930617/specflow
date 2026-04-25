@@ -35,6 +35,9 @@ function seedStateAt(
 		repo_path: "/tmp/test",
 		branch_name: "main",
 		worktree_path: "/tmp/test",
+		base_commit: "",
+		base_branch: null,
+		cleanup_pending: false,
 		last_summary_path: null,
 		...overrides,
 	};

@@ -177,6 +177,7 @@ test("project gitignore render includes specflow runtime state", () => {
 			"# Specflow local env",
 			".specflow/config.env",
 			".specflow/runs/",
+			".specflow/worktrees/",
 			"",
 		].join("\n"),
 	);
@@ -205,6 +206,7 @@ test("project gitignore merge preserves custom content while appending missing e
 			"",
 			"# Specflow local env",
 			".specflow/runs/",
+			".specflow/worktrees/",
 			"",
 		].join("\n"),
 	);

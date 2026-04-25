@@ -170,14 +170,16 @@ export function filterLocalWorkspaceDiff(
 
 class LocalWorkspaceContext implements WorkspaceContext {
 	private readonly resolvedRoot: string;
+	private readonly resolvedWorktree: string;
 
-	constructor(workspacePath?: string) {
+	constructor(workspacePath?: string, worktreePath?: string) {
 		const cwd = workspacePath ?? process.cwd();
 		const result = tryExec("git", ["rev-parse", "--show-toplevel"], cwd);
 		if (result.status !== 0) {
 			throw new Error(`not a git repository: ${cwd}`);
 		}
 		this.resolvedRoot = result.stdout.trim();
+		this.resolvedWorktree = worktreePath ?? this.resolvedRoot;
 	}
 
 	readonly projectRoot = (): string => {
@@ -188,7 +190,7 @@ class LocalWorkspaceContext implements WorkspaceContext {
 		const result = tryExec(
 			"git",
 			["rev-parse", "--abbrev-ref", "HEAD"],
-			this.resolvedRoot,
+			this.resolvedWorktree,
 		);
 		if (result.status !== 0) {
 			return null;
@@ -216,7 +218,7 @@ class LocalWorkspaceContext implements WorkspaceContext {
 	};
 
 	readonly worktreePath = (): string => {
-		return this.resolvedRoot;
+		return this.resolvedWorktree;
 	};
 
 	readonly filteredDiff = (
@@ -231,6 +233,7 @@ class LocalWorkspaceContext implements WorkspaceContext {
 
 export function createLocalWorkspaceContext(
 	workspacePath?: string,
+	worktreePath?: string,
 ): WorkspaceContext {
-	return new LocalWorkspaceContext(workspacePath);
+	return new LocalWorkspaceContext(workspacePath, worktreePath);
 }

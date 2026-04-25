@@ -72,6 +72,7 @@ import {
 	validateChangeFromStore,
 } from "../lib/review-runtime.js";
 import { findLatestRun } from "../lib/run-store-ops.js";
+import { resolveChangeRootForRun } from "../lib/worktree-resolver.js";
 import {
 	type AutofixProgressSnapshot,
 	buildStartingSnapshot,
@@ -300,6 +301,7 @@ async function buildTaskPlannableFindings(
 async function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	changeStore: ChangeArtifactStore,
 	action: string,
 	changeId: string,
@@ -339,7 +341,7 @@ async function runReviewPipeline(
 	}
 	const reviewAgentResult = callReviewAgent<Record<string, unknown>>(
 		reviewAgent,
-		projectRoot,
+		changeRoot,
 		prompt,
 	);
 
@@ -463,7 +465,7 @@ async function runReviewPipeline(
 			changeId,
 			ledger,
 			"design",
-			projectRoot,
+			changeRoot,
 		);
 	}
 
@@ -510,6 +512,7 @@ async function runReviewPipeline(
 async function runAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
 	maxRounds: number,
@@ -667,7 +670,7 @@ async function runAutofixLoop(
 			(await artifactHash(changeStore, changeId, ChangeArtifactType.Tasks));
 		const fixResult = callMainAgent(
 			mainAgent,
-			projectRoot,
+			changeRoot,
 			await buildFixPrompt(
 				runtimeRoot,
 				changeStore,
@@ -705,6 +708,7 @@ async function runAutofixLoop(
 		const reviewResult = await runReviewPipeline(
 			runtimeRoot,
 			projectRoot,
+			changeRoot,
 			changeStore,
 			"fix_review",
 			changeId,
@@ -895,6 +899,7 @@ async function runAutofixLoop(
 async function cmdReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
@@ -925,6 +930,7 @@ async function cmdReview(
 	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
+		changeRoot,
 		changeStore,
 		"review",
 		changeId,
@@ -937,6 +943,7 @@ async function cmdReview(
 async function cmdFixReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
@@ -967,6 +974,7 @@ async function cmdFixReview(
 	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
+		changeRoot,
 		changeStore,
 		"fix_review",
 		changeId,
@@ -979,6 +987,7 @@ async function cmdFixReview(
 async function cmdAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
 	reviewAgent: ReviewAgentName,
@@ -1008,6 +1017,7 @@ async function cmdAutofixLoop(
 	return await runAutofixLoop(
 		runtimeRoot,
 		projectRoot,
+		changeRoot,
 		changeStore,
 		changeId,
 		rounds,
@@ -1114,7 +1124,7 @@ async function main(): Promise<void> {
 	const projectRoot = ensureGitRepo();
 	loadConfigEnv(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
-	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
+	const runStore = createLocalFsRunArtifactStore(projectRoot);
 	const [subcommand, ...args] = process.argv.slice(2);
 	const reviewAgent = resolveReviewAgent(parseReviewAgentFlag(args));
 	const mainAgent = resolveMainAgent();
@@ -1136,7 +1146,6 @@ Subcommands:
 	if (!runId) {
 		const changeId = args.find((a) => !a.startsWith("-"));
 		if (changeId) {
-			const runStore = createLocalFsRunArtifactStore(projectRoot);
 			const latest = await findLatestRun(runStore, changeId);
 			if (latest) {
 				runId = latest.run_id;
@@ -1144,12 +1153,20 @@ Subcommands:
 		}
 	}
 
+	const changeRoot = await resolveChangeRootForRun(
+		runStore,
+		runId,
+		projectRoot,
+	);
+	const changeStore = createLocalFsChangeArtifactStore(changeRoot);
+
 	let result: ReviewResult;
 	switch (subcommand) {
 		case "review":
 			result = await cmdReview(
 				runtimeRoot,
 				projectRoot,
+				changeRoot,
 				changeStore,
 				args,
 				reviewAgent,
@@ -1160,6 +1177,7 @@ Subcommands:
 			result = await cmdFixReview(
 				runtimeRoot,
 				projectRoot,
+				changeRoot,
 				changeStore,
 				args,
 				reviewAgent,
@@ -1170,6 +1188,7 @@ Subcommands:
 			result = await cmdAutofixLoop(
 				runtimeRoot,
 				projectRoot,
+				changeRoot,
 				changeStore,
 				args,
 				reviewAgent,

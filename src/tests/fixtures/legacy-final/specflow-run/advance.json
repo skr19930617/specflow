@@ -13,6 +13,9 @@
 	"project_id": "test/repo",
 	"repo_name": "test/repo",
 	"branch_name": "main",
+	"base_commit": "",
+	"base_branch": null,
+	"cleanup_pending": false,
 	"agents": {
 		"main": "claude",
 		"review": "codex"

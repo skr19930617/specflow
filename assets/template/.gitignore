@@ -5,3 +5,4 @@
 # Specflow local env
 .specflow/config.env
 .specflow/runs/
+.specflow/worktrees/

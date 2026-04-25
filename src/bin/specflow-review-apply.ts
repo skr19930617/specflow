@@ -65,6 +65,7 @@ import {
 } from "../lib/review-runtime.js";
 import { findLatestRun } from "../lib/run-store-ops.js";
 import type { WorkspaceContext } from "../lib/workspace-context.js";
+import { resolveChangeRootForRun } from "../lib/worktree-resolver.js";
 import {
 	type AutofixProgressSnapshot,
 	buildStartingSnapshot,
@@ -229,6 +230,7 @@ function resultFromLedger(
 async function runReviewPipeline(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	action: string,
@@ -290,7 +292,7 @@ async function runReviewPipeline(
 		});
 		void callMainAgent(
 			mainAgent,
-			projectRoot,
+			changeRoot,
 			await buildFixPrompt(changeStore, changeId, diff, fixFindings),
 		);
 		const rerun = diffFilter(ctx);
@@ -329,7 +331,7 @@ async function runReviewPipeline(
 	}
 	const reviewResult = callReviewAgent<Record<string, unknown>>(
 		reviewAgent,
-		projectRoot,
+		changeRoot,
 		prompt,
 	);
 
@@ -418,7 +420,7 @@ async function runReviewPipeline(
 			changeId,
 			ledger,
 			"apply",
-			projectRoot,
+			changeRoot,
 		);
 	}
 
@@ -465,6 +467,7 @@ async function runReviewPipeline(
 async function runAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	changeId: string,
@@ -599,7 +602,7 @@ async function runAutofixLoop(
 		});
 		const fixResult = callMainAgent(
 			mainAgent,
-			projectRoot,
+			changeRoot,
 			await buildFixPrompt(
 				changeStore,
 				changeId,
@@ -622,6 +625,7 @@ async function runAutofixLoop(
 		const reviewResult = await runReviewPipeline(
 			runtimeRoot,
 			projectRoot,
+			changeRoot,
 			ctx,
 			changeStore,
 			"fix_review",
@@ -824,6 +828,7 @@ async function runAutofixLoop(
 async function cmdReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
@@ -861,6 +866,7 @@ async function cmdReview(
 	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
+		changeRoot,
 		ctx,
 		changeStore,
 		"review",
@@ -876,6 +882,7 @@ async function cmdReview(
 async function cmdFixReview(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
@@ -916,6 +923,7 @@ async function cmdFixReview(
 	return await runReviewPipeline(
 		runtimeRoot,
 		projectRoot,
+		changeRoot,
 		ctx,
 		changeStore,
 		"fix_review",
@@ -931,6 +939,7 @@ async function cmdFixReview(
 async function cmdAutofixLoop(
 	runtimeRoot: string,
 	projectRoot: string,
+	changeRoot: string,
 	ctx: WorkspaceContext,
 	changeStore: ChangeArtifactStore,
 	args: readonly string[],
@@ -978,6 +987,7 @@ async function cmdAutofixLoop(
 	return await runAutofixLoop(
 		runtimeRoot,
 		projectRoot,
+		changeRoot,
 		ctx,
 		changeStore,
 		changeId,
@@ -1086,7 +1096,6 @@ async function main(): Promise<void> {
 	}
 	const projectRoot = ctx.projectRoot();
 	loadConfigEnv(projectRoot);
-	const changeStore = createLocalFsChangeArtifactStore(projectRoot);
 	const runtimeRoot = moduleRepoRoot(import.meta.url);
 	const [subcommand = "", ...args] = process.argv.slice(2);
 	const reviewAgent = resolveReviewAgent(parseReviewAgentFlag(args));
@@ -1095,14 +1104,38 @@ async function main(): Promise<void> {
 
 	// Auto-discover run_id from the change_id when --run-id is not provided.
 	// This ensures review_decision gates are always emitted when a run exists.
+	const runStore = createLocalFsRunArtifactStore(projectRoot);
 	if (!runId) {
 		const changeId = args.find((a) => !a.startsWith("-"));
 		if (changeId) {
-			const runStore = createLocalFsRunArtifactStore(projectRoot);
 			const latest = await findLatestRun(runStore, changeId);
 			if (latest) {
 				runId = latest.run_id;
 			}
+		}
+	}
+
+	// Resolve the change-artifact root from run-state. In worktree mode this
+	// is the main-session worktree; for synthetic runs or missing runs it
+	// falls back to the repo root. The helper also enforces the legacy guard
+	// (worktree_path == repo_path for non-synthetic runs → fail fast).
+	const changeRoot = await resolveChangeRootForRun(
+		runStore,
+		runId,
+		projectRoot,
+	);
+	const changeStore = createLocalFsChangeArtifactStore(changeRoot);
+
+	// When the change root differs from the project root (worktree mode),
+	// create a workspace context rooted in the worktree so diffs are read
+	// from the correct working tree.
+	if (changeRoot !== projectRoot) {
+		try {
+			ctx = createLocalWorkspaceContext(changeRoot, changeRoot);
+		} catch {
+			die(
+				`Error: worktree at '${changeRoot}' is not a valid git working tree.`,
+			);
 		}
 	}
 
@@ -1112,6 +1145,7 @@ async function main(): Promise<void> {
 			result = await cmdReview(
 				runtimeRoot,
 				projectRoot,
+				changeRoot,
 				ctx,
 				changeStore,
 				args,
@@ -1124,6 +1158,7 @@ async function main(): Promise<void> {
 			result = await cmdFixReview(
 				runtimeRoot,
 				projectRoot,
+				changeRoot,
 				ctx,
 				changeStore,
 				args,
@@ -1136,6 +1171,7 @@ async function main(): Promise<void> {
 			result = await cmdAutofixLoop(
 				runtimeRoot,
 				projectRoot,
+				changeRoot,
 				ctx,
 				changeStore,
 				args,

@@ -1,0 +1,434 @@
+{
+  "version": "1.0",
+  "change_id": "worktree",
+  "bundles": [
+    {
+      "id": "worktree-policy-clarifications",
+      "title": "Confirm Remaining Worktree Policies",
+      "goal": "Lock the open behavioral questions so implementation bundles can ship a single worktree-mode contract without fallback paths.",
+      "depends_on": [],
+      "inputs": [
+        "design.md#Open Questions",
+        "design.md#Decisions D8-D9",
+        "design.md#Migration Plan"
+      ],
+      "outputs": [
+        "confirmed implementation notes for cleanup retries, safety-only worktree prune behavior, and legacy read-only inspection semantics"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Confirm the implementation policy for cleanup retries, safety-only git worktree prune, and legacy read-only inspection flows.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Translate the confirmed policies into acceptance notes for prepare-change, terminal cleanup, and read-only CLI behavior.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Record rejected alternatives so downstream bundles implement one behavior with no legacy-mode fallback.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "approval-clarify-persistence",
+        "spec-consistency-verification"
+      ],
+      "size_score": 3
+    },
+    {
+      "id": "main-worktree-foundation",
+      "title": "Establish Main Worktree Foundation",
+      "goal": "Replace branch checkout with a persisted main-session worktree contract and the run-state fields needed to drive it.",
+      "depends_on": [
+        "worktree-policy-clarifications"
+      ],
+      "inputs": [
+        "design.md#Ordering / Dependency Notes",
+        "design.md#Decisions D1-D6",
+        "src/bin/specflow-prepare-change.ts",
+        "src/types/contracts.ts",
+        "src/tests/run-state-partition.test.ts",
+        "src/lib/workspace-context.ts"
+      ],
+      "outputs": [
+        "LocalRunState fields base_commit, base_branch, and cleanup_pending",
+        "worktree-aware workspace-context construction in the wiring layer",
+        ".specflow/worktrees/<CHANGE_ID>/main/ creation-reuse-fail-fast contract",
+        "prepare-change downstream execution rooted at the main-session worktree"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Extend LocalRunState and persistence wiring with base_commit, base_branch, and cleanup_pending, then update the drift-guard test.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add worktree override and base-info plumbing to the local WorkspaceContext construction path without leaking adapter concerns into core modules.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Replace ensureBranch with ensureMainSessionWorktree, including create, reuse, and fail-fast handling for .specflow/worktrees/<CHANGE_ID>/main/ and removal of legacy checkout mode.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Re-root prepare-change downstream openspec and specflow-run start calls to the resolved worktree path while preserving user-repo HEAD, branch, and dirty-state invariants.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "workflow-run-state",
+        "runstate-adapter-extension",
+        "workspace-context"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "subagent-worktree-retargeting",
+      "title": "Retarget Subagent Worktrees",
+      "goal": "Move subagent execution and patch application onto change-scoped worktrees rooted under the main-session worktree parent.",
+      "depends_on": [
+        "main-worktree-foundation"
+      ],
+      "inputs": [
+        "design.md#Subagent dispatch contract",
+        "design.md#Concerns C-4",
+        "apply-worktree-integration baseline",
+        "bundle-subagent-execution baseline"
+      ],
+      "outputs": [
+        ".specflow/worktrees/<CHANGE_ID>/<RUN_ID>/<BUNDLE_ID>/ subagent layout",
+        "main-session worktree patch-apply target",
+        "subagent diff/base capture aligned to worktree mode"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Thread mainSessionWorktreePath and change-scoped worktree parent data through apply-pipeline entrypoints from persisted run-state.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Re-parent subagent worktree creation to .specflow/worktrees/<CHANGE_ID>/<RUN_ID>/<BUNDLE_ID>/ using explicit user-repo absolute paths in the shared git worktree registry.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Switch subagent diff capture and patch application to compare within the subagent worktree and apply into the main-session worktree instead of the user repo.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add targeted integration coverage for subagent worktree layout and patch landing location.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "apply-worktree-integration",
+        "bundle-subagent-execution"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "phase-cwd-routing",
+      "title": "Route Phase Commands Through Worktree Paths",
+      "goal": "Make phase-command wiring resolve and execute against state.worktree_path instead of assuming the user repo root.",
+      "depends_on": [
+        "main-worktree-foundation"
+      ],
+      "inputs": [
+        "design.md#Decision D10",
+        "design.md#Risks",
+        "src/bin/**",
+        "RunArtifactStore wiring"
+      ],
+      "outputs": [
+        "shared run-id to worktree_path resolver in the wiring layer",
+        "worktree-rooted phase command execution contexts",
+        "grep or static guard against repo-root write-path assumptions"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Audit src/bin and shared CLI wiring for write-path uses of process.cwd() or git rev-parse --show-toplevel.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add a shared run-id to run-state to worktree_path resolver and use it to construct worktree-rooted execution contexts in the wiring layer.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Retarget shared phase command entrypoints and openspec invocations to state.worktree_path while leaving phase-specific approve and cleanup behavior to follow-on bundles.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add a guard test that fails when new CLI write paths hard-code the user repo root outside the allowed wiring points.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "phase-router",
+        "workspace-context",
+        "run-artifact-store-conformance"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "approve-pr-base-routing",
+      "title": "Push And Create PR From Worktree",
+      "goal": "Make approve push the change branch from the worktree and target PR creation at the recorded base branch with a safe fallback.",
+      "depends_on": [
+        "phase-cwd-routing"
+      ],
+      "inputs": [
+        "design.md#Decision D7",
+        "design.md#Concerns C-5",
+        "approve CLI wiring",
+        "run-state base_branch and branch_name"
+      ],
+      "outputs": [
+        "approve push from state.worktree_path",
+        "PR base resolution from base_branch upstream with default-branch fallback",
+        "gh pr create execution rooted at the worktree"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update approve to run git push -u origin <CHANGE_ID> from the recorded worktree path.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Resolve the PR base from base_branch upstream tracking data and fall back to the repository default branch when no upstream exists.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Run gh pr create from inside the worktree and surface clear failures when remote or base resolution fails.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add approve-path coverage for feature-branch starts and detached-HEAD fallback behavior.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "review-orchestration",
+        "repo-responsibility"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "terminal-worktree-cleanup",
+      "title": "Gate And Cleanup Terminal Worktrees",
+      "goal": "Remove the change-scoped worktree subtree only when terminal actions are complete and every worktree is clean, otherwise persist cleanup deferral state.",
+      "depends_on": [
+        "worktree-policy-clarifications",
+        "phase-cwd-routing"
+      ],
+      "inputs": [
+        "design.md#Decision D8",
+        "design.md#Concerns C-6",
+        "approve/archive/reject CLI wiring",
+        ".specflow/worktrees/<CHANGE_ID>/"
+      ],
+      "outputs": [
+        "terminal cleanup gate across main and subagent worktrees",
+        "cleanup_pending lifecycle in run.json",
+        "deferred cleanup retry behavior for terminal re-entry"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Implement the terminal cleanup gate for approve, archive, and reject by combining terminal success with per-worktree clean-tree checks.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Remove all worktrees under .specflow/worktrees/<CHANGE_ID>/ with non-force git worktree remove and delete the parent directory when the gate says remove.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Persist cleanup_pending = true, surface offending paths or partial-failure causes, and keep the run terminal when cleanup must defer.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Re-evaluate deferred cleanup on subsequent terminal-phase invocations and clear the pending flag when cleanup eventually succeeds.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "artifact-ownership-model",
+        "workflow-gate-semantics",
+        "workflow-run-state"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "legacy-runstate-guard",
+      "title": "Block Legacy Resume Paths",
+      "goal": "Reject persisted legacy runs on prepare-change resume when worktree_path still points at the user repo root, without breaking read-only inspection flows.",
+      "depends_on": [
+        "worktree-policy-clarifications",
+        "main-worktree-foundation"
+      ],
+      "inputs": [
+        "design.md#Decision D9",
+        "design.md#Concerns C-7",
+        "specflow-prepare-change run-state load path"
+      ],
+      "outputs": [
+        "prepare-change legacy run-state guard",
+        "non-mutating blocked-resume behavior",
+        "explicit remediation messaging for legacy runs"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Detect resumed runs in prepare-change where worktree_path equals repo_path and fail before any workspace mutation occurs.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Restrict the guard to prepare-change resume paths so read-only inspection commands can still load legacy records.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Emit actionable remediation guidance with the conflicting paths in the error output.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add blocked-resume coverage proving the legacy guard is non-mutating.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "runstate-adapter-extension",
+        "spec-consistency-verification"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "watcher-dashboard-retargeting",
+      "title": "Retarget Watcher And Dashboard Reads",
+      "goal": "Make watcher, dashboard, archive, and related status surfaces follow worktree_path indirection instead of scanning the user repo.",
+      "depends_on": [
+        "phase-cwd-routing"
+      ],
+      "inputs": [
+        "design.md#Risks",
+        "design.md#Integration Points",
+        "specflow-watch",
+        "dashboard and archive readers",
+        "run-state worktree_path"
+      ],
+      "outputs": [
+        "watcher artifact reads routed through worktree_path",
+        "dashboard and archive readers pointed at worktree-local openspec artifacts",
+        "run-id based status surfaces free of repo-root path assumptions"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update specflow-watch to resolve the active worktree_path from RUN_ID and follow artifacts in the worktree.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Retarget dashboard, archive, and related readers to inspect openspec/changes/<CHANGE_ID>/ inside the worktree until archive propagation completes.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Audit external hook or status surfaces that accept RUN_ID so they use run-state indirection rather than repo-root scanning.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add coverage for watcher and dashboard behavior against active worktree-mode runs.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "realtime-progress-ui",
+        "workflow-observation-events",
+        "run-artifact-store-conformance"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "worktree-invariant-verification",
+      "title": "Verify Worktree Invariants End To End",
+      "goal": "Prove the new worktree mode preserves user-repo invariants and satisfies completion conditions C-1 through C-7 across the full lifecycle.",
+      "depends_on": [
+        "subagent-worktree-retargeting",
+        "approve-pr-base-routing",
+        "terminal-worktree-cleanup",
+        "legacy-runstate-guard",
+        "watcher-dashboard-retargeting"
+      ],
+      "inputs": [
+        "design.md#Completion Conditions",
+        "temp git repo fixture and integration test harness",
+        "all worktree-mode implementation bundles"
+      ],
+      "outputs": [
+        "integration suite covering completion conditions C-1 through C-7",
+        "temp-repo smoke tests for user-repo invariants",
+        "regression guards for forbidden repo-root write paths and legacy resume behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Build temp-repo end-to-end smoke tests covering fresh prepare-change through apply, approve, and reject with assertions that the user repo HEAD, branch, and dirty state never change.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add integration tests for subagent patch application, watcher/dashboard worktree resolution, and terminal cleanup defer-versus-remove flows.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Verify approve PR base selection against recorded base_branch, including default-branch fallback when upstream tracking is missing.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Lock in grep and runtime guards for forbidden repo-root write paths and legacy resume rejection across the CLI surface.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "run-artifact-store-conformance",
+        "workflow-run-state"
+      ],
+      "size_score": 4
+    }
+  ],
+  "generated_at": "2026-04-25T07:03:05.820Z",
+  "generated_from": "design.md"
+}

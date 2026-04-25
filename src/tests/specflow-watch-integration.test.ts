@@ -44,6 +44,10 @@ interface SeedOptions {
 function seedRun(root: string, opts: SeedOptions): RunState {
 	const runDir = join(root, ".specflow/runs", opts.runId);
 	mkdirSync(runDir, { recursive: true });
+	// Use a worktree_path distinct from repo_path so the legacy guard
+	// (worktree_path == repo_path) would not fire on non-synthetic runs.
+	const wtPath = join(root, ".specflow/worktrees", opts.changeName, "main");
+	mkdirSync(wtPath, { recursive: true });
 	const run: RunState = {
 		run_id: opts.runId,
 		change_name: opts.changeName,
@@ -59,9 +63,13 @@ function seedRun(root: string, opts: SeedOptions): RunState {
 		repo_name: "owner/repo",
 		repo_path: root,
 		branch_name: opts.changeName,
-		worktree_path: root,
+		worktree_path: wtPath,
+		base_commit: "",
+		base_branch: null,
+		cleanup_pending: false,
 		last_summary_path: null,
-	};
+		run_kind: "change",
+	} as RunState;
 	writeFileSync(
 		join(runDir, "run.json"),
 		`${JSON.stringify(run, null, 2)}\n`,
