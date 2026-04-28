@@ -19,6 +19,7 @@ import {
 	actionableCount,
 	unresolvedCriticalHighCount,
 } from "./review-ledger.js";
+import { readSpecflowSharedConfig } from "./specflow-config.js";
 
 export interface ReviewConfig {
 	readonly diffWarnThreshold: number;
@@ -96,8 +97,8 @@ function readIntegerConfig(
 }
 
 export function readReviewConfig(projectRoot: string): ReviewConfig {
-	const configPath = resolve(projectRoot, "openspec/config.yaml");
-	if (!existsSync(configPath)) {
+	const content = readSpecflowSharedConfig(projectRoot);
+	if (content.length === 0) {
 		return {
 			diffWarnThreshold: 1000,
 			maxAutofixRounds: 4,
@@ -105,7 +106,6 @@ export function readReviewConfig(projectRoot: string): ReviewConfig {
 			autofixStaleThresholdSeconds: 120,
 		};
 	}
-	const content = readFileSync(configPath, "utf8");
 	const autofixHeartbeatSeconds = readIntegerConfig(
 		content,
 		"autofix_heartbeat_seconds",

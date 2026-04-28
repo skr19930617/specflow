@@ -32,7 +32,12 @@ export type {
 	RunDispatchedWindowArgs,
 	WorktreeCleanupWarning,
 } from "./orchestrate.js";
-export { runDispatchedWindow } from "./orchestrate.js";
+export {
+	LocalSubagentRuntimeError,
+	runDispatchedWindow,
+} from "./orchestrate.js";
+export type { RuntimeCheckResult } from "./runtime-check.js";
+export { verifyLocalSubagentRuntime } from "./runtime-check.js";
 
 export type {
 	BundleSlice,

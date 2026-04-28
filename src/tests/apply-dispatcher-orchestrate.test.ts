@@ -6,6 +6,7 @@ import test from "node:test";
 import {
 	type AdvanceBundleFn,
 	type DispatchOutcome,
+	LocalSubagentRuntimeError,
 	MissingCapabilityError,
 	runDispatchedWindow,
 } from "../lib/apply-dispatcher/index.js";
@@ -1058,6 +1059,97 @@ test("runDispatchedWindow (worktree): worktree remove failure surfaces a cleanup
 			);
 		}
 	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+// --- Default-engaged dispatch fail-fast on missing local subagent runtime ---
+
+test("runDispatchedWindow: missing local subagent runtime throws BEFORE any mutation", async () => {
+	const { root, changeId } = setupRepo();
+	// Force the verifyLocalSubagentRuntime check to fail by pointing PATH at
+	// an empty directory and clearing all SPECFLOW_<AGENT> overrides.
+	const emptyDir = mkdtempSync(join(tmpdir(), "rt-empty-"));
+	const origEnv = {
+		PATH: process.env.PATH,
+		MAIN: process.env.SPECFLOW_MAIN_AGENT,
+		REVIEW: process.env.SPECFLOW_REVIEW_AGENT,
+		CLAUDE: process.env.SPECFLOW_CLAUDE,
+		CODEX: process.env.SPECFLOW_CODEX,
+		COPILOT: process.env.SPECFLOW_COPILOT,
+	};
+	const callLog: GitCall[] = [];
+	const advanceLog: AdvanceCall[] = [];
+	const subagentInvocations: string[] = [];
+	try {
+		process.env.PATH = emptyDir;
+		delete process.env.SPECFLOW_MAIN_AGENT;
+		delete process.env.SPECFLOW_REVIEW_AGENT;
+		delete process.env.SPECFLOW_CLAUDE;
+		delete process.env.SPECFLOW_CODEX;
+		delete process.env.SPECFLOW_COPILOT;
+
+		const window = [mkBundle("a", 9)]; // size_score > threshold(0) → subagent
+		const graph = mkGraph(window);
+		const advance: AdvanceBundleFn = async (bundleId, status) => {
+			advanceLog.push({ bundleId, status });
+		};
+		const invoke: SubagentInvoker = async (pkg, _wt) => {
+			subagentInvocations.push(pkg.bundleId);
+			return { status: "success" } as SubagentResult;
+		};
+		const { runtime } = makeWorktreeRuntime({
+			repoRoot: root,
+			changeId,
+			diffFor: () => "",
+			calls: callLog,
+		});
+
+		await assert.rejects(
+			runDispatchedWindow({
+				window,
+				config: dispatchAll,
+				changeId,
+				taskGraph: graph,
+				repoRoot: root,
+				invoke,
+				advance,
+				worktreeRuntime: runtime,
+				runId: "run-1",
+			}),
+			(err: unknown) => err instanceof LocalSubagentRuntimeError,
+			"runDispatchedWindow must throw LocalSubagentRuntimeError before any mutation",
+		);
+
+		assert.equal(advanceLog.length, 0, "no advance() call must occur");
+		assert.equal(
+			subagentInvocations.length,
+			0,
+			"no subagent invocation must occur",
+		);
+		const worktreeAdds = callLog.filter(
+			(c) => c.args[0] === "worktree" && c.args[1] === "add",
+		);
+		assert.equal(
+			worktreeAdds.length,
+			0,
+			"no `git worktree add` must occur on runtime-prereq failure",
+		);
+	} finally {
+		const restore = (key: string, value: string | undefined): void => {
+			if (value === undefined) {
+				delete process.env[key];
+			} else {
+				process.env[key] = value;
+			}
+		};
+		restore("PATH", origEnv.PATH);
+		restore("SPECFLOW_MAIN_AGENT", origEnv.MAIN);
+		restore("SPECFLOW_REVIEW_AGENT", origEnv.REVIEW);
+		restore("SPECFLOW_CLAUDE", origEnv.CLAUDE);
+		restore("SPECFLOW_CODEX", origEnv.CODEX);
+		restore("SPECFLOW_COPILOT", origEnv.COPILOT);
+		rmSync(emptyDir, { recursive: true, force: true });
 		rmSync(root, { recursive: true, force: true });
 	}
 });

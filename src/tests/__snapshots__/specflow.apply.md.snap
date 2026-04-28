@@ -30,7 +30,7 @@ $ARGUMENTS
      2. `/specflow.apply` を再実行してください
      ```
      → **STOP**.
-2. Read `openspec/config.yaml`. Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
+2. Read `.specflow/config.yaml` (the canonical home for shared workflow policy per `config-ownership-boundaries`). Extract `max_autofix_rounds` if present. If unset or not a number in 1〜10, use default value 4. Store as `MAX_AUTOFIX_ROUNDS`.
 
 ## Step 0.5: Read Current Phase Context
 
@@ -95,9 +95,9 @@ $ARGUMENTS
 1. Confirm the run is in `apply_draft`.
 2. **Pre-apply path detection.** Check `openspec/changes/<CHANGE_ID>/task-graph.json` via Read tool.
    - **Absent** → legacy fallback (see step 3a). This applies even when `apply.subagent_dispatch.enabled: true` — no `task-graph.json` means no dispatcher; legacy `tasks.md` is the authoritative source.
-   - **Present** → CLI-mandatory path. Read `apply.subagent_dispatch` from `openspec/config.yaml` (or use defaults: `enabled: false`, `threshold: 5`, `max_concurrency: 3`).
-     - If `enabled: false` (the default) → **inline path** (step 3b).
-     - If `enabled: true` → **dispatcher path** (step 3c). The dispatcher classifies every window; within each window, per-bundle `size_score` from `task-graph.json` decides inline vs. subagent execution.
+   - **Present** → CLI-mandatory path. Read `apply.subagent_dispatch` from `.specflow/config.yaml` (or use defaults: `enabled: true`, `threshold: 5`, `max_concurrency: 3`). Settings found in the legacy `openspec/config.yaml` location SHALL be ignored with a deprecation warning per `config-ownership-boundaries`.
+     - If `enabled: true` (the default) → **dispatcher path** (step 3c). The dispatcher classifies every window; within each window, per-bundle `size_score` from `task-graph.json` decides inline vs. subagent execution. When the window classifies as subagent-dispatched, a runtime-prerequisite check (CLI availability + valid agent identifiers in `.specflow/config.env`) runs before any subagent spawn — failure stops the apply with an actionable error citing both fix paths (resolve local runtime, or set `apply.subagent_dispatch.enabled: false` in `.specflow/config.yaml`).
+     - If `enabled: false` (explicit opt-out) → **inline path** (step 3b).
    - `specflow-advance-bundle` remains the sole mutation entry point in both 3b and 3c. A malformed `task-graph.json` surfaces as a CLI error (fail-fast; the apply stops in `apply_draft` and does NOT silently fall back to the legacy path).
 3a. **Legacy fallback (task-graph.json absent).** Load `openspec/changes/<CHANGE_ID>/tasks.md` and `openspec/changes/<CHANGE_ID>/design.md` directly. Execute tasks phase-by-phase. Mark completed tasks in `tasks.md`. The subagent dispatcher SHALL NOT engage on this path regardless of `apply.subagent_dispatch.enabled`.
 3b. **Inline CLI-mandatory path (task-graph.json present, dispatcher disabled).** Load `task-graph.json` as the source of truth. Use the bundle structure to determine execution order and eligible bundles (bundles whose `depends_on` outputs are available and whose `status` is `pending`). Execute every bundle inline on the main agent.

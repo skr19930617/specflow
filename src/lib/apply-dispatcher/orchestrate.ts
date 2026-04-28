@@ -43,7 +43,17 @@ import type { Bundle, BundleStatus, TaskGraph } from "../task-planner/types.js";
 import { classifyWindow } from "./classify.js";
 import type { DispatchConfig } from "./config.js";
 import { assembleContextPackage, preflightWindow } from "./context-package.js";
+import { verifyLocalSubagentRuntime } from "./runtime-check.js";
 import type { SubagentInvoker, SubagentResult } from "./types.js";
+
+export class LocalSubagentRuntimeError extends Error {
+	readonly reason: string;
+	constructor(reason: string) {
+		super(reason);
+		this.name = "LocalSubagentRuntimeError";
+		this.reason = reason;
+	}
+}
 
 export interface ChunkFailure {
 	readonly bundleId: string;
@@ -206,6 +216,17 @@ export async function runDispatchedWindow(
 	const decision = classifyWindow(window, config);
 	if (decision.mode === "inline") {
 		return { outcome: "inline" };
+	}
+
+	// Default-engaged dispatch fail-fast on missing local subagent runtime.
+	// `decision.mode === "subagent"` already implies (a) `config.enabled` is
+	// true (default or explicit) AND (b) at least one bundle in this window
+	// is subagent-eligible — exactly the gate the spec defines for the
+	// runtime-prereq check. We run it before any worktree creation so that
+	// no bundle state is mutated when the operator's environment is invalid.
+	const runtimeCheck = verifyLocalSubagentRuntime(repoRoot);
+	if (!runtimeCheck.ok) {
+		throw new LocalSubagentRuntimeError(runtimeCheck.reason);
 	}
 
 	// The proposal defines exactly two execution modes: `inline-main` and

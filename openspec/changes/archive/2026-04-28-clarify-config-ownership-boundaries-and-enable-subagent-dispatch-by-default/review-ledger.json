@@ -1,0 +1,93 @@
+{
+  "feature_id": "clarify-config-ownership-boundaries-and-enable-subagent-dispatch-by-default",
+  "phase": "impl",
+  "current_round": 1,
+  "status": "has_open_high",
+  "max_finding_id": 5,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "high",
+      "category": "testing",
+      "file": "src/tests/generation.test.ts",
+      "title": "Guide-generation test still asserts the old default-off dispatcher behavior",
+      "detail": "The updated `/specflow.apply` template now documents `apply.subagent_dispatch.enabled` as default `true`, but this test still checks for ``enabled: false`` and says dispatch is disabled by default. That leaves the test suite out of sync with the spec and is likely to fail once the changed template is rendered. Update the assertions to the new default-on wording and canonical `.specflow/config.yaml` ownership model.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "completeness",
+      "file": "src/bin/specflow-init.ts",
+      "title": "Update mode does not install the new canonical shared-policy file",
+      "detail": "`runUpdateMode()` still only seeds `.specflow/config.env` and `.gitignore`. Existing repos following the documented `specflow-init --update` upgrade path will not receive `.specflow/config.yaml`, so the new shared workflow policy file is missing unless users create it manually. Add `.specflow/config.yaml` to the update-mode template install list and extend the utility-cli coverage for that path.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F03",
+      "severity": "medium",
+      "category": "correctness",
+      "file": "src/lib/apply-dispatcher/config.ts",
+      "title": "Malformed local override discards the shared max_concurrency value",
+      "detail": "`parseDispatchConfig()` applies `applyBorderlineOverride()` before validation. If `SPECFLOW_APPLY_SUBAGENT_DISPATCH_MAX_CONCURRENCY` is present but invalid, `parsePositiveInt()` returns null and the code falls back to the hard default `3`, ignoring a valid value from `.specflow/config.yaml`. That breaks the intended shared->local override semantics; an invalid local override should be ignored and the YAML value should remain in effect.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F04",
+      "severity": "medium",
+      "category": "error_handling",
+      "file": "src/lib/apply-dispatcher/runtime-check.ts",
+      "title": "Runtime preflight checks existence instead of actual executability",
+      "detail": "`isCommandResolvable()` uses `existsSync()` for PATH entries and absolute overrides, so a directory or non-executable file can pass the preflight even though the later spawn will fail. It can also mis-detect runnable Windows shims (`.cmd`/`.exe`). Since this check is supposed to guarantee fail-fast on missing local runtime, it should use an executable-resolution check (`access(..., X_OK)` or the same command resolution path used by execution), not mere existence.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F05",
+      "severity": "medium",
+      "category": "testing",
+      "file": "src/tests/apply-dispatcher-orchestrate.test.ts",
+      "title": "No orchestration-level test covers fail-fast before any mutation on invalid runtime",
+      "detail": "The proposal requires coverage for the default-engaged dispatch runtime failure path. The new tests only exercise `verifyLocalSubagentRuntime()` in isolation; they do not prove that `runDispatchedWindow()` aborts before any worktree creation, `advance()` call, or subagent invocation when the runtime is invalid. Add an orchestration test that forces subagent mode with a bad runtime and asserts zero mutations.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 5,
+      "open": 5,
+      "new": 5,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "high": 1,
+        "medium": 4
+      }
+    }
+  ]
+}

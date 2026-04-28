@@ -19,4 +19,10 @@ export const templateContracts: readonly TemplateAssetContract[] = [
 		filePath: "template/.specflow/config.env",
 		sourcePath: "assets/template/.specflow/config.env",
 	},
+	{
+		id: "template-specflow-config-yaml",
+		type: AssetType.Template,
+		filePath: "template/.specflow/config.yaml",
+		sourcePath: "assets/template/.specflow/config.yaml",
+	},
 ];

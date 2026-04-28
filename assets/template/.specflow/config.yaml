@@ -1,0 +1,35 @@
+# specflow shared workflow policy
+#
+# This file holds settings that govern how this project's specflow
+# workflow runs. It is committed to the repo so every contributor and CI
+# run sees the same policy. Local / per-operator preferences (main agent
+# selection, review agent selection, local CLI paths) belong in
+# `.specflow/config.env` instead — see `config-ownership-boundaries`.
+#
+# Every key below is optional. specflow falls back to documented defaults
+# when a key is absent.
+
+# --- Apply / dispatch policy ---
+#
+# `apply.subagent_dispatch.enabled` is `true` by default — the apply
+# dispatcher engages whenever a `task-graph.json` is present and at
+# least one bundle has `size_score > threshold`. Set to `false` to
+# explicitly opt out and force every bundle to run inline on the main
+# agent.
+#
+# apply:
+#   subagent_dispatch:
+#     enabled: true
+#     threshold: 5
+#     # max_concurrency is borderline (workflow policy with a
+#     # per-machine tunable aspect) and may be overridden per-operator
+#     # via SPECFLOW_APPLY_SUBAGENT_DISPATCH_MAX_CONCURRENCY in
+#     # .specflow/config.env.
+#     max_concurrency: 3
+
+# --- Review / autofix tuning ---
+#
+# diff_warn_threshold: 1000
+# max_autofix_rounds: 4
+# autofix_heartbeat_seconds: 30
+# autofix_stale_threshold_seconds: 120
