@@ -373,6 +373,13 @@ async function runUpdateMode(runtimeRoot: string): Promise<never> {
 	installMissingTemplateFile(
 		templateDir,
 		updateRoot,
+		".specflow/config.yaml",
+		createdFiles,
+		warnings,
+	);
+	installMissingTemplateFile(
+		templateDir,
+		updateRoot,
 		".gitignore",
 		createdFiles,
 		warnings,
@@ -605,6 +612,16 @@ Initialize a new specflow + OpenSpec project.
 		);
 	} else if (existsSync(resolve(root, "CLAUDE.md"))) {
 		log("CLAUDE.md already exists, skipped");
+	}
+
+	const sharedPolicyTemplate = resolve(templateDir, ".specflow/config.yaml");
+	const sharedPolicyTarget = resolve(root, ".specflow/config.yaml");
+	if (!existsSync(sharedPolicyTarget) && existsSync(sharedPolicyTemplate)) {
+		copyFileSync(sharedPolicyTemplate, sharedPolicyTarget);
+		createdFiles.push(".specflow/config.yaml");
+		log(
+			"Created .specflow/config.yaml — shared workflow policy (commit this file)",
+		);
 	}
 
 	const globalDir = resolve(CONFIG_DIR, "global");

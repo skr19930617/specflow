@@ -127,10 +127,10 @@ least every 30 seconds while the loop is in a non-terminal state, even
 when no round transition has occurred. Chat surfaces MAY classify the
 loop as `abandoned` when the observed `heartbeat_at` is older than 120
 seconds relative to wall-clock time. Both bounds SHALL be overridable via
-`openspec/config.yaml` keys `autofix_heartbeat_seconds` (default `30`) and
+`.specflow/config.yaml` (the canonical home for shared workflow policy, per `config-ownership-boundaries`) keys `autofix_heartbeat_seconds` (default `30`) and
 `autofix_stale_threshold_seconds` (default `120`). Missing or invalid
 values SHALL fall back to the defaults using the same pattern documented
-by `review-orchestration` for `max_autofix_rounds`.
+by `review-orchestration` for `max_autofix_rounds`. Values found in the legacy `openspec/config.yaml` location SHALL be ignored, with a deprecation warning per `config-ownership-boundaries`.
 
 #### Scenario: Heartbeat is refreshed at least every heartbeat interval
 
@@ -149,7 +149,7 @@ by `review-orchestration` for `max_autofix_rounds`.
 
 #### Scenario: Config overrides are honored when valid
 
-- **WHEN** `openspec/config.yaml` sets
+- **WHEN** `.specflow/config.yaml` sets
   `autofix_heartbeat_seconds` to a positive integer and
   `autofix_stale_threshold_seconds` to a positive integer greater than or
   equal to `autofix_heartbeat_seconds`

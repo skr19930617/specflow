@@ -1,0 +1,275 @@
+{
+  "version": "1.0",
+  "change_id": "clarify-config-ownership-boundaries-and-enable-subagent-dispatch-by-default",
+  "bundles": [
+    {
+      "id": "canonical-config-loader",
+      "title": "Canonical Config Loader and Default Flip",
+      "goal": "Move specflow shared-policy loading to `.specflow/config.yaml`, warn-and-ignore legacy keys in `openspec/config.yaml`, and enable dispatch by default.",
+      "depends_on": [],
+      "inputs": [
+        "design.md",
+        "src/lib/apply-dispatcher/config.ts",
+        "src/lib/review-runtime.ts",
+        "openspec/config.yaml",
+        ".specflow/config.env"
+      ],
+      "outputs": [
+        "src/lib/apply-dispatcher/config.ts",
+        "src/lib/review-runtime.ts",
+        ".specflow/config.yaml resolution contract",
+        "legacy-key deprecation warning behavior"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Inventory specflow-owned keys currently resolved from `openspec/config.yaml` across dispatch and review loaders.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement canonical reads from `.specflow/config.yaml` with default fallback in `readDispatchConfig` and `readReviewConfig`.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add detect-only legacy probes, canonical-wins precedence, and one-time per-process deprecation warnings for misplaced keys in `openspec/config.yaml`.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Flip `DEFAULT_DISPATCH_CONFIG.enabled` to `true` and align inline comments/docstrings with the new default and canonical file location.",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Preserve the shared-to-local override path at the loader boundary without changing `.specflow/config.env` loading semantics.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "repo-responsibility",
+        "bundle-subagent-execution",
+        "review-orchestration"
+      ],
+      "size_score": 5
+    },
+    {
+      "id": "init-analyze-config-seeding",
+      "title": "Init and Analyze Config Seeding",
+      "goal": "Ensure setup and analyze flows seed specflow-owned settings into `.specflow/config.yaml` while leaving OpenSpec-owned config in `openspec/config.yaml`.",
+      "depends_on": [
+        "canonical-config-loader"
+      ],
+      "inputs": [
+        "design.md",
+        "src/bin/specflow-init.ts",
+        "src/bin/specflow-analyze.ts",
+        "assets/template/",
+        "openspec/config.yaml"
+      ],
+      "outputs": [
+        "src/bin/specflow-init.ts",
+        "src/bin/specflow-analyze.ts",
+        "assets/template/.specflow/config.yaml",
+        "assets/template/openspec/config.yaml"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Reroute `specflow-init` seeding for specflow policy keys to `.specflow/config.yaml`.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Update `specflow-analyze` to read and write specflow-owned keys in `.specflow/config.yaml`.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add a starter `.specflow/config.yaml` template and strip specflow-owned keys from the `openspec/config.yaml` template.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Keep `.specflow/config.env` seeding and local-runtime behavior unchanged while aligning file ownership comments and examples.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "project-bootstrap-installation",
+        "utility-cli-suite",
+        "repo-responsibility"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "dispatch-runtime-prereq-guard",
+      "title": "Dispatch Runtime Prerequisite Guard",
+      "goal": "Add lazy runtime validation so default-enabled dispatch fails fast with actionable errors before subagent spawn when local prerequisites are missing or invalid.",
+      "depends_on": [
+        "canonical-config-loader"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/apply-dispatcher/index.ts",
+        "src/lib/review-runtime.ts",
+        ".specflow/config.env"
+      ],
+      "outputs": [
+        "src/lib/apply-dispatcher/index.ts",
+        "verifyLocalSubagentRuntime(projectRoot) helper",
+        "dispatch fail-fast error contract"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Identify the dispatcher window-entry hook and the exact eligibility conditions that should trigger runtime validation.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Implement `verifyLocalSubagentRuntime(projectRoot)` to validate required CLI availability and main/review agent identifiers.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Gate the runtime check on effective dispatch enablement and the presence of at least one subagent-eligible bundle in the current window.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Surface an actionable failure that names both fix paths and preserves the run in `apply_draft` rather than silently falling back inline.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "bundle-subagent-execution",
+        "apply-worktree-integration",
+        "run-identity-model",
+        "workflow-run-state"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "spec-and-docs-sync",
+      "title": "Spec and Docs Sync",
+      "goal": "Synchronize specs, guides, and release notes with the new config ownership boundary, migration warning, and default-enabled dispatch behavior.",
+      "depends_on": [
+        "canonical-config-loader",
+        "init-analyze-config-seeding",
+        "dispatch-runtime-prereq-guard"
+      ],
+      "inputs": [
+        "design.md",
+        "README.md",
+        "AGENTS.md",
+        "slash-command guides",
+        "release notes/changelog",
+        "assets/template/.specflow/config.yaml"
+      ],
+      "outputs": [
+        "README.md",
+        "AGENTS.md",
+        "slash-command guides",
+        "release notes/changelog"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update baseline specs and operator docs to define `.specflow/config.yaml` as repo-owned shared policy and `.specflow/config.env` as gitignored local override space.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Revise setup and slash-command guidance to describe dispatch as enabled by default with explicit opt-out via `apply.subagent_dispatch.enabled: false`.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Document the legacy-key deprecation warning, manual migration path, and fail-fast local runtime troubleshooting steps.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add release-note/changelog coverage for the default flip, canonical config location, warning behavior, and rollback path.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "bundle-subagent-execution",
+        "slash-command-guides",
+        "repo-responsibility",
+        "project-bootstrap-installation"
+      ],
+      "size_score": 4
+    },
+    {
+      "id": "regression-coverage",
+      "title": "Regression Coverage",
+      "goal": "Cover loader migration, seeding, default-enabled dispatch, fail-fast runtime validation, and override semantics with executable regression tests.",
+      "depends_on": [
+        "canonical-config-loader",
+        "init-analyze-config-seeding",
+        "dispatch-runtime-prereq-guard"
+      ],
+      "inputs": [
+        "design.md",
+        "src/lib/apply-dispatcher/config.ts",
+        "src/lib/review-runtime.ts",
+        "src/lib/apply-dispatcher/index.ts",
+        "src/bin/specflow-init.ts",
+        "src/bin/specflow-analyze.ts",
+        "existing config/dispatcher/init test harnesses"
+      ],
+      "outputs": [
+        "config loader regression tests",
+        "dispatcher runtime-prereq regression tests",
+        "init/analyze config seeding smoke tests",
+        "shared-to-local override smoke test coverage"
+      ],
+      "status": "done",
+      "tasks": [
+        {
+          "id": "1",
+          "title": "Update tests that pin the old dispatch default and add explicit opt-out coverage.",
+          "status": "done"
+        },
+        {
+          "id": "2",
+          "title": "Add loader tests for canonical-only reads, legacy-only reads with warning, canonical-wins duplicates, and defaults when neither file provides a value.",
+          "status": "done"
+        },
+        {
+          "id": "3",
+          "title": "Add fresh-install smoke coverage for `specflow-init` and `specflow-analyze` seeding `.specflow/config.yaml` without producing deprecation warnings.",
+          "status": "done"
+        },
+        {
+          "id": "4",
+          "title": "Add dispatcher tests for valid runtime, missing CLI, and invalid agent identifiers when default-enabled dispatch would engage.",
+          "status": "done"
+        },
+        {
+          "id": "5",
+          "title": "Add a shared-to-local override smoke test and verify the full change stays green under spec and CI verification.",
+          "status": "done"
+        }
+      ],
+      "owner_capabilities": [
+        "spec-consistency-verification",
+        "bundle-subagent-execution",
+        "review-orchestration",
+        "project-bootstrap-installation",
+        "workflow-run-state"
+      ],
+      "size_score": 5
+    }
+  ],
+  "generated_at": "2026-04-27T01:52:38.824Z",
+  "generated_from": "design.md"
+}

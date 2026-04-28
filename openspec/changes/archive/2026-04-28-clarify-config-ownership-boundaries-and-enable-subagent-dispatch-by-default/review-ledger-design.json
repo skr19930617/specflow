@@ -1,0 +1,48 @@
+{
+  "feature_id": "clarify-config-ownership-boundaries-and-enable-subagent-dispatch-by-default",
+  "phase": "design",
+  "current_round": 1,
+  "status": "in_progress",
+  "max_finding_id": 2,
+  "findings": [
+    {
+      "id": "R1-F01",
+      "severity": "medium",
+      "category": "completeness",
+      "title": "Wrong-file handling is only defined for legacy `openspec/config.yaml`, not for env-only settings misplaced into `.specflow/config.yaml`",
+      "detail": "The spec explicitly requires local-runtime/operator-preference settings placed in `.specflow/config.yaml` to be ignored and to emit a warning naming `.specflow/config.env` as the canonical location. The design and tasks only describe detect-and-warn behavior for shared-policy keys left in `openspec/config.yaml`; they do not define how agent-selection or CLI-path settings would be recognized if someone puts them in the YAML file, nor do they add regression coverage for that scenario. Add a concrete detection/warning strategy and tests for env-only settings in the shared YAML.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    },
+    {
+      "id": "R1-F02",
+      "severity": "medium",
+      "category": "feasibility",
+      "title": "The borderline shared→local override path is too under-specified to implement and verify cleanly",
+      "detail": "The spec adds a required shared-default/local-override capability, but the design says no current setting exercises it while the tasks still require an override smoke test. That leaves task 1.5 and 5.5 ambiguous: implementers do not know whether to support a generic YAML-to-env override mechanism, which keys are actually classified as borderline, or what concrete behavior the test should prove. Either identify at least one in-scope borderline setting for this change, or specify the exact generic override mechanism and its testable contract.",
+      "origin_round": 1,
+      "latest_round": 1,
+      "status": "new",
+      "relation": "new",
+      "supersedes": null,
+      "notes": ""
+    }
+  ],
+  "round_summaries": [
+    {
+      "round": 1,
+      "total": 2,
+      "open": 2,
+      "new": 2,
+      "resolved": 0,
+      "overridden": 0,
+      "by_severity": {
+        "medium": 2
+      }
+    }
+  ]
+}

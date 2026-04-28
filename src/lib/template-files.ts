@@ -12,6 +12,10 @@ export const templateFileAliases: readonly TemplateFileAlias[] = [
 		logicalPath: "template/.specflow/config.env",
 		packagedPath: "template/_specflow/config.env",
 	},
+	{
+		logicalPath: "template/.specflow/config.yaml",
+		packagedPath: "template/_specflow/config.yaml",
+	},
 ];
 
 export function packagedTemplatePathFor(logicalPath: string): string | null {

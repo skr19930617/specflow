@@ -246,7 +246,7 @@ Run structural validation only after spec delta files are drafted:
 Strict gate rules:
 - Do **not** continue despite validation errors
 - Do **not** hand off to `/specflow.design` while validation issues remain
-- Reuse `max_autofix_rounds` from `openspec/config.yaml` as the maximum spec validation loop count
+- Reuse `max_autofix_rounds` from `.specflow/config.yaml` (the canonical home for shared workflow policy per `config-ownership-boundaries`) as the maximum spec validation loop count
 - When spec validation returns `max_rounds_reached` or `no_progress`, stop in the current state without bypassing the gate
 
 ## Step 8.5: Spec Verify — delta vs. baseline consistency

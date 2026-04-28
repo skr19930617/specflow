@@ -34,7 +34,8 @@ const enabled: DispatchConfig = {
 
 test("classifyWindow: disabled config always returns inline single-chunk", () => {
 	const window = [bundle("a", 100), bundle("b", 200)];
-	const decision = classifyWindow(window, DEFAULT_DISPATCH_CONFIG);
+	const disabled = { ...DEFAULT_DISPATCH_CONFIG, enabled: false };
+	const decision = classifyWindow(window, disabled);
 	assert.equal(decision.mode, "inline");
 	assert.equal(decision.chunks.length, 1);
 	assert.equal(decision.chunks[0]?.length, 2);

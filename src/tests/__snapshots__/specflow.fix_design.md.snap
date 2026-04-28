@@ -30,7 +30,7 @@ $ARGUMENTS
      2. `/specflow.fix_design` を再実行してください
      ```
      → **STOP**.
-2. Read `openspec/config.yaml`. Extract any relevant settings. If parse fails, display error and **STOP**.
+2. Read `.specflow/config.yaml` (the canonical home for shared workflow policy per `config-ownership-boundaries`). Extract any relevant settings. If parse fails, display error and **STOP**.
 
 ## Setup
 

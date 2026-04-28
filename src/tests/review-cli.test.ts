@@ -65,8 +65,9 @@ test("specflow-review-apply returns diff warning before codex", () => {
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
 		addImplementationDiff(repoPath);
+		mkdirSync(join(repoPath, ".specflow"), { recursive: true });
 		writeFileSync(
-			join(repoPath, "openspec/config.yaml"),
+			join(repoPath, ".specflow/config.yaml"),
 			"diff_warn_threshold: 1\n",
 			"utf8",
 		);
@@ -132,8 +133,9 @@ test("specflow-review-apply review --skip-diff-check continues review while pres
 	try {
 		const { repoPath, changeId } = createFixtureRepo(tempRoot);
 		addImplementationDiff(repoPath);
+		mkdirSync(join(repoPath, ".specflow"), { recursive: true });
 		writeFileSync(
-			join(repoPath, "openspec/config.yaml"),
+			join(repoPath, ".specflow/config.yaml"),
 			"diff_warn_threshold: 1\n",
 			"utf8",
 		);

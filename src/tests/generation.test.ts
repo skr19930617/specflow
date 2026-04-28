@@ -373,14 +373,19 @@ test("specflow.apply command body documents the subagent dispatcher branching", 
 	// These tests encode the slash-command-guides spec delta for /specflow.apply.
 	const apply = commandBodyText("specflow.apply");
 
-	// Config surface + default opt-in posture.
+	// Config surface + default-on posture (per config-ownership-boundaries:
+	// `.specflow/config.yaml` is the canonical home; default is `enabled: true`).
 	assert.ok(
 		apply.includes("apply.subagent_dispatch"),
 		"apply body should reference the apply.subagent_dispatch config section",
 	);
 	assert.ok(
-		apply.includes("`enabled: false`"),
-		"apply body should document that dispatch is disabled by default",
+		apply.includes(".specflow/config.yaml"),
+		"apply body should name `.specflow/config.yaml` as the canonical home for shared workflow policy",
+	);
+	assert.ok(
+		apply.includes("`enabled: true`"),
+		"apply body should document that dispatch is enabled by default (explicit opt-out via `enabled: false`)",
 	);
 	assert.ok(
 		apply.includes("`threshold: 5`") && apply.includes("`max_concurrency: 3`"),
